@@ -189,22 +189,23 @@ impl Transform {
                         sides.join("_")
                     }
                 }
-                "shape" | "hinge" | "type" if self.mirrored() => match value.as_str() {
-                    "inner_left" => "inner_right",
-                    "inner_right" => "inner_left",
-                    "outer_left" => "outer_right",
-                    "outer_right" => "outer_left",
-                    "left" => "right",
-                    "right" => "left",
-                    _ => value,
+                "shape" | "hinge" | "type" | "side_chain" if self.mirrored() => {
+                    match value.as_str() {
+                        "inner_left" => "inner_right",
+                        "inner_right" => "inner_left",
+                        "outer_left" => "outer_right",
+                        "outer_right" => "outer_left",
+                        "left" => "right",
+                        "right" => "left",
+                        _ => value,
+                    }
+                    .into()
                 }
-                .into(),
-                "orientation" => {
-                    return Err(format!(
-                        "{} orientation transform is not implemented",
-                        b.name
-                    ));
-                }
+                "orientation" => value
+                    .split('_')
+                    .map(|side| self.direction(side))
+                    .collect::<Result<Vec<_>>>()?
+                    .join("_"),
                 _ => value.clone(),
             };
             properties.insert(key.into(), mapped);

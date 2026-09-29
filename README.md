@@ -142,10 +142,6 @@ Other selections keep their coordinates. There is no global active selection.
 - Box selections capture entities inside their bounds. Block filters contain
   blocks only. Fill, replace, and patch do not modify free entities.
 
-Transforms cover facing, axis, horizontal connection properties, standing
-rotation, rail shapes, door hinges, and left/right stair and chest states.
-Unsupported orientations and known complex entity links cause errors. Unknown
-mod block rotations require a supported mapping.
 
 ### Copy across regions
 
@@ -289,6 +285,16 @@ The last script checks atomic edits, entity copies, helper version schemas, spar
 flattening, and retained Bedrock data. The second script uses independent nbtlib and Litemapy readers and checks
 block-state round-trips. These checks do not substitute for importing the
 files into a running Minecraft/WorldEdit installation.
+
+To check every state in every advertised Java catalog (takes several minutes):
+
+```sh
+uv run --all-packages python examples/check_catalogs.py
+```
+
+Pass version names to check specific catalogs, or `--transforms-only` to skip
+file round-trips. The script checks schemas, defaults, placement, invalid-state
+rejection, four Java file formats, Y rotation, and X/Z reflections.
 
 To build a wheel:
 

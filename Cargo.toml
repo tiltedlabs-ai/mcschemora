@@ -1,0 +1,23 @@
+[package]
+name = "schemora"
+version = "0.1.0"
+edition = "2024"
+description = "Minecraft schematic authoring and conversion"
+license = "MIT"
+include = ["src/**/*.rs", "Cargo.toml", "README.md", "LICENSE"]
+
+[lib]
+name = "schemora"
+crate-type = ["rlib"]
+
+[workspace]
+members = ["bindings/python"]
+default-members = ["."]
+resolver = "3"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+fastnbt = "2"
+fastsnbt = "0.3"
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }

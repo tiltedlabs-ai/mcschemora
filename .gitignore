@@ -1,0 +1,49 @@
+# Rust build output (keep Cargo.lock).
+target/
+**/*.rs.bk
+
+# Python environments, extensions, and build output (keep uv.lock).
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+*.dll
+*.dylib
+*.egg-info/
+*.egg
+*.whl
+.eggs/
+build/
+dist/
+
+# Tool caches and coverage output.
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.pyright/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.profraw
+*.profdata
+.ipynb_checkpoints/
+
+# Local settings and temporary files.
+.env
+.env.*
+!.env.example
+!.env.*.example
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Generated examples.
+/examples/output/

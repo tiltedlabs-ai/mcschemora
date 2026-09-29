@@ -13,11 +13,8 @@ uv sync --all-packages
 uv run --all-packages python examples/build.py
 ```
 
-uv creates `.venv` and builds the Python extension. The example writes files into
-`examples/output/`. The Python package has no Python runtime dependencies.
-It reads catalogs from the initialized submodule. An installed wheel needs a
-`minecraft-data` checkout too; pass its path or set `SCHEMORA_DATA`.
 
+## Code Example
 ```python
 from schemora import Schematic, bed, block, chest, item, mob, water_source
 
@@ -46,15 +43,11 @@ print(scene.validate())
 scene.save("build.schem")
 ```
 
-This demonstrates stored blocks and states. It does not simulate water or redstone.
-
 ## Minecraft versions and data
 
 Authoring supports Java **1.13 and later**, when a catalog is present in
 [minecraft-data](https://github.com/PrismarineJS/minecraft-data). Block properties,
 defaults, items, entity IDs, and file `DataVersion` come from the selected version.
-The reader follows upstream `dataPaths.json`, including paths shared by releases.
-It does not substitute a nearby version when a catalog is missing.
 
 ```python
 from schemora import MinecraftData, Schematic, block
@@ -73,29 +66,6 @@ print(scene.registry.describe("lever"))
 git clone --depth 1 https://github.com/PrismarineJS/minecraft-data.git /path/to/minecraft-data
 export SCHEMORA_DATA=/path/to/minecraft-data
 ```
-
-The `data=` argument also works on `Schematic.load` and `Schematic.from_bytes`.
-Catalogs load on demand and are cached within the `MinecraftData` object. Multiple
-versions can be used in one process. `version="latest"` (the default) selects the
-latest release with an available catalog. Set a version for reproducible builds.
-
-The submodule records an upstream revision, not a Minecraft version restriction.
-Update the available catalogs with `make data-update`; no Rust rebuild is needed.
-Create a new `MinecraftData()` after an update, or restart Python, to read the new
-snapshot. No network requests occur during import, authoring, or file conversion.
-
-Imported Java files select their catalog through `DataVersion`. Files with
-unknown version metadata retain their data but cannot use validated edits until
-a matching catalog is available. Files explicitly older than 1.13 are rejected.
-Classic `.schematic` files have no game-version tag: their numeric block mappings
-are read into the Java 1.13 registry. This does not upgrade entity NBT.
-
-Helpers use the document's catalog and reject blocks, items, and mobs absent from
-that version. Signs handle the old text fields, two-sided text, and NBT text
-components. Chest items use `Count` before 1.20.5 and `count`/`components` afterward.
-Item `components=` is rejected on older versions; raw typed NBT remains available.
-The upstream catalogs do not define every saved entity or block-entity NBT schema;
-new game changes to those schemas may still need helper updates.
 
 ## Interface
 
@@ -227,8 +197,6 @@ restored = Schematic.from_bytes(data, format="schem")
 - Full preservation of every format-specific field is not guaranteed.
 - Retained biomes, ticks, and Bedrock layers block transforms or resizing when
   their spatial mapping is unsupported. Copying them into fragments is rejected.
-- Validation checks state schemas and incomplete beds/doors. It is not a complete
-  support-block checker or a Minecraft simulator.
 - Limits: 16,777,216 cells per bounded volume, 256 MiB input/expanded NBT, and
   65,536 cells per text layer inspection.
 - Storage is a sparse map. Bulk operations run in Rust, but very large builds
@@ -283,8 +251,7 @@ uv run --all-packages python examples/check_edits.py
 
 The last script checks atomic edits, entity copies, helper version schemas, sparse
 flattening, and retained Bedrock data. The second script uses independent nbtlib and Litemapy readers and checks
-block-state round-trips. These checks do not substitute for importing the
-files into a running Minecraft/WorldEdit installation.
+block-state round-trips.
 
 To check every state in every advertised Java catalog (takes several minutes):
 
@@ -308,10 +275,3 @@ To check the core for the web target:
 rustup target add wasm32-unknown-unknown
 cargo check -p schemora --target wasm32-unknown-unknown
 ```
-
-## Data sources
-
-Block, item, entity, and legacy mappings come from
-[PrismarineJS/minecraft-data](https://github.com/PrismarineJS/minecraft-data).
-See [data/SOURCE.md](data/SOURCE.md) for setup and upstream licensing. NBT codecs use fastnbt, fastsnbt, and a small Bedrock
-little-endian adapter.

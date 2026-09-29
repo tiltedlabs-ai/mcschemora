@@ -1,6 +1,5 @@
-//! Editing rules shared by all language bindings. Prepare edits before committing.
 use crate::{Result, helpers, model::*, nbt, transform::Transform};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, btree_map::Entry};
 
 pub(crate) fn check_position(p: [f64; 3]) -> Result<()> {
     if p.iter()
@@ -38,12 +37,7 @@ impl Document {
     }
     pub fn fill(&mut self, name: &str, selection: &Selection, block: &Block) -> Result<()> {
         let block = self.registry()?.resolve(block)?;
-        let edits = selection
-            .positions()
-            .into_iter()
-            .map(|p| (p, block.clone(), None))
-            .collect();
-        self.region_mut(name)?.write(edits, None)
+        self.region_mut(name)?.fill(selection, &block)
     }
     pub fn patch(
         &mut self,
@@ -134,6 +128,63 @@ impl Document {
 }
 
 impl Region {
+    fn fill(&mut self, selection: &Selection, block: &Block) -> Result<()> {
+        let area = match &selection.cells {
+            Some(cells) => Bounds::around(cells.iter().copied())?,
+            None => Bounds::new(selection.bounds.start, selection.bounds.size)?,
+        };
+        if area.size.contains(&0) {
+            return Ok(());
+        }
+        let last = std::array::from_fn(|i| area.start[i] + area.size[i] - 1);
+        let bounds = self.expanded([area.start, last].into_iter())?;
+        self.check_bounds(bounds)?;
+
+        let air = block == &Block::air();
+        self.block_entities.retain(|p, _| {
+            !selection.contains(*p)
+                || (!air && self.blocks.get(p).is_some_and(|old| old.name == block.name))
+        });
+        if let Some(present) = &mut self.present {
+            present.extend(fill_positions(selection));
+        }
+
+        let replaces_all = selection.cells.is_none()
+            && (self.blocks.is_empty()
+                || (area.contains(self.bounds.start)
+                    && area.contains(std::array::from_fn(|i| {
+                        self.bounds.start[i] + self.bounds.size[i] - 1
+                    }))));
+        if replaces_all {
+            if air {
+                self.blocks.clear();
+            } else {
+                // Collect sorted keys in bulk instead of doing one tree search and insertion per block. 
+                self.blocks = fill_positions(selection)
+                    .map(|p| (p, block.clone()))
+                    .collect();
+            }
+        } else if air {
+            for p in fill_positions(selection) {
+                self.blocks.remove(&p);
+            }
+        } else {
+            for p in fill_positions(selection) {
+                match self.blocks.entry(p) {
+                    Entry::Vacant(entry) => {
+                        entry.insert(block.clone());
+                    }
+                    Entry::Occupied(mut entry) if entry.get() != block => {
+                        entry.insert(block.clone());
+                    }
+                    Entry::Occupied(_) => (),
+                }
+            }
+        }
+        self.bounds = bounds;
+        Ok(())
+    }
+
     pub(crate) fn clear(&mut self, selection: &Selection) {
         for p in selection.positions() {
             if let Some(present) = &mut self.present {
@@ -201,5 +252,19 @@ impl Region {
         }
         self.block_entities.insert(at, data);
         Ok(())
+    }
+}
+
+/// Stream cells in the map's [x, y, z] key order. Filtered selections already
+/// have this order; rectangular selections need no position list or sorting.
+fn fill_positions(selection: &Selection) -> Box<dyn Iterator<Item = Pos> + '_> {
+    if let Some(cells) = &selection.cells {
+        Box::new(cells.iter().copied())
+    } else {
+        let Bounds { start, size } = selection.bounds;
+        Box::new((start[0]..start[0] + size[0]).flat_map(move |x| {
+            (start[1]..start[1] + size[1])
+                .flat_map(move |y| (start[2]..start[2] + size[2]).map(move |z| [x, y, z]))
+        }))
     }
 }

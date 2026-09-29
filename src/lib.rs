@@ -7,3 +7,4 @@ pub mod registry;
 
 pub type Result<T> = std::result::Result<T, String>;
 pub mod transform;
+pub mod validate;

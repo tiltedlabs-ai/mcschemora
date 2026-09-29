@@ -104,6 +104,14 @@ impl MinecraftData {
         read_json(&self.root.join(dir).join(format!("{kind}.json")))
     }
 
+    pub(crate) fn collision_shapes(&self, version: &str) -> Result<Value> {
+        let paths = self
+            .paths
+            .get(version)
+            .ok_or("No collision catalog for this version")?;
+        self.dataset(paths, "blockCollisionShapes")
+    }
+
     pub fn registry(&self, requested: &str) -> Result<Arc<Registry>> {
         let version = if requested == "latest" {
             self.latest()?
@@ -146,6 +154,7 @@ impl MinecraftData {
             items,
             mobs,
             legacy_reverse: BTreeMap::new(),
+            validation_shapes: std::sync::OnceLock::new(),
         };
         for (key, value) in &self.legacy {
             let (id, meta) = key
@@ -189,6 +198,7 @@ pub struct Registry {
     items: BTreeSet<String>,
     mobs: BTreeSet<String>,
     legacy_reverse: BTreeMap<Block, (u16, u8)>,
+    pub(crate) validation_shapes: std::sync::OnceLock<Result<crate::validate::Shapes>>,
 }
 
 pub fn namespace(id: &str) -> String {
@@ -226,6 +236,7 @@ struct Property {
 struct BlockSchema {
     numeric_id: Value,
     properties: BTreeMap<String, Property>,
+    state_order: Vec<String>,
 }
 impl BlockSchema {
     fn parse(block: &Value) -> Result<Self> {
@@ -259,11 +270,31 @@ impl BlockSchema {
         Ok(Self {
             numeric_id: block["id"].clone(),
             properties,
+            state_order: block["states"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|state| state["name"].as_str().unwrap().to_owned())
+                .collect(),
         })
     }
 }
 
 impl Registry {
+    /// Offset and count in the catalog's original state order, not property key order.
+    pub(crate) fn state_offset(&self, block: &Block) -> Option<(usize, usize)> {
+        let schema = self.schema(&block.name).ok()?;
+        let (mut offset, mut count) = (0usize, 1usize);
+        for key in &schema.state_order {
+            let property = schema.properties.get(key)?;
+            let value = block.properties.get(key).unwrap_or(&property.default);
+            offset = offset
+                .checked_mul(property.values.len())?
+                .checked_add(property.values.iter().position(|v| v == value)?)?;
+            count = count.checked_mul(property.values.len())?;
+        }
+        Some((offset, count))
+    }
     fn schema(&self, name: &str) -> Result<&BlockSchema> {
         self.blocks
             .get(name)

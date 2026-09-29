@@ -300,45 +300,8 @@ impl Document {
             .get_mut(name)
             .ok_or_else(|| format!("Unknown region {name:?}"))
     }
-    pub fn validate(&self) -> Vec<String> {
-        let mut issues = self.notices.clone();
-        for (name, r) in &self.regions {
-            for (p, b) in &r.blocks {
-                if let Err(e) = self.registry().and_then(|catalog| catalog.resolve(b)) {
-                    issues.push(format!("{name} {p:?}: {e}"));
-                }
-                if let Some(part) = b.properties.get("part")
-                    && b.name.ends_with("_bed")
-                {
-                    let d = direction(
-                        b.properties
-                            .get("facing")
-                            .map(String::as_str)
-                            .unwrap_or("north"),
-                    )
-                    .unwrap_or([0, 0, -1]);
-                    let sign = if part == "foot" { 1 } else { -1 };
-                    let q = std::array::from_fn(|i| p[i].saturating_add(d[i] * sign));
-                    let other = r.get(q);
-                    if other.name != b.name
-                        || other.properties.get("part") == Some(part)
-                        || other.properties.get("facing") != b.properties.get("facing")
-                    {
-                        issues.push(format!("{name} {p:?}: incomplete bed"));
-                    }
-                }
-                if b.name.ends_with("_door") && b.properties.contains_key("half") {
-                    let half = &b.properties["half"];
-                    let mut q = *p;
-                    q[1] = q[1].saturating_add(if half == "lower" { 1 } else { -1 });
-                    let other = r.get(q);
-                    if other.name != b.name || other.properties.get("half") == Some(half) {
-                        issues.push(format!("{name} {p:?}: incomplete door"));
-                    }
-                }
-            }
-        }
-        issues
+    pub fn validate(&self) -> crate::validate::Report {
+        crate::validate::validate(self)
     }
 }
 #[derive(Clone, Debug)]

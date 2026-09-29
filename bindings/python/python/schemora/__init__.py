@@ -100,17 +100,30 @@ class Bounds:
 class Report:
     errors: tuple[str, ...] = ()
     losses: tuple[str, ...] = ()
+    warnings: tuple[str, ...] = ()
+    unknown: tuple[str, ...] = ()
 
     @property
     def issues(self) -> tuple[str, ...]:
-        return self.errors + self.losses
+        return self.errors + self.losses + self.warnings + self.unknown
 
     @property
     def ok(self) -> bool:
-        return not self.issues
+        return not (self.errors or self.losses or self.unknown)
 
     def __str__(self) -> str:
-        return "\n".join(self.issues) if self.issues else "No issues found."
+        if not self.issues:
+            return "No issues found."
+        return "\n".join(
+            f"{label}: {message}"
+            for label, messages in (
+                ("Error", self.errors),
+                ("Loss", self.losses),
+                ("Warning", self.warnings),
+                ("Unknown", self.unknown),
+            )
+            for message in messages
+        )
 
 
 class MinecraftData:
@@ -221,7 +234,13 @@ class Schematic:
         return Registry(self)
 
     def validate(self) -> Report:
-        return Report(tuple(self._native.validate()))
+        """Check Java block rules without changing the schematic or simulating ticks.
+
+        Warnings describe unstable states. Unknown results need surrounding world
+        blocks or game data; they prevent the report from confirming validity.
+        """
+        errors, warnings, unknown = self._native.validate()
+        return Report(errors=tuple(errors), warnings=tuple(warnings), unknown=tuple(unknown))
 
     def check_export(self, *, format: str, flatten=False) -> Report:
         errors, losses = self._native.check_export(format, flatten)

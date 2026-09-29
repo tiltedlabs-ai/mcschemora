@@ -211,23 +211,9 @@ pub fn recipe(
     Ok(cells)
 }
 pub fn compatible(id: &str, b: &Block) -> bool {
-    match id.trim_start_matches("minecraft:") {
-        "chest" => b.name.ends_with(":chest") || b.name.ends_with(":trapped_chest"),
-        "sign" => {
-            b.name == "minecraft:sign"
-                || b.name.ends_with("_sign") && !b.name.ends_with("_hanging_sign")
-        }
-        "hanging_sign" => b.name.ends_with("_hanging_sign"),
-        "bed" => b.name.ends_with("_bed"),
-        "banner" => b.name.ends_with("_banner"),
-        "shulker_box" => b.name.ends_with("shulker_box"),
-        "furnace" | "blast_furnace" | "smoker" | "hopper" | "dispenser" | "dropper" | "barrel"
-        | "beacon" | "spawner" | "lectern" | "brewing_stand" | "crafter" => {
-            b.name == registry::namespace(id)
-        }
-        _ => false,
-    }
+    crate::validate::block_entity_id(b) == Some(id.strip_prefix("minecraft:").unwrap_or(id))
 }
+
 pub fn mob(
     catalog: &registry::Registry,
     id: &str,

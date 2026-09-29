@@ -76,8 +76,9 @@ impl PyDocument {
         let report = formats::check_export(&*lock(&self.data)?, format, flatten).map_err(error)?;
         Ok((report.errors, report.losses))
     }
-    fn validate(&self) -> PyResult<Vec<String>> {
-        Ok(lock(&self.data)?.validate())
+    fn validate(&self) -> PyResult<(Vec<String>, Vec<String>, Vec<String>)> {
+        let report = lock(&self.data)?.validate();
+        Ok((report.errors, report.warnings, report.unknown))
     }
     fn region(&self, name: &str) -> PyResult<PyRegion> {
         lock(&self.data)?.region(name).map_err(error)?;

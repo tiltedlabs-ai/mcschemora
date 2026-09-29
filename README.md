@@ -152,6 +152,20 @@ replaces the full compound, which must contain `id`; omitting `nbt` keeps it.
 Beds anchor at the foot, doors at the lower block, and mobs at their base
 position. Helpers validate the complete placement before committing it.
 
+### Game-rule validation
+
+`scene.validate()` checks the schematic to make sure its correctly aligned with game rules.
+
+```python
+report = scene.validate()
+print(report.errors)    # Structural errors, with region, position, and rule ID.
+print(report.warnings)  # Blocks that can fall or states that need tick simulation.
+print(report.unknown)   # Missing world context or unavailable game data.
+```
+
+`report.ok` requires no errors, export losses, or unknown results. 
+
+
 ## File support
 
 | Format | Read/write coverage |
@@ -212,6 +226,7 @@ src/edit.rs                  Atomic edits and entity operations
 src/transform.rs             Block and entity transforms
 src/helpers.rs               Typed placement recipes and versioned NBT
 src/registry.rs              Catalog loading and parsed block schemas
+src/validate.rs              Read-only schematic game-rule checks
 src/formats/                 One codec module per schema; shared NBT/SNBT structure schema
 data/minecraft-data/         Upstream data submodule, read at runtime
 data/SOURCE.md               Data setup, updates, and attribution
@@ -247,11 +262,8 @@ Example-based verification, without a unit-test suite:
 uv run --all-packages python examples/build.py
 uv run --all-packages python examples/inspect_files.py
 uv run --all-packages python examples/check_edits.py
+uv run --all-packages python examples/check_validation.py
 ```
-
-The last script checks atomic edits, entity copies, helper version schemas, sparse
-flattening, and retained Bedrock data. The second script uses independent nbtlib and Litemapy readers and checks
-block-state round-trips.
 
 To check every state in every advertised Java catalog (takes several minutes):
 

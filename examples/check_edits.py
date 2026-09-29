@@ -1,5 +1,6 @@
 """Check atomic edits, copies, versioned helpers, and retained file data."""
 
+from gzip import compress, decompress
 from io import BytesIO
 
 import nbtlib as n
@@ -68,6 +69,7 @@ for version in ("1.13", "1.20.4", "1.20.5", "1.21.1", "1.21.5", "latest"):
     region = d.region()
     region.place(chest(items={0: item("stone", count=3)}), at=(0, 0, 0))
     region.place(sign(["hello"]), at=(1, 0, 0))
+    region.set((1, -1, 0), block("stone"))
     inventory = n.parse_nbt(region.block_entities.get((0, 0, 0)))["Items"][0]
     assert ("count" in inventory) == (d.data_version >= 3837)
     text = n.parse_nbt(region.block_entities.get((1, 0, 0)))
@@ -135,6 +137,57 @@ assert [r.get((i, 0, 0)) for i in range(4)] == original
 for _ in range(2):
     a.flip(axis="x")
 assert [r.get((i, 0, 0)) for i in range(4)] == original
+# Bulk fills preserve attached data for unchanged block types and leave mobs alone.
+d = Schematic.create(version="1.21.1")
+r = d.region()
+r.place(chest(items={0: item("stone", count=3)}), at=(0, 0, 0))
+r.set((4, 0, 0), block("stone"))
+ref = r.entities.add(mob("pig"), at=(0.5, 0.0, 0.5))
+inventory = r.block_entities.get((0, 0, 0))
+single = r.select(start=(0, 0, 0), size=(1, 1, 1))
+single.fill(block("chest", facing="east"))
+assert r.block_entities.get((0, 0, 0)) == inventory
+assert r.get((4, 0, 0)).id == "minecraft:stone"
+whole = r.select(start=(0, 0, 0), size=(5, 1, 1))
+whole.fill(block("chest"))
+assert r.block_entities.get((0, 0, 0)) == inventory
+whole.fill(block("stone"))
+assert r.block_entities.get((0, 0, 0)) is None and list(r.entities) == [ref]
+
+# Filtered fills affect only their captured cells; invalid growth is atomic.
+selected = whole.select(block="stone")
+r.set((6, 0, 0), block("stone"))
+selected.fill(block("glass"))
+assert all(r.get((x, 0, 0)).id == "minecraft:glass" for x in range(5))
+assert r.get((6, 0, 0)).id == "minecraft:stone"
+before = n.parse_nbt(d.to_bytes(format="snbt").decode())
+fails(lambda: r.select(start=(1_000_000, 1_000_000, 0), size=(1, 1, 1)).fill(block("stone")))
+assert n.parse_nbt(d.to_bytes(format="snbt").decode()) == before
+selected.fill(block("air"))
+assert all(r.get((x, 0, 0)).id == "minecraft:air" for x in range(5))
+assert r.get((6, 0, 0)).id == "minecraft:stone" and list(r.entities) == [ref]
+whole.select(block="diamond_block").fill(block("gold_block"))  # Empty filter.
+
+# Retained scheduled ticks prevent resizing before any fill writes occur.
+root = n.File.parse(BytesIO(decompress(d.to_bytes(format="litematic"))))
+root["Regions"]["main"]["PendingBlockTicks"] = n.List[n.Compound]([n.Compound({"x": n.Int(6)})])
+buf = BytesIO()
+root.write(buf)
+retained = Schematic.from_bytes(compress(buf.getvalue()), format="litematic")
+rr = retained.region()
+before_bounds = rr.bounds
+fails(lambda: rr.select(start=(0, 0, 0), size=(8, 1, 1)).fill(block("gold_block")))
+assert rr.bounds == before_bounds and rr.get((6, 0, 0)).id == "minecraft:stone"
+
+# Sparse fill records explicit air only inside the selected area.
+d = Schematic.from_bytes(
+    b'{DataVersion:3955,size:[4,1,1],palette:[{Name:"minecraft:stone"}],blocks:[{pos:[0,0,0],state:0}],entities:[]}',
+    format="snbt",
+)
+d.region().select(start=(1, 0, 0), size=(2, 1, 1)).fill(block("air"))
+out = n.parse_nbt(d.to_bytes(format="snbt").decode())
+assert {tuple(map(int, b["pos"])) for b in out["blocks"]} == {(0, 0, 0), (1, 0, 0), (2, 0, 0)}
+
 print(
-    "Atomic edits, overlap, copies, versioned helpers, sparse exports, Bedrock data, and transform cycles passed."
+    "Atomic edits, bulk fills, overlap, copies, versioned helpers, sparse exports, Bedrock data, and transform cycles passed."
 )

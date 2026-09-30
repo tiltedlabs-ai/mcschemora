@@ -142,7 +142,7 @@ class MinecraftData:
         return tuple(self._native.versions())
 
     def fetch(self, version="latest", *, visuals=False) -> str:
-        """Cache a complete catalog, optionally with official visual assets."""
+        """Cache a complete catalog and optionally prepare its block visual bundle."""
         return self._native.fetch(version, visuals)
 
     def dataset_path(self, version: str, kind: str) -> Path:
@@ -150,7 +150,7 @@ class MinecraftData:
         return Path(self._native.dataset_path(version, kind))
 
     def visuals(self, version="latest") -> Path:
-        """Fetch and return the official client asset directory for this version."""
+        """Return cached prepared models, blockstates, texture mappings, and atlas pages."""
         return Path(self._native.visuals(version))
 
 

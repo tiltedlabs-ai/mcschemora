@@ -1,3 +1,5 @@
+mod visual_atlas;
+mod visual_models;
 mod visuals;
 
 use crate::Result;
@@ -134,16 +136,6 @@ impl Cache {
         self.download(path, url, limit, valid)
     }
 
-    pub fn refresh_json(&self, path: &Path, url: &str) -> Result<()> {
-        if self.offline {
-            return Err("Cannot refresh metadata offline".into());
-        }
-        let _lock = self.lock(&path.with_extension("lock"))?;
-        self.download(path, url, JSON_LIMIT, |bytes| {
-            serde_json::from_slice::<Value>(bytes).is_ok()
-        })
-    }
-
     fn download(
         &self,
         path: &Path,
@@ -157,6 +149,7 @@ impl Cache {
                 let response = self
                     .agent
                     .get(url)
+                    .set("User-Agent", "schemora/0.1")
                     .call()
                     .map_err(|e| format!("Download {url}: {e}"))?;
                 let mut bytes = Vec::new();

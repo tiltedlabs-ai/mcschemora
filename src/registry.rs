@@ -155,14 +155,18 @@ impl MinecraftData {
             self.dataset_path(&catalog.version, kind)?;
         }
         if visuals {
-            self.cache.visuals(&catalog.version)?;
+            self.visuals(&catalog.version)?;
         }
         Ok(catalog.version.clone())
     }
 
     pub fn visuals(&self, requested: &str) -> Result<PathBuf> {
         let version = self.registry(requested)?.version.clone();
-        self.cache.visuals(&version)
+        let family = self
+            .metadata()?
+            .record(&version)
+            .and_then(|v| v["majorVersion"].as_str());
+        self.cache.visuals(&version, family)
     }
 
     pub fn registry(&self, requested: &str) -> Result<Arc<Registry>> {

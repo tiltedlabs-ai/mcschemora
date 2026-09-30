@@ -21,8 +21,8 @@ serde_json = "1"
 fastnbt = "2"
 fastsnbt = "0.3"
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
-ureq = { version = "2", default-features = false, features = ["tls"] }
+ureq = { version = "2", default-features = false, features = ["tls", "gzip"] }
 fs2 = "0.4"
 tempfile = "3"
 sha1 = "0.10"
-zip = { version = "2", default-features = false, features = ["deflate"] }
+image = { version = "0.25", default-features = false, features = ["png"] }

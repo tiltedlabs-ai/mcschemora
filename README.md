@@ -71,17 +71,15 @@ offline = MinecraftData(cache_dir=data.cache_dir, offline=True)
 scene = Schematic.create(version="1.21.1", data=offline)
 ```
 
-Visuals are optional downloads:
+Block visual bundles are optional:
 
 ```python
 data.fetch("1.21.1", visuals=True)
-assets = data.visuals("1.21.1")
-print(assets / "minecraft" / "textures" / "block" / "stone.png")
+prepared = data.visuals("1.21.1")
+print(prepared / "manifest.json")
+print(prepared / "atlas-0.png")
 ```
 
-This fetches official Mojang version metadata and a client archive, verifies
-Mojang SHA-1 hashes, and extracts `assets/` into a versioned cache directory.
-Textures, models, blockstates, and other packaged assets are available as files.
 
 
 ## Interface
@@ -245,7 +243,7 @@ src/helpers.rs               Typed placement recipes and versioned NBT
 src/registry.rs              Catalog loading and parsed block schemas
 src/validate.rs              Read-only schematic game-rule checks
 src/formats/                 One codec module per schema; shared NBT/SNBT structure schema
-src/mc_data/                Runtime cache, official visuals, and source attribution
+src/mc_data/                Runtime catalogs, prepared block visuals, and source attribution
 bindings/python/
   src/lib.rs                 PyO3 adapter
   python/schemora/            Public Python package

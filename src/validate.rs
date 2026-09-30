@@ -1,5 +1,5 @@
 //! semantic checks on schematics to make sure they're valid
-//! 
+//!
 use crate::{
     model::{Block, Compound, Document, Pos, Region, direction},
     registry::Registry,
@@ -404,7 +404,7 @@ impl Scene<'_> {
         if let Some(state) = self.state_at(p) {
             return state.valid.then_some(&state.block);
         }
-        // Neighbor reads usually stay in the same region. 
+        // Neighbor reads usually stay in the same region.
         if self
             .last_region
             .get()
@@ -524,14 +524,18 @@ pub fn validate(doc: &Document) -> Report {
     if !report.errors.is_empty() {
         return report;
     }
-    let shapes = registry.validation_shapes.get_or_init(|| {
-        serde_json::from_value(doc.data.collision_shapes(&doc.version)?)
-            .map_err(|e| format!("Invalid collision shapes: {e}"))
-    });
-    if let Err(e) = shapes {
-        report.unknown.push(format!("support.catalog: {e}"));
+    if registry.validation_shapes.get().is_none() {
+        let shapes = doc.data.collision_shapes(&doc.version).and_then(|value| {
+            serde_json::from_value(value).map_err(|e| format!("Invalid collision shapes: {e}"))
+        });
+        match shapes {
+            Ok(shapes) => {
+                let _ = registry.validation_shapes.set(shapes);
+            }
+            Err(e) => report.unknown.push(format!("support.catalog: {e}")),
+        }
     }
-    let scene = build_scene(doc, registry, shapes.as_ref().ok(), &mut report);
+    let scene = build_scene(doc, registry, registry.validation_shapes.get(), &mut report);
     let mut portals = HashSet::new();
     for &cell in &scene.cells {
         let state = &scene.states[cell.state];

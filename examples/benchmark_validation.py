@@ -8,7 +8,7 @@ from random import Random
 from statistics import median
 from time import perf_counter
 
-from schemora import Schematic, block
+from schemora import MinecraftData, Schematic, block
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--size", type=int, default=100, help="Cube side length (default: 1M cells)")
@@ -25,7 +25,7 @@ if args.input:
     scene = Schematic.load(args.input)
 else:
     rng = Random(args.seed)
-    catalog = Path(__file__).resolve().parents[1] / "data/minecraft-data/data/pc/1.21.1/blocks.json"
+    catalog = MinecraftData().dataset_path("1.21.1", "blocks")
     definitions = json.loads(catalog.read_text())
     variants = []
     for definition in definitions:

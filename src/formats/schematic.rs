@@ -39,7 +39,7 @@ pub(super) fn read_legacy(root: &Compound, doc: &mut Document) -> Result<()> {
         let data = values[i] & 15;
         let state = doc
             .data
-            .legacy
+            .legacy()?
             .get(&format!("{id}:{data}"))
             .ok_or_else(|| format!("Unmapped legacy block {id}:{data} at {p:?}"))?;
         let raw = Block::parse(state)?;

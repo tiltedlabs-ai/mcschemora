@@ -1,115 +1,168 @@
-//! Runtime access to a minecraft-data checkout. Catalogs are cached per version.
-use crate::{Result, model::Block};
+use crate::{Result, mc_data::Cache, model::Block};
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fs,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock},
 };
 
-pub(crate) const MIN_DATA_VERSION: i32 = 1519; // Java 1.13.
+pub(crate) const MIN_DATA_VERSION: i32 = 1519;
 
 #[derive(Debug)]
 pub struct MinecraftData {
-    root: PathBuf,
-    paths: BTreeMap<String, BTreeMap<String, String>>,
-    versions: Vec<Value>,
-    pub(crate) legacy: BTreeMap<String, String>,
+    cache: Cache,
+    metadata: OnceLock<Metadata>,
+    legacy: OnceLock<BTreeMap<String, String>>,
     catalogs: Mutex<BTreeMap<String, Arc<Registry>>>,
 }
 
-fn read_json(path: &Path) -> Result<Value> {
-    let text = fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))
+#[derive(Debug)]
+struct Metadata {
+    paths: BTreeMap<String, BTreeMap<String, String>>,
+    versions: Vec<Value>,
 }
 
-impl MinecraftData {
-    /// Accept either the repository root or its data directory.
-    pub fn open(path: impl AsRef<Path>) -> Result<Self> {
-        let path = path.as_ref();
-        let root = if path.join("dataPaths.json").is_file() {
-            path.to_path_buf()
-        } else {
-            path.join("data")
-        };
-        let manifest = read_json(&root.join("dataPaths.json"))
-            .map_err(|e| format!("Cannot load minecraft-data: {e}. Initialize the submodule or provide a checkout path."))?;
-        let paths = serde_json::from_value(manifest["pc"].clone())
-            .map_err(|e| format!("Invalid Java data paths: {e}"))?;
-        let versions =
-            serde_json::from_value(read_json(&root.join("pc/common/protocolVersions.json"))?)
-                .map_err(|e| format!("Invalid version metadata: {e}"))?;
-        let legacy = serde_json::from_value(
-            read_json(&root.join("pc/common/legacy.json"))?["blocks"].clone(),
-        )
-        .map_err(|e| format!("Invalid legacy mappings: {e}"))?;
-        Ok(Self {
-            root,
-            paths,
-            versions,
-            legacy,
-            catalogs: Mutex::new(BTreeMap::new()),
-        })
-    }
-
-    pub fn versions(&self) -> Vec<String> {
-        self.paths
-            .keys()
-            .filter(|v| {
-                self.record(v)
-                    .and_then(|v| v["dataVersion"].as_i64())
-                    .is_some_and(|n| n >= i64::from(MIN_DATA_VERSION))
-            })
-            .cloned()
-            .collect()
-    }
-
-    pub fn version_for_data_version(&self, id: i32) -> Option<String> {
-        self.versions
-            .iter()
-            .find(|v| v["dataVersion"].as_i64() == Some(id as i64))
-            .and_then(|v| v["minecraftVersion"].as_str())
-            .map(str::to_owned)
-    }
-
+impl Metadata {
     fn record(&self, version: &str) -> Option<&Value> {
         self.versions
             .iter()
             .find(|v| v["minecraftVersion"].as_str() == Some(version))
     }
+}
+
+impl MinecraftData {
+    pub fn new(cache_dir: Option<PathBuf>, offline: bool) -> Result<Self> {
+        Ok(Self {
+            cache: Cache::new(cache_dir, offline)?,
+            metadata: OnceLock::new(),
+            legacy: OnceLock::new(),
+            catalogs: Mutex::new(BTreeMap::new()),
+        })
+    }
+
+    pub fn cache_dir(&self) -> &Path {
+        &self.cache.root
+    }
+
+    fn metadata(&self) -> Result<&Metadata> {
+        if self.metadata.get().is_none() {
+            let manifest = self.cache.json(&self.cache.catalog("dataPaths.json")?)?;
+            let paths = serde_json::from_value(manifest["pc"].clone())
+                .map_err(|e| format!("Invalid Java data paths: {e}"))?;
+            let versions = serde_json::from_value(
+                self.cache
+                    .json(&self.cache.catalog("pc/common/protocolVersions.json")?)?,
+            )
+            .map_err(|e| format!("Invalid version metadata: {e}"))?;
+            let _ = self.metadata.set(Metadata { paths, versions });
+        }
+        Ok(self.metadata.get().unwrap())
+    }
+
+    pub(crate) fn legacy(&self) -> Result<&BTreeMap<String, String>> {
+        if self.legacy.get().is_none() {
+            let legacy = serde_json::from_value(
+                self.cache
+                    .json(&self.cache.catalog("pc/common/legacy.json")?)?["blocks"]
+                    .clone(),
+            )
+            .map_err(|e| format!("Invalid legacy mappings: {e}"))?;
+            let _ = self.legacy.set(legacy);
+        }
+        Ok(self.legacy.get().unwrap())
+    }
+
+    pub fn versions(&self) -> Result<Vec<String>> {
+        let metadata = self.metadata()?;
+        Ok(metadata
+            .paths
+            .keys()
+            .filter(|v| {
+                metadata
+                    .record(v)
+                    .and_then(|v| v["dataVersion"].as_i64())
+                    .is_some_and(|n| n >= i64::from(MIN_DATA_VERSION))
+            })
+            .cloned()
+            .collect())
+    }
+
+    pub fn version_for_data_version(&self, id: i32) -> Result<Option<String>> {
+        Ok(self
+            .metadata()?
+            .versions
+            .iter()
+            .find(|v| v["dataVersion"].as_i64() == Some(i64::from(id)))
+            .and_then(|v| v["minecraftVersion"].as_str())
+            .map(str::to_owned))
+    }
 
     fn latest(&self) -> Result<String> {
-        self.versions
+        let metadata = self.metadata()?;
+        metadata
+            .versions
             .iter()
             .filter(|v| v["releaseType"] == "release")
             .filter_map(|v| v["minecraftVersion"].as_str())
-            .find(|v| self.paths.contains_key(*v))
+            .find(|v| metadata.paths.contains_key(*v))
             .map(str::to_owned)
             .ok_or_else(|| "No release catalog in minecraft-data".into())
     }
 
-    fn dataset(&self, paths: &BTreeMap<String, String>, kind: &str) -> Result<Value> {
+    pub fn dataset_path(&self, requested: &str, kind: &str) -> Result<PathBuf> {
+        if !matches!(
+            kind,
+            "blocks" | "items" | "entities" | "blockCollisionShapes"
+        ) {
+            return Err(format!("Unsupported catalog dataset {kind:?}"));
+        }
+        let version = if requested == "latest" {
+            self.latest()?
+        } else {
+            requested.to_owned()
+        };
+        let metadata = self.metadata()?;
+        let paths = metadata
+            .paths
+            .get(&version)
+            .ok_or_else(|| format!("No catalog for Java {version}"))?;
         let dir = paths
             .get(kind)
-            .ok_or_else(|| format!("This catalog has no {kind} data"))?;
-        // Manifest paths are relative to the data directory.
-        if Path::new(dir)
-            .components()
-            .any(|c| !matches!(c, std::path::Component::Normal(_)))
-        {
-            return Err(format!("Invalid minecraft-data path {dir:?}"));
-        }
-        read_json(&self.root.join(dir).join(format!("{kind}.json")))
+            .ok_or_else(|| format!("Java {version} has no {kind} data"))?;
+        crate::mc_data::safe_path(dir)?;
+        self.cache.catalog(&format!("{dir}/{kind}.json"))
+    }
+
+    fn dataset(&self, version: &str, kind: &str) -> Result<Value> {
+        self.cache.json(&self.dataset_path(version, kind)?)
     }
 
     pub(crate) fn collision_shapes(&self, version: &str) -> Result<Value> {
-        let paths = self
-            .paths
-            .get(version)
-            .ok_or("No collision catalog for this version")?;
-        self.dataset(paths, "blockCollisionShapes")
+        self.dataset(version, "blockCollisionShapes")
+    }
+
+    pub fn fetch(&self, requested: &str, visuals: bool) -> Result<String> {
+        for path in [
+            "dataPaths.json",
+            "pc/common/protocolVersions.json",
+            "pc/common/legacy.json",
+        ] {
+            self.cache.catalog(path)?;
+        }
+        let catalog = self.registry(requested)?;
+        for kind in ["blocks", "items", "entities", "blockCollisionShapes"] {
+            self.dataset_path(&catalog.version, kind)?;
+        }
+        if visuals {
+            self.cache.visuals(&catalog.version)?;
+        }
+        Ok(catalog.version.clone())
+    }
+
+    pub fn visuals(&self, requested: &str) -> Result<PathBuf> {
+        let version = self.registry(requested)?.version.clone();
+        self.cache.visuals(&version)
     }
 
     pub fn registry(&self, requested: &str) -> Result<Arc<Registry>> {
@@ -118,7 +171,8 @@ impl MinecraftData {
         } else {
             requested.into()
         };
-        if self
+        let metadata = self.metadata()?;
+        if metadata
             .record(&version)
             .and_then(|v| v["dataVersion"].as_i64())
             .is_none_or(|n| n < i64::from(MIN_DATA_VERSION))
@@ -131,18 +185,20 @@ impl MinecraftData {
         if let Some(catalog) = catalogs.get(&version) {
             return Ok(catalog.clone());
         }
-        let paths = self.paths.get(&version).ok_or_else(|| format!("No catalog for Java {version} in this minecraft-data checkout. Update the checkout or choose a version from MinecraftData.versions."))?;
-        let data_version = self
+        metadata.paths.get(&version).ok_or_else(|| format!("No catalog for Java {version} in the pinned minecraft-data snapshot. Choose a version from MinecraftData.versions."))?;
+        let data_version = metadata
             .record(&version)
             .and_then(|v| v["dataVersion"].as_i64())
             .and_then(|n| i32::try_from(n).ok())
             .ok_or("Invalid Minecraft data version")?;
-        let blocks = index(self.dataset(paths, "blocks")?)?
+        let blocks = index(self.dataset(&version, "blocks")?)?
             .into_iter()
             .map(|(name, value)| Ok((name, BlockSchema::parse(&value)?)))
             .collect::<Result<_>>()?;
-        let items = index(self.dataset(paths, "items")?)?.into_keys().collect();
-        let mobs = index(self.dataset(paths, "entities")?)?
+        let items = index(self.dataset(&version, "items")?)?
+            .into_keys()
+            .collect();
+        let mobs = index(self.dataset(&version, "entities")?)?
             .into_iter()
             .filter(|(_, entry)| is_mob(entry))
             .map(|(name, _)| name)
@@ -156,7 +212,7 @@ impl MinecraftData {
             legacy_reverse: BTreeMap::new(),
             validation_shapes: std::sync::OnceLock::new(),
         };
-        for (key, value) in &self.legacy {
+        for (key, value) in self.legacy()? {
             let (id, meta) = key
                 .split_once(':')
                 .ok_or_else(|| format!("Invalid legacy mapping key {key}"))?;
@@ -198,7 +254,7 @@ pub struct Registry {
     items: BTreeSet<String>,
     mobs: BTreeSet<String>,
     legacy_reverse: BTreeMap<Block, (u16, u8)>,
-    pub(crate) validation_shapes: std::sync::OnceLock<Result<crate::validate::Shapes>>,
+    pub(crate) validation_shapes: std::sync::OnceLock<crate::validate::Shapes>,
 }
 
 pub fn namespace(id: &str) -> String {

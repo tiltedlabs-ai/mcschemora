@@ -285,7 +285,7 @@ impl Document {
     pub fn registry(&self) -> Result<&registry::Registry> {
         self.catalog.as_deref().ok_or_else(|| {
             format!(
-                "No authoring catalog for {} {}; supply a matching minecraft-data checkout",
+                "No authoring catalog for {} {}; no catalog is available in the pinned minecraft-data snapshot",
                 self.edition, self.version
             )
         })

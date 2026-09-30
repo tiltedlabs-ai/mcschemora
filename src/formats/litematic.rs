@@ -13,7 +13,7 @@ pub(super) fn read_litematic(root: &Compound, doc: &mut Document) -> Result<()> 
             "Supported Litematica versions are 4 through 6, got {v}"
         ));
     }
-    version(doc, number(get(root, "MinecraftDataVersion")?)?);
+    version(doc, number(get(root, "MinecraftDataVersion")?)?)?;
     doc.metadata = root
         .get("Metadata")
         .map(compound)

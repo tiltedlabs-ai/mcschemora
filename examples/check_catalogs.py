@@ -3,12 +3,9 @@
 import argparse
 import itertools
 import json
-from pathlib import Path
 
 from schemora import MinecraftData, Schematic, block, water_source
 
-ROOT = Path(__file__).resolve().parents[1] / "data" / "minecraft-data" / "data"
-PATHS = json.loads((ROOT / "dataPaths.json").read_text())["pc"]
 DIRECTIONS = ("north", "south", "east", "west")
 # Expected direction changes, independent of the Rust matrix implementation.
 TURNS = {
@@ -111,15 +108,17 @@ def rejected(region, value):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("versions", nargs="*", help="Default: every advertised Java catalog")
+    parser.add_argument("--cache-dir", help="Runtime download cache directory")
+    parser.add_argument("--offline", action="store_true", help="Use only already cached data")
     parser.add_argument("--transforms-only", action="store_true", help="Skip file round-trips")
     args = parser.parse_args()
-    source = MinecraftData(ROOT)
+    source = MinecraftData(args.cache_dir, offline=args.offline)
     versions = args.versions or source.versions
     checked_datasets = set()
     total = 0
     for version in versions:
         scene = Schematic.create(version=version, data=source)
-        entries = json.loads((ROOT / PATHS[version]["blocks"] / "blocks.json").read_text())
+        entries = json.loads(source.dataset_path(version, "blocks").read_text())
         states = catalog_states(scene, entries)
         region = scene.region()
         region.set_many([(position(i), value) for i, value in enumerate(states)])
@@ -132,7 +131,7 @@ def main():
                 restored = loaded.region()
                 for i, value in enumerate(states):
                     assert restored.get(position(i)) == value, (version, fmt, i, value)
-        dataset = PATHS[version]["blocks"]
+        dataset = source.dataset_path(version, "blocks")
         if dataset not in checked_datasets:
             check_transforms(region, states)
             checked_datasets.add(dataset)

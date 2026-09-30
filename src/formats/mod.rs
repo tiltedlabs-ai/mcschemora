@@ -60,7 +60,9 @@ pub fn decode(
         if doc.data_version > 0 && doc.data_version < crate::registry::MIN_DATA_VERSION {
             return Err("Files older than Java 1.13 are unsupported".into());
         }
-        doc.catalog = doc.data.registry(&doc.version).ok();
+        if doc.data.versions()?.contains(&doc.version) {
+            doc.catalog = Some(doc.data.registry(&doc.version)?);
+        }
     }
     Ok(doc)
 }

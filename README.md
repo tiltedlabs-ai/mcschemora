@@ -8,7 +8,6 @@ Install [uv](https://docs.astral.sh/uv/) and a current stable
 [Rust toolchain](https://rustup.rs/). From this directory:
 
 ```sh
-git submodule update --init --depth 1
 uv sync --all-packages
 uv run --all-packages python examples/build.py
 ```
@@ -52,20 +51,38 @@ defaults, items, entity IDs, and file `DataVersion` come from the selected versi
 ```python
 from schemora import MinecraftData, Schematic, block
 
-data = MinecraftData()  # Repository submodule, or SCHEMORA_DATA.
+data = MinecraftData()
 print(data.versions)
 scene = Schematic.create(version="1.20.4", data=data)
 scene.region().set((0, 0, 0), block("lever", powered=True))
 print(scene.registry.describe("lever"))
 ```
 
-`MinecraftData("/path/to/minecraft-data")` accepts an existing checkout or its
-`data/` directory. For a separate installation:
+Catalogs download on first use from a pinned
+[minecraft-data snapshot](https://github.com/PrismarineJS/minecraft-data/tree/8ffb321c74cffe779acf5c447d08c473c4c291d7).
 
-```sh
-git clone --depth 1 https://github.com/PrismarineJS/minecraft-data.git /path/to/minecraft-data
-export SCHEMORA_DATA=/path/to/minecraft-data
+The default cache is `~/.cache/schemora` on Linux (or `$XDG_CACHE_HOME/schemora`),
+`~/Library/Caches/schemora` on macOS, and `%LOCALAPPDATA%/schemora` on Windows.
+
+```python
+data = MinecraftData(cache_dir="./minecraft-cache")
+data.fetch("1.21.1")
+offline = MinecraftData(cache_dir=data.cache_dir, offline=True)
+scene = Schematic.create(version="1.21.1", data=offline)
 ```
+
+Visuals are optional downloads:
+
+```python
+data.fetch("1.21.1", visuals=True)
+assets = data.visuals("1.21.1")
+print(assets / "minecraft" / "textures" / "block" / "stone.png")
+```
+
+This fetches official Mojang version metadata and a client archive, verifies
+Mojang SHA-1 hashes, and extracts `assets/` into a versioned cache directory.
+Textures, models, blockstates, and other packaged assets are available as files.
+
 
 ## Interface
 
@@ -173,7 +190,7 @@ print(report.unknown)   # Missing world context or unavailable game data.
 | `.schem` | Sponge v1/v2/v3 read; v3 write. Blocks, entities, block entities, offsets, metadata; retained v3 biomes. |
 | `.litematic` | Versions 4–6 read; v6 write. Named regions, signed source bounds, states, entities, block entities, and retained scheduled ticks. |
 | `.nbt`, `.snbt` | Java structure files. Single palette, entities, block entities, and sparse placement masks. Multiple palette variants are rejected. |
-| `.schematic` | Classic MCEdit blocks through a bundled numeric mapping. Unmapped blocks require explicit replacements. Legacy entity NBT is retained without a game-version upgrade. |
+| `.schematic` | Classic MCEdit blocks through a runtime numeric mapping. Unmapped blocks require explicit replacements. Legacy entity NBT is retained without a game-version upgrade. |
 | `.mcstructure` | Native Bedrock read/write, including retained palette tag types, secondary layers, position data, and entities. Layered authoring and Bedrock-to-Java mapping are not implemented. Java export supports a small verified-name mapping of plain blocks. |
 
 A filename extension selects the codec. Pass `format=` to override it.
@@ -216,7 +233,7 @@ restored = Schematic.from_bytes(data, format="schem")
 - Storage is a sparse map. Bulk operations run in Rust, but very large builds
   need future profiling and storage improvements.
 - Renderer, live server connection, undo history, and WASM bindings are outside
-  this version. The Rust core itself compiles for WebAssembly.
+  this version. Runtime download/cache support currently targets native platforms.
 
 ## Development
 
@@ -228,8 +245,7 @@ src/helpers.rs               Typed placement recipes and versioned NBT
 src/registry.rs              Catalog loading and parsed block schemas
 src/validate.rs              Read-only schematic game-rule checks
 src/formats/                 One codec module per schema; shared NBT/SNBT structure schema
-data/minecraft-data/         Upstream data submodule, read at runtime
-data/SOURCE.md               Data setup, updates, and attribution
+src/mc_data/                Runtime cache, official visuals, and source attribution
 bindings/python/
   src/lib.rs                 PyO3 adapter
   python/schemora/            Public Python package
@@ -271,7 +287,8 @@ To check every state in every advertised Java catalog (takes several minutes):
 uv run --all-packages python examples/check_catalogs.py
 ```
 
-Pass version names to check specific catalogs, or `--transforms-only` to skip
+Pass version names to check specific catalogs, `--cache-dir` to select the cache,
+`--offline` to check already fetched catalogs, or `--transforms-only` to skip
 file round-trips. The script checks schemas, defaults, placement, invalid-state
 rejection, four Java file formats, Y rotation, and X/Z reflections.
 
@@ -279,11 +296,4 @@ To build a wheel:
 
 ```sh
 uv run --all-packages maturin build --release --manifest-path bindings/python/Cargo.toml --out dist
-```
-
-To check the core for the web target:
-
-```sh
-rustup target add wasm32-unknown-unknown
-cargo check -p schemora --target wasm32-unknown-unknown
 ```

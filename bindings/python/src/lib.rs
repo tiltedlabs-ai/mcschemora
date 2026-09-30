@@ -29,13 +29,33 @@ struct PyMinecraftData {
 #[pymethods]
 impl PyMinecraftData {
     #[new]
-    fn new(path: &str) -> PyResult<Self> {
+    #[pyo3(signature = (cache_dir=None, offline=false))]
+    fn new(cache_dir: Option<std::path::PathBuf>, offline: bool) -> PyResult<Self> {
         Ok(Self {
-            data: Arc::new(registry::MinecraftData::open(path).map_err(error)?),
+            data: Arc::new(registry::MinecraftData::new(cache_dir, offline).map_err(error)?),
         })
     }
-    fn versions(&self) -> Vec<String> {
-        self.data.versions()
+    fn cache_dir(&self) -> std::path::PathBuf {
+        self.data.cache_dir().to_path_buf()
+    }
+    fn versions(&self, py: Python<'_>) -> PyResult<Vec<String>> {
+        py.detach(|| self.data.versions()).map_err(error)
+    }
+    fn fetch(&self, py: Python<'_>, version: &str, visuals: bool) -> PyResult<String> {
+        py.detach(|| self.data.fetch(version, visuals))
+            .map_err(error)
+    }
+    fn dataset_path(
+        &self,
+        py: Python<'_>,
+        version: &str,
+        kind: &str,
+    ) -> PyResult<std::path::PathBuf> {
+        py.detach(|| self.data.dataset_path(version, kind))
+            .map_err(error)
+    }
+    fn visuals(&self, py: Python<'_>, version: &str) -> PyResult<std::path::PathBuf> {
+        py.detach(|| self.data.visuals(version)).map_err(error)
     }
 }
 
@@ -46,18 +66,30 @@ struct PyDocument {
 #[pymethods]
 impl PyDocument {
     #[new]
-    fn new(edition: &str, version: &str, source: &PyMinecraftData) -> PyResult<Self> {
+    fn new(
+        py: Python<'_>,
+        edition: &str,
+        version: &str,
+        source: &PyMinecraftData,
+    ) -> PyResult<Self> {
         Ok(Self {
             data: Arc::new(Mutex::new(
-                Document::new(edition, version, source.data.clone()).map_err(error)?,
+                py.detach(|| Document::new(edition, version, source.data.clone()))
+                    .map_err(error)?,
             )),
         })
     }
     #[staticmethod]
-    fn from_bytes(data: &[u8], format: &str, source: &PyMinecraftData) -> PyResult<Self> {
+    fn from_bytes(
+        py: Python<'_>,
+        data: &[u8],
+        format: &str,
+        source: &PyMinecraftData,
+    ) -> PyResult<Self> {
         Ok(Self {
             data: Arc::new(Mutex::new(
-                formats::decode(data, format, source.data.clone()).map_err(error)?,
+                py.detach(|| formats::decode(data, format, source.data.clone()))
+                    .map_err(error)?,
             )),
         })
     }
@@ -76,8 +108,8 @@ impl PyDocument {
         let report = formats::check_export(&*lock(&self.data)?, format, flatten).map_err(error)?;
         Ok((report.errors, report.losses))
     }
-    fn validate(&self) -> PyResult<(Vec<String>, Vec<String>, Vec<String>)> {
-        let report = lock(&self.data)?.validate();
+    fn validate(&self, py: Python<'_>) -> PyResult<(Vec<String>, Vec<String>, Vec<String>)> {
+        let report = py.detach(|| -> PyResult<_> { Ok(lock(&self.data)?.validate()) })?;
         Ok((report.errors, report.warnings, report.unknown))
     }
     fn region(&self, name: &str) -> PyResult<PyRegion> {

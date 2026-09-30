@@ -185,12 +185,13 @@ pub(super) fn read_block_entities(
     Ok(())
 }
 
-pub(super) fn version(doc: &mut Document, n: i32) {
+pub(super) fn version(doc: &mut Document, n: i32) -> Result<()> {
     doc.data_version = n;
     doc.version = doc
         .data
-        .version_for_data_version(n)
+        .version_for_data_version(n)?
         .unwrap_or_else(|| format!("data:{n}"));
+    Ok(())
 }
 
 pub(super) fn dimensions(c: &Compound) -> Result<Pos> {

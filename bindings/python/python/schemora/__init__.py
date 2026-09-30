@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from functools import lru_cache
@@ -127,29 +126,32 @@ class Report:
 
 
 class MinecraftData:
-    """Read version catalogs from a minecraft-data checkout or its data directory."""
+    """Download pinned Java catalogs into a shared runtime cache."""
 
-    def __init__(self, path=None):
-        if path is None:
-            path = os.environ.get("SCHEMORA_DATA")
-        if path is None:
-            # Editable installs use the repository's submodule.
-            for parent in Path(__file__).resolve().parents:
-                candidate = parent / "data" / "minecraft-data"
-                if (candidate / "data" / "dataPaths.json").is_file():
-                    path = candidate
-                    break
-        if path is None:
-            raise ValueError(
-                "Minecraft data not found. Initialize the data/minecraft-data submodule, "
-                "pass MinecraftData(path), or set SCHEMORA_DATA to a checkout."
-            )
-        self._native = _core.MinecraftData(str(Path(path).expanduser().resolve()))
+    def __init__(self, cache_dir=None, *, offline=False):
+        directory = None if cache_dir is None else Path(cache_dir).expanduser().resolve()
+        self._native = _core.MinecraftData(directory, offline)
+
+    @property
+    def cache_dir(self) -> Path:
+        return Path(self._native.cache_dir())
 
     @property
     def versions(self) -> tuple[str, ...]:
         """Available Java catalogs at or above the 1.13 minimum."""
         return tuple(self._native.versions())
+
+    def fetch(self, version="latest", *, visuals=False) -> str:
+        """Cache a complete catalog, optionally with official visual assets."""
+        return self._native.fetch(version, visuals)
+
+    def dataset_path(self, version: str, kind: str) -> Path:
+        """Fetch a raw blocks, items, entities, or blockCollisionShapes dataset."""
+        return Path(self._native.dataset_path(version, kind))
+
+    def visuals(self, version="latest") -> Path:
+        """Fetch and return the official client asset directory for this version."""
+        return Path(self._native.visuals(version))
 
 
 @lru_cache(maxsize=1)

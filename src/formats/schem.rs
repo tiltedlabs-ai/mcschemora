@@ -23,7 +23,7 @@ pub(super) fn read_schem(root: &Compound, doc: &mut Document) -> Result<()> {
             .map(number)
             .transpose()?
             .unwrap_or(0),
-    );
+    )?;
     doc.metadata = root
         .get("Metadata")
         .map(compound)

@@ -12,7 +12,7 @@ pub(super) fn read_structure(root: &Compound, doc: &mut Document) -> Result<()> 
             .map(number)
             .transpose()?
             .unwrap_or(0),
-    );
+    )?;
     let mut r = Region::new([0; 3]);
     r.bounds = Bounds::new([0; 3], xyz(get(root, "size")?)?)?;
     let pal=if let Some(v)=root.get("palette"){list(v)?}else{

@@ -159,7 +159,7 @@ impl Region {
             if air {
                 self.blocks.clear();
             } else {
-                // Collect sorted keys in bulk instead of doing one tree search and insertion per block. 
+                // Collect sorted keys in bulk instead of doing one tree search and insertion per block.
                 self.blocks = fill_positions(selection)
                     .map(|p| (p, block.clone()))
                     .collect();

@@ -1,5 +1,7 @@
+mod geometry;
 pub mod glb;
 mod models;
+pub mod parts;
 
 use models::{Builder, choice_hash};
 
@@ -27,6 +29,7 @@ pub struct Texture {
     pub name: String,
     pub atlas: usize,
     pub uv: [f32; 4],
+    pub size: [u32; 2],
     pub alpha: AlphaMode,
 }
 
@@ -159,6 +162,7 @@ impl GeometryAssets {
                 name: name.clone(),
                 atlas,
                 uv,
+                size: [rect[2], rect[3]],
                 alpha,
             });
         }

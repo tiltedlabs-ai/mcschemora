@@ -42,6 +42,8 @@ and their metadata, colormap PNGs and metadata, and item marker textures
 
 ## Attribution
 
+Entity model definitions are bundled from the PrismarineViewer.
+
 - [minecraft-data](https://github.com/PrismarineJS/minecraft-data/blob/8ffb321c74cffe779acf5c447d08c473c4c291d7/README.md).
 - [minecraft-assets](https://github.com/PrismarineJS/minecraft-assets/blob/67c9b138b00a6b67c29ba68dae74c41faef4889d/README.md).
 - Minecraft visual assets remain subject to [Minecraft's usage guidelines](https://www.minecraft.net/en-us/usage-guidelines).

@@ -1,3 +1,4 @@
+pub(crate) mod visual;
 mod visual_atlas;
 mod visual_models;
 mod visuals;

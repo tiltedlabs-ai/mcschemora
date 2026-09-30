@@ -1,7 +1,10 @@
+mod chests;
 mod geometry;
 pub mod glb;
 mod models;
 pub mod parts;
+
+pub use crate::mc_data::visual::{EntityCatalog, EntityDefinition, entity_catalog};
 
 use models::{Builder, choice_hash};
 

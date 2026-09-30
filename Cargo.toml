@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "Minecraft schematic authoring and conversion"
 license = "MIT"
-include = ["src/**/*.rs", "src/mc_data/SOURCE.md", "Cargo.toml", "README.md", "LICENSE"]
+include = ["/src/**/*.rs", "/src/mc_data/SOURCE.md", "/src/mc_data/visual/*", "/scripts/prepare_entity_models.py", "/Cargo.toml", "/README.md", "/LICENSE"]
 
 [lib]
 name = "schemora"

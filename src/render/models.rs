@@ -181,6 +181,15 @@ impl Builder<'_> {
     }
 
     fn compile_state(&mut self, block: &Block) -> Result<Vec<Vec<(usize, u32)>>> {
+        if matches!(
+            block.name.as_str(),
+            "minecraft:chest" | "minecraft:trapped_chest" | "minecraft:ender_chest"
+        ) {
+            let geometry = super::chests::bake(self.assets, block)?;
+            let mesh = self.meshes.len();
+            self.meshes.push(geometry);
+            return Ok(vec![vec![(mesh, 1)]]);
+        }
         let state = self
             .assets
             .states

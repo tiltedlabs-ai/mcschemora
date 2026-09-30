@@ -108,6 +108,34 @@ impl PyDocument {
         let report = formats::check_export(&*lock(&self.data)?, format, flatten).map_err(error)?;
         Ok((report.errors, report.losses))
     }
+    fn glb<'py>(
+        &self,
+        py: Python<'py>,
+        region: Option<String>,
+        y: Option<[i32; 2]>,
+    ) -> PyResult<(Bound<'py, PyBytes>, Vec<String>)> {
+        let (bytes, diagnostics) = py.detach(|| -> PyResult<_> {
+            let document = lock(&self.data)?;
+            let path = document.data.visuals(&document.version).map_err(error)?;
+            let assets = schemora::render::GeometryAssets::load(&path).map_err(error)?;
+            let scene = assets
+                .prepare(&document, &schemora::render::SceneOptions { region, y })
+                .map_err(error)?;
+            let bytes = schemora::render::glb::encode(&scene).map_err(error)?;
+            let diagnostics = scene
+                .diagnostics
+                .iter()
+                .map(|d| {
+                    format!(
+                        "{} at {:?} in region {:?}: {}",
+                        d.block, d.position, d.region, d.message
+                    )
+                })
+                .collect();
+            Ok((bytes, diagnostics))
+        })?;
+        Ok((PyBytes::new(py, &bytes), diagnostics))
+    }
     fn validate(&self, py: Python<'_>) -> PyResult<(Vec<String>, Vec<String>, Vec<String>)> {
         let report = py.detach(|| -> PyResult<_> { Ok(lock(&self.data)?.validate()) })?;
         Ok((report.errors, report.warnings, report.unknown))

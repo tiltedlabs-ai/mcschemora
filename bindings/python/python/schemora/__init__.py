@@ -203,6 +203,24 @@ class Schematic:
     def region(self, name="main") -> Region:
         return Region(self._native.region(name))
 
+    def export_glb(self, path, *, region: str | None = None, y=None) -> tuple[str, ...]:
+        """Export textured geometry; return diagnostics for visual approximations.
+
+        Select a world Y level with an integer or an inclusive (minimum, maximum) pair.
+        """
+        if y is not None:
+            if type(y) is int:
+                y = (y, y)
+            elif (
+                not isinstance(y, (tuple, list))
+                or len(y) != 2
+                or any(type(value) is not int for value in y)
+            ):
+                raise ValueError("y must be an integer or an inclusive pair of integers")
+        content, diagnostics = self._native.glb(region, y)
+        Path(path).write_bytes(content)
+        return tuple(diagnostics)
+
     def add_region(self, name: str, *, origin=(0, 0, 0)) -> Region:
         return Region(self._native.add_region(name, origin))
 

@@ -1,0 +1,366 @@
+pub mod glb;
+mod models;
+
+use models::{Builder, choice_hash};
+
+use crate::{
+    Result,
+    model::{Document, Pos},
+};
+use serde::Serialize;
+use serde_json::Value;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs,
+    path::{Path, PathBuf},
+};
+
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
+pub enum AlphaMode {
+    Opaque,
+    Mask,
+    Blend,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct Texture {
+    pub name: String,
+    pub atlas: usize,
+    pub uv: [f32; 4],
+    pub alpha: AlphaMode,
+}
+
+#[derive(Clone, Copy, Debug, Serialize)]
+pub struct Vertex {
+    pub position: [f32; 3],
+    pub uv: [f32; 2],
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct Quad {
+    pub vertices: [Vertex; 4],
+    pub normal: [f32; 3],
+    pub texture: usize,
+    pub tint_index: Option<i32>,
+    pub shade: bool,
+    pub texture_flags: Value,
+    pub cull_face: Option<Pos>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct Mesh {
+    pub quads: Vec<Quad>,
+    pub occludes: bool,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct Draw {
+    pub mesh: usize,
+    pub quads: Vec<usize>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct Instance {
+    pub position: Pos,
+    pub block: String,
+    pub draws: Vec<Draw>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct Diagnostic {
+    pub region: String,
+    pub position: Pos,
+    pub block: String,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct PreparedScene {
+    pub atlases: Vec<PathBuf>,
+    pub textures: Vec<Texture>,
+    pub meshes: Vec<Mesh>,
+    pub instances: Vec<Instance>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct SceneOptions {
+    pub region: Option<String>,
+    pub y: Option<[i32; 2]>,
+}
+
+pub struct GeometryAssets {
+    atlases: Vec<PathBuf>,
+    textures: Vec<Texture>,
+    texture_ids: BTreeMap<String, usize>,
+    models: BTreeMap<String, Value>,
+    states: BTreeMap<String, Value>,
+}
+
+fn read(path: &Path) -> Result<Value> {
+    let bytes = fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    serde_json::from_slice(&bytes).map_err(|e| format!("{}: {e}", path.display()))
+}
+
+impl GeometryAssets {
+    pub fn load(path: &Path) -> Result<Self> {
+        let manifest = read(&path.join("manifest.json"))?;
+        if manifest["preparation_format"] != 1 {
+            return Err("Unsupported prepared visual format".into());
+        }
+        let mut atlases = Vec::new();
+        let mut images = Vec::new();
+        for atlas in manifest["atlases"]
+            .as_array()
+            .ok_or("Missing visual atlases")?
+        {
+            let file = atlas["file"].as_str().ok_or("Missing atlas filename")?;
+            crate::mc_data::safe_path(file)?;
+            let file = path.join(file);
+            images.push(
+                image::open(&file)
+                    .map_err(|e| format!("{}: {e}", file.display()))?
+                    .into_rgba8(),
+            );
+            atlases.push(file);
+        }
+        let sprites = read(&path.join("textures.json"))?;
+        let mut textures = Vec::new();
+        let mut texture_ids = BTreeMap::new();
+        for (name, sprite) in sprites.as_object().ok_or("Invalid prepared textures")? {
+            let atlas = sprite["atlas"].as_u64().ok_or("Invalid texture atlas")? as usize;
+            let rect: [u32; 4] =
+                serde_json::from_value(sprite["rect"].clone()).map_err(|e| e.to_string())?;
+            let uv = serde_json::from_value(sprite["uv"].clone()).map_err(|e| e.to_string())?;
+            let image = images.get(atlas).ok_or("Texture atlas outside bundle")?;
+            if rect[2] == 0
+                || rect[3] == 0
+                || rect[0]
+                    .checked_add(rect[2])
+                    .is_none_or(|n| n > image.width())
+                || rect[1]
+                    .checked_add(rect[3])
+                    .is_none_or(|n| n > image.height())
+            {
+                return Err("Texture rectangle outside atlas".into());
+            }
+            let mut alpha = AlphaMode::Opaque;
+            for y in rect[1]..rect[1] + rect[3] {
+                for x in rect[0]..rect[0] + rect[2] {
+                    match image.get_pixel(x, y)[3] {
+                        0 if alpha != AlphaMode::Blend => alpha = AlphaMode::Mask,
+                        1..=254 => alpha = AlphaMode::Blend,
+                        _ => (),
+                    }
+                }
+            }
+            texture_ids.insert(name.clone(), textures.len());
+            textures.push(Texture {
+                name: name.clone(),
+                atlas,
+                uv,
+                alpha,
+            });
+        }
+        if !texture_ids.contains_key("minecraft:missingno") {
+            return Err("Visual bundle has no missing texture".into());
+        }
+        Ok(Self {
+            atlases,
+            textures,
+            texture_ids,
+            models: serde_json::from_value(read(&path.join("models.json"))?)
+                .map_err(|e| e.to_string())?,
+            states: serde_json::from_value(read(&path.join("blockstates.json"))?)
+                .map_err(|e| e.to_string())?,
+        })
+    }
+
+    pub fn prepare(&self, document: &Document, options: &SceneOptions) -> Result<PreparedScene> {
+        if document.edition != "java" {
+            return Err("Geometry preparation requires Java Edition visuals".into());
+        }
+        if options.y.is_some_and(|y| y[0] > y[1]) {
+            return Err("Y range start exceeds end".into());
+        }
+        if let Some(name) = &options.region {
+            document.region(name)?;
+        }
+        let selected_y = |y: i32| options.y.is_none_or(|range| y >= range[0] && y <= range[1]);
+        let mut cells = BTreeMap::new();
+        let mut diagnostics = Vec::new();
+        for (name, region) in &document.regions {
+            if options
+                .region
+                .as_ref()
+                .is_some_and(|selected| selected != name)
+            {
+                continue;
+            }
+            for (local, block) in &region.blocks {
+                if block.is_air() {
+                    continue;
+                }
+                let mut position = [0; 3];
+                for i in 0..3 {
+                    position[i] = region.origin[i]
+                        .checked_add(local[i])
+                        .ok_or("Geometry coordinate overflow")?;
+                }
+                if !selected_y(position[1]) {
+                    continue;
+                }
+                if cells.insert(position, (name, block)).is_some() {
+                    return Err(format!("Selected regions overlap at {position:?}"));
+                }
+            }
+            for entity in &region.entities {
+                let y = entity.position[1] + f64::from(region.origin[1]);
+                if options
+                    .y
+                    .is_none_or(|range| y >= f64::from(range[0]) && y < f64::from(range[1]) + 1.)
+                {
+                    let position = std::array::from_fn(|i| {
+                        (entity.position[i] + f64::from(region.origin[i])).floor() as i32
+                    });
+                    diagnostics.push(Diagnostic {
+                        region: name.clone(),
+                        position,
+                        block: entity
+                            .data
+                            .get("id")
+                            .and_then(|v| {
+                                if let fastnbt::Value::String(s) = v {
+                                    Some(s.clone())
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or_else(|| "entity".into()),
+                        message: "Entity geometry is not supported".into(),
+                    });
+                }
+            }
+        }
+        let mut builder = Builder {
+            assets: self,
+            meshes: Vec::new(),
+            applications: BTreeMap::new(),
+            states: BTreeMap::new(),
+        };
+        let mut instances = Vec::new();
+        let mut tinted = BTreeSet::new();
+        for (position, (region, block)) in &cells {
+            if matches!(
+                block.name.as_str(),
+                "minecraft:barrier" | "minecraft:light" | "minecraft:structure_void"
+            ) {
+                continue;
+            }
+            let text = block.text();
+            let state = builder.state(block);
+            if state.parts.iter().flatten().any(|(mesh, _)| {
+                builder.meshes[*mesh]
+                    .quads
+                    .iter()
+                    .any(|quad| quad.tint_index.is_some())
+            }) && tinted.insert(*block)
+            {
+                diagnostics.push(Diagnostic {
+                    region: (*region).clone(),
+                    position: *position,
+                    block: text.clone(),
+                    message: "Tint indices are preserved; tint colors are not evaluated".into(),
+                });
+            }
+            for message in &state.messages {
+                diagnostics.push(Diagnostic {
+                    region: (*region).clone(),
+                    position: *position,
+                    block: text.clone(),
+                    message: message.clone(),
+                });
+            }
+            if block
+                .properties
+                .get("waterlogged")
+                .is_some_and(|v| v == "true")
+            {
+                diagnostics.push(Diagnostic {
+                    region: (*region).clone(),
+                    position: *position,
+                    block: text.clone(),
+                    message: "Waterlogged fluid overlay is not supported".into(),
+                });
+            }
+            let draws = state
+                .parts
+                .iter()
+                .enumerate()
+                .map(|(part, choices)| {
+                    let total: u64 = choices.iter().map(|(_, weight)| u64::from(*weight)).sum();
+                    let mut pick = choice_hash(*position, &text, part) % total;
+                    let mesh = choices
+                        .iter()
+                        .find_map(|(mesh, weight)| {
+                            if pick < u64::from(*weight) {
+                                Some(*mesh)
+                            } else {
+                                pick -= u64::from(*weight);
+                                None
+                            }
+                        })
+                        .unwrap();
+                    Draw {
+                        mesh,
+                        quads: (0..builder.meshes[mesh].quads.len()).collect(),
+                    }
+                })
+                .collect();
+            instances.push(Instance {
+                position: *position,
+                block: text.clone(),
+                draws,
+            });
+        }
+        let occlusion: BTreeMap<Pos, bool> = instances
+            .iter()
+            .map(|instance| {
+                (
+                    instance.position,
+                    instance
+                        .draws
+                        .iter()
+                        .any(|draw| builder.meshes[draw.mesh].occludes),
+                )
+            })
+            .collect();
+        for instance in &mut instances {
+            for draw in &mut instance.draws {
+                draw.quads.retain(|&index| {
+                    let quad = &builder.meshes[draw.mesh].quads[index];
+                    let Some(direction) = quad.cull_face else {
+                        return true;
+                    };
+                    let mut neighbor = [0; 3];
+                    for i in 0..3 {
+                        let Some(n) = instance.position[i].checked_add(direction[i]) else {
+                            return true;
+                        };
+                        neighbor[i] = n;
+                    }
+                    !occlusion.get(&neighbor).copied().unwrap_or(false)
+                });
+            }
+            instance.draws.retain(|draw| !draw.quads.is_empty());
+        }
+        instances.retain(|instance| !instance.draws.is_empty());
+        Ok(PreparedScene {
+            atlases: self.atlases.clone(),
+            textures: self.textures.clone(),
+            meshes: builder.meshes,
+            instances,
+            diagnostics,
+        })
+    }
+}

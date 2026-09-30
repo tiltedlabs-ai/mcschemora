@@ -105,7 +105,7 @@ fn read(path: &Path) -> Result<Value> {
 impl GeometryAssets {
     pub fn load(path: &Path) -> Result<Self> {
         let manifest = read(&path.join("manifest.json"))?;
-        if manifest["preparation_format"] != 1 {
+        if manifest["preparation_format"] != crate::mc_data::VISUAL_FORMAT {
             return Err("Unsupported prepared visual format".into());
         }
         let mut atlases = Vec::new();

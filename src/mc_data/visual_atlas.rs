@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 use sha1::{Digest, Sha1};
 use std::{collections::BTreeMap, fs, io::Cursor, path::Path};
 
-const PAGE: u32 = 1024;
+const MIN_PAGE_SIZE: u32 = 1024;
 const PADDING: u32 = 1;
 
 fn static_frame(image: RgbaImage, metadata: &Value) -> Result<(RgbaImage, Value)> {
@@ -87,7 +87,6 @@ pub(super) fn prepare(cache: &Cache, inputs: &[Input], output: &Path) -> Result<
         .filter_map(|f| f.path.strip_suffix(".mcmeta").map(|path| (path, f)))
         .collect();
     let mut sprites = BTreeMap::new();
-    let mut pages = vec![RgbaImage::new(PAGE, PAGE)];
     let mut placements = BTreeMap::<String, (usize, u32, u32, u32, u32)>::new();
     let (mut x, mut y, mut row) = (0, 0, 0);
     let mut images: Vec<(String, RgbaImage, Value, Value, Value)> = Vec::new();
@@ -119,6 +118,7 @@ pub(super) fn prepare(cache: &Cache, inputs: &[Input], output: &Path) -> Result<
             "blocks" => "block",
             "items" => "item",
             "colormap" => "colormap",
+            "entity" => "entity",
             _ => return Err("Unsupported texture directory".into()),
         };
         images.push((
@@ -137,11 +137,16 @@ pub(super) fn prepare(cache: &Cache, inputs: &[Input], output: &Path) -> Result<
         Value::Null,
     ));
     images.sort_by(|a, b| a.0.cmp(&b.0));
+    let page_size = images
+        .iter()
+        .map(|(_, image, _, _, _)| image.width().max(image.height()) + 2 * PADDING)
+        .max()
+        .unwrap_or(MIN_PAGE_SIZE)
+        .next_power_of_two()
+        .max(MIN_PAGE_SIZE);
+    let mut pages = vec![RgbaImage::new(page_size, page_size)];
     for (name, image, metadata, frame, source) in images {
         let (width, height) = image.dimensions();
-        if width + 2 * PADDING > PAGE || height + 2 * PADDING > PAGE {
-            return Err(format!("Texture {name} exceeds atlas page size"));
-        }
         let mut hash = Sha1::new();
         hash.update(width.to_le_bytes());
         hash.update(height.to_le_bytes());
@@ -152,13 +157,13 @@ pub(super) fn prepare(cache: &Cache, inputs: &[Input], output: &Path) -> Result<
         } else {
             let padded_width = width + 2 * PADDING;
             let padded_height = height + 2 * PADDING;
-            if x + padded_width > PAGE {
+            if x + padded_width > page_size {
                 x = 0;
                 y += row;
                 row = 0;
             }
-            if y + padded_height > PAGE {
-                pages.push(RgbaImage::new(PAGE, PAGE));
+            if y + padded_height > page_size {
+                pages.push(RgbaImage::new(page_size, page_size));
                 x = 0;
                 y = 0;
                 row = 0;
@@ -178,7 +183,7 @@ pub(super) fn prepare(cache: &Cache, inputs: &[Input], output: &Path) -> Result<
             placement
         };
         let (page, x, y, width, height) = placement;
-        sprites.insert(name,json!({"atlas":page,"rect":[x,y,width,height],"uv":[f64::from(x)/f64::from(PAGE),f64::from(y)/f64::from(PAGE),f64::from(x+width)/f64::from(PAGE),f64::from(y+height)/f64::from(PAGE)],"image_hash":hash,"source":source,"metadata":metadata,"frame":frame}));
+        sprites.insert(name,json!({"atlas":page,"rect":[x,y,width,height],"uv":[f64::from(x)/f64::from(page_size),f64::from(y)/f64::from(page_size),f64::from(x+width)/f64::from(page_size),f64::from(y+height)/f64::from(page_size)],"image_hash":hash,"source":source,"metadata":metadata,"frame":frame}));
     }
     write_json(&output.join("textures.json"), &sprites)?;
     let mut atlas = Vec::new();
@@ -186,7 +191,7 @@ pub(super) fn prepare(cache: &Cache, inputs: &[Input], output: &Path) -> Result<
         let file = format!("atlas-{i}.png");
         page.save_with_format(output.join(&file), image::ImageFormat::Png)
             .map_err(|e| e.to_string())?;
-        atlas.push(json!({"file":file,"width":PAGE,"height":PAGE,"padding":PADDING}));
+        atlas.push(json!({"file":file,"width":page_size,"height":page_size,"padding":PADDING}));
     }
     Ok(atlas)
 }

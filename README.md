@@ -71,7 +71,7 @@ offline = MinecraftData(cache_dir=data.cache_dir, offline=True)
 scene = Schematic.create(version="1.21.1", data=offline)
 ```
 
-Block visual bundles are optional:
+Visual bundles include block and entity textures and are downloaded on demand:
 
 ```python
 data.fetch("1.21.1", visuals=True)
@@ -243,7 +243,7 @@ src/helpers.rs               Typed placement recipes and versioned NBT
 src/registry.rs              Catalog loading and parsed block schemas
 src/validate.rs              Read-only schematic game-rule checks
 src/formats/                 One codec module per schema; shared NBT/SNBT structure schema
-src/mc_data/                Runtime catalogs, prepared block visuals, and source attribution
+src/mc_data/                Runtime catalogs, prepared visual assets, and source attribution
 bindings/python/
   src/lib.rs                 PyO3 adapter
   python/schemora/            Public Python package

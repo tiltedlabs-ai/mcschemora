@@ -142,7 +142,7 @@ class MinecraftData:
         return tuple(self._native.versions())
 
     def fetch(self, version="latest", *, visuals=False) -> str:
-        """Cache a complete catalog and optionally prepare its block visual bundle."""
+        """Cache a complete catalog and optionally prepare its visual bundle."""
         return self._native.fetch(version, visuals)
 
     def dataset_path(self, version: str, kind: str) -> Path:

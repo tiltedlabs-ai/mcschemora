@@ -1,4 +1,4 @@
-use super::{Cache, JSON_LIMIT, safe_path, visual_atlas, visual_models};
+use super::{Cache, JSON_LIMIT, VISUAL_FORMAT, safe_path, visual_atlas, visual_models};
 use crate::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -15,7 +15,6 @@ use std::{
 const REVISION: &str = "67c9b138b00a6b67c29ba68dae74c41faef4889d";
 const API_BASE_URL: &str = "https://api.github.com/repos/PrismarineJS/minecraft-assets";
 const RAW_BASE_URL: &str = "https://raw.githubusercontent.com/PrismarineJS/minecraft-assets";
-const FORMAT: u32 = 1;
 const FILE_LIMIT: u64 = 8 * 1024 * 1024;
 const BUNDLE_LIMIT: u64 = 64 * 1024 * 1024;
 
@@ -52,7 +51,9 @@ fn release(version: &str) -> Option<Vec<u32>> {
 fn selected(path: &str) -> bool {
     path == "blocks_models.json"
         || path == "blocks_states.json"
-        || ((path.starts_with("blocks/") || path.starts_with("colormap/"))
+        || ((path.starts_with("blocks/")
+            || path.starts_with("entity/")
+            || path.starts_with("colormap/"))
             && (path.ends_with(".png") || path.ends_with(".png.mcmeta")))
         || path.strip_prefix("items/").is_some_and(|p| {
             let name = p.trim_end_matches(".mcmeta").trim_end_matches(".png");
@@ -79,7 +80,7 @@ fn complete(path: &Path) -> bool {
     let Ok(manifest) = serde_json::from_slice::<Value>(&bytes) else {
         return false;
     };
-    manifest["preparation_format"] == FORMAT
+    manifest["preparation_format"] == VISUAL_FORMAT
         && ["models.json", "blockstates.json", "textures.json"]
             .iter()
             .all(|file| path.join(file).is_file())
@@ -102,11 +103,11 @@ impl Cache {
             .root
             .join("minecraft-assets")
             .join("prepared")
-            .join(format!("v{FORMAT}"))
+            .join(format!("v{VISUAL_FORMAT}"))
             .join(bundle))
     }
     fn visual_index(&self, base: &Path) -> Result<Index> {
-        let path = base.join(format!("index-v{FORMAT}.json"));
+        let path = base.join(format!("index-v{VISUAL_FORMAT}.json"));
         if path.is_file() {
             return serde_json::from_value(self.json(&path)?).map_err(|e| e.to_string());
         }
@@ -187,7 +188,7 @@ impl Cache {
             );
         }
         if index.is_empty() {
-            return Err("Pinned asset source has no supported block visual bundles".into());
+            return Err("Pinned asset source has no supported visual bundles".into());
         }
         write_json(&path, &index)?;
         Ok(index)
@@ -228,7 +229,7 @@ impl Cache {
         let base = self.root.join("minecraft-assets").join(REVISION);
         let record_path = base.join("resolutions").join(format!("{version}.json"));
         if let Ok(record) = self.json(&record_path)
-            && record["preparation_format"] == FORMAT
+            && record["preparation_format"] == VISUAL_FORMAT
             && let Some(bundle) = record["bundle"].as_str()
         {
             let prepared = self.prepared_visual_path(bundle)?;
@@ -338,10 +339,10 @@ impl Cache {
                 &self.json(&temp.path().join("textures.json"))?,
             )?;
             let manifest = json!({
-                "preparation_format": FORMAT, "bundle": source.bundle,
+                "preparation_format": VISUAL_FORMAT, "bundle": source.bundle,
                 "source": {"repository": "https://github.com/PrismarineJS/minecraft-assets", "revision": REVISION, "versions": versions},
                 "files": source.files, "atlases": atlas, "unresolved_texture_variables": unresolved,
-                "limitations": ["Prepared block visual data only; no mesh renderer.", "Fluids and entity-rendered blocks require specialized geometry.", "Tint indices and colormaps are retained; biome tint colors are not evaluated.", "Animations use their first declared frame; interpolation is not rendered.", "Unbound variables in abstract model templates remain symbolic."]
+                "limitations": ["Entity textures are included; entity geometry is not supplied by this bundle.", "Fluids and entity-rendered blocks require specialized geometry.", "Tint indices and colormaps are retained; biome tint colors are not evaluated.", "Animations use their first declared frame; interpolation is not rendered.", "Unbound variables in abstract model templates remain symbolic."]
             });
             write_json(&temp.path().join("manifest.json"), &manifest)?;
             if prepared.exists() {
@@ -352,7 +353,7 @@ impl Cache {
         fs::create_dir_all(record_path.parent().unwrap()).map_err(|e| e.to_string())?;
         write_json(
             &record_path,
-            &json!({"requested_version": version, "resolved_version": resolved, "match": if version == resolved { if versions.len() > 1 { "known_identical" } else { "exact" } } else { "approximate" }, "equivalent_versions": versions, "bundle": source.bundle, "preparation_format": FORMAT, "source_revision": REVISION}),
+            &json!({"requested_version": version, "resolved_version": resolved, "match": if version == resolved { if versions.len() > 1 { "known_identical" } else { "exact" } } else { "approximate" }, "equivalent_versions": versions, "bundle": source.bundle, "preparation_format": VISUAL_FORMAT, "source_revision": REVISION}),
         )?;
         Ok(prepared)
     }

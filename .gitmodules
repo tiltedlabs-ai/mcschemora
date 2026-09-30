@@ -1,4 +1,0 @@
-[submodule "data/minecraft-data"]
-	path = data/minecraft-data
-	url = https://github.com/PrismarineJS/minecraft-data.git
-	shallow = true

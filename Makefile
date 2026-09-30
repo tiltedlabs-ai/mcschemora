@@ -1,11 +1,7 @@
-.PHONY: setup data-update rebuild format lint example
+.PHONY: setup rebuild format lint example
 
 setup:
-	git submodule update --init --depth 1
 	uv sync --all-packages
-
-data-update:
-	git submodule update --init --remote --depth 1 data/minecraft-data
 
 rebuild:
 	uv sync --all-packages --reinstall-package schemora

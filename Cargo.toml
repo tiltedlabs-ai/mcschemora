@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "Minecraft schematic authoring and conversion"
 license = "MIT"
-include = ["src/**/*.rs", "Cargo.toml", "README.md", "LICENSE"]
+include = ["src/**/*.rs", "src/mc_data/SOURCE.md", "Cargo.toml", "README.md", "LICENSE"]
 
 [lib]
 name = "schemora"
@@ -21,3 +21,8 @@ serde_json = "1"
 fastnbt = "2"
 fastsnbt = "0.3"
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+ureq = { version = "2", default-features = false, features = ["tls"] }
+fs2 = "0.4"
+tempfile = "3"
+sha1 = "0.10"
+zip = { version = "2", default-features = false, features = ["deflate"] }

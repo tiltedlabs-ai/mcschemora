@@ -13,3 +13,4 @@ license = "MIT"
 [tool.maturin]
 python-source = "python"
 module-name = "schemora._core"
+exclude = ["**/__pycache__/**", "**/*.pyc"]

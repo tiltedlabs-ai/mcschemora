@@ -1,7 +1,40 @@
-use crate::Result;
+use crate::{Result, model::Pos};
+use std::sync::LazyLock;
 
 pub(super) const DIRECTIONS: [&str; 6] = ["down", "up", "north", "south", "west", "east"];
 pub(super) const UV_CORNERS: [[f32; 2]; 4] = [[0., 0.], [0., 1.], [1., 1.], [1., 0.]];
+
+pub(super) fn offset(p: Pos, d: Pos) -> Option<Pos> {
+    Some([
+        p[0].checked_add(d[0])?,
+        p[1].checked_add(d[1])?,
+        p[2].checked_add(d[2])?,
+    ])
+}
+
+pub(super) fn linear_colors() -> &'static [f32; 256] {
+    static COLORS: LazyLock<[f32; 256]> = LazyLock::new(|| {
+        std::array::from_fn(|i| {
+            let value = i as f32 / 255.;
+            if value <= 0.04045 {
+                value / 12.92
+            } else {
+                ((value + 0.055) / 1.055).powf(2.4)
+            }
+        })
+    });
+    &COLORS
+}
+
+pub(super) fn linear_color(color: [u8; 4]) -> [f32; 4] {
+    let colors = linear_colors();
+    [
+        colors[color[0] as usize],
+        colors[color[1] as usize],
+        colors[color[2] as usize],
+        f32::from(color[3]) / 255.,
+    ]
+}
 
 pub(super) fn corners(direction: &str, f: [f32; 3], t: [f32; 3]) -> Result<[[f32; 3]; 4]> {
     let [x0, y0, z0] = f;

@@ -1,6 +1,6 @@
 mod grid;
 
-use super::{AlphaMode, PreparedScene, Texture};
+use super::{AlphaMode, PreparedScene, Texture, geometry};
 use crate::Result;
 use image::{ImageEncoder, RgbaImage, codecs::png::PngEncoder};
 use std::sync::LazyLock;
@@ -68,14 +68,6 @@ fn top_left(a: [f64; 3], b: [f64; 3]) -> bool {
     b[1] < a[1] || (b[1] == a[1] && b[0] > a[0])
 }
 
-fn linear(value: f32) -> f32 {
-    if value <= 0.04045 {
-        value / 12.92
-    } else {
-        ((value + 0.055) / 1.055).powf(2.4)
-    }
-}
-
 fn srgb_exact(value: f32) -> u8 {
     let value = if value <= 0.0031308 {
         value * 12.92
@@ -105,7 +97,7 @@ struct Raster {
     size: [u32; 2],
     pixels: Vec<[f32; 4]>,
     depth: Vec<f64>,
-    colors: [f32; 256],
+    colors: &'static [f32; 256],
     tile_depth: Vec<f64>,
     tile_writes: Vec<usize>,
 }
@@ -270,12 +262,7 @@ pub fn encode(scene: &PreparedScene, options: &Options) -> Result<Vec<u8>> {
     let mut min = [f64::INFINITY; 2];
     let mut max = [f64::NEG_INFINITY; 2];
     for instance in &scene.instances {
-        if !instance.position.iter().all(|v| v.is_finite())
-            || !instance.rotation.iter().all(|v| v.is_finite())
-            || (instance.rotation.iter().map(|v| v * v).sum::<f32>() - 1.).abs() > 1e-4
-        {
-            return Err("Invalid scene instance transform".into());
-        }
+        instance.validate_transform()?;
         let [x, y, z, w] = instance.rotation.map(f64::from);
         let rotation = [
             [
@@ -349,13 +336,7 @@ pub fn encode(scene: &PreparedScene, options: &Options) -> Result<Vec<u8>> {
                     texture: quad.texture,
                     alpha: quad.alpha(texture),
                     light,
-                    color: std::array::from_fn(|i| {
-                        if i == 3 {
-                            f32::from(quad.color[i]) / 255.
-                        } else {
-                            linear(f32::from(quad.color[i]) / 255.)
-                        }
-                    }),
+                    color: geometry::linear_color(quad.color),
                 });
             }
         }
@@ -486,7 +467,7 @@ fn render_band(
         tile_writes: vec![0; (size[0].div_ceil(8) * size[1].div_ceil(8)) as usize],
         pixels: vec![[0.; 4]; count],
         depth: vec![f64::NEG_INFINITY; count],
-        colors: std::array::from_fn(|i| linear(i as f32 / 255.)),
+        colors: geometry::linear_colors(),
     };
     for face in faces {
         let texture = &scene.textures[face.texture];

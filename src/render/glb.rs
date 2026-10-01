@@ -1,4 +1,4 @@
-use super::{AlphaMode, PreparedScene, Quad};
+use super::{AlphaMode, Draw, PreparedScene, Quad, geometry};
 use crate::Result;
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, fs};
@@ -88,18 +88,6 @@ fn container(document: &Value, mut binary: Vec<u8>) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
-fn alpha(quad: &Quad, scene: &PreparedScene) -> Result<&'static str> {
-    let sprite = scene
-        .textures
-        .get(quad.texture)
-        .ok_or("Invalid scene texture index")?;
-    Ok(match quad.alpha(sprite) {
-        AlphaMode::Opaque => "OPAQUE",
-        AlphaMode::Mask => "MASK",
-        AlphaMode::Blend => "BLEND",
-    })
-}
-
 pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
     let mut buffer = Buffer::default();
     let mut images = Vec::new();
@@ -109,20 +97,11 @@ pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
     let mut nodes = Vec::new();
     let mut pages = BTreeMap::new();
     let mut material_ids = BTreeMap::new();
-    let mut mesh_ids = BTreeMap::new();
+    let mut mesh_ids: BTreeMap<&[Draw], usize> = BTreeMap::new();
     for instance in &scene.instances {
-        if !instance.position.iter().all(|v| v.is_finite())
-            || !instance.rotation.iter().all(|v| v.is_finite())
-            || (instance.rotation.iter().map(|v| v * v).sum::<f32>() - 1.).abs() > 1e-4
-        {
-            return Err("Invalid scene instance transform".into());
-        }
-        let key: Vec<_> = instance
-            .draws
-            .iter()
-            .map(|draw| (draw.mesh, draw.quads.clone()))
-            .collect();
-        let mesh = if let Some(&mesh) = mesh_ids.get(&key) {
+        instance.validate_transform()?;
+        let key = instance.draws.as_slice();
+        let mesh = if let Some(&mesh) = mesh_ids.get(key) {
             mesh
         } else {
             let mut groups: BTreeMap<_, Vec<&Quad>> = BTreeMap::new();
@@ -133,14 +112,18 @@ pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
                     .ok_or("Invalid scene mesh index")?;
                 for &index in &draw.quads {
                     let quad = mesh.quads.get(index).ok_or("Invalid scene quad index")?;
+                    let sprite = scene
+                        .textures
+                        .get(quad.texture)
+                        .ok_or("Invalid scene texture index")?;
                     groups
                         .entry((
-                            scene
-                                .textures
-                                .get(quad.texture)
-                                .ok_or("Invalid scene texture index")?
-                                .atlas,
-                            alpha(quad, scene)?,
+                            sprite.atlas,
+                            match quad.alpha(sprite) {
+                                AlphaMode::Opaque => "OPAQUE",
+                                AlphaMode::Mask => "MASK",
+                                AlphaMode::Blend => "BLEND",
+                            },
                             quad.color,
                             quad.tint_index,
                             quad.shade,
@@ -177,17 +160,8 @@ pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
                     };
                     let mut value = json!({"name": format!("atlas-{atlas}-{alpha}"), "pbrMetallicRoughness": {"baseColorTexture": {"index": page}, "metallicFactor": 0, "roughnessFactor": 1}, "alphaMode": alpha});
                     if color != [255; 4] {
-                        let factor: [f32; 4] = std::array::from_fn(|i| {
-                            let v = f32::from(color[i]) / 255.;
-                            if i == 3 {
-                                v
-                            } else if v <= 0.04045 {
-                                v / 12.92
-                            } else {
-                                ((v + 0.055) / 1.055).powf(2.4)
-                            }
-                        });
-                        value["pbrMetallicRoughness"]["baseColorFactor"] = json!(factor);
+                        value["pbrMetallicRoughness"]["baseColorFactor"] =
+                            json!(geometry::linear_color(color));
                     }
                     if alpha == "MASK" {
                         value["alphaCutoff"] = json!(0.5);
@@ -197,10 +171,10 @@ pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
                     material_ids.insert((atlas, alpha, color), index);
                     index
                 };
-                let mut positions = Vec::new();
-                let mut normals = Vec::new();
-                let mut uvs = Vec::new();
-                let mut indices = Vec::new();
+                let mut positions = Vec::with_capacity(quads.len() * 4);
+                let mut normals = Vec::with_capacity(quads.len() * 4);
+                let mut uvs = Vec::with_capacity(quads.len() * 4);
+                let mut indices = Vec::with_capacity(quads.len() * 6);
                 for quad in &quads {
                     let sprite = &scene.textures[quad.texture];
                     let base = u32::try_from(positions.len())

@@ -1,10 +1,10 @@
-use super::geometry::{DIRECTIONS, UV_CORNERS, corners, normal};
+use super::geometry::{DIRECTIONS, UV_CORNERS, corners, normal, offset};
 use super::{Draw, GeometryAssets, Instance, Mesh, Quad, Vertex};
 use crate::{
     Result,
     model::{Block, Pos},
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 pub(super) fn is_fluid(block: &Block) -> bool {
     matches!(
@@ -36,18 +36,10 @@ fn kind(block: &Block) -> Option<&str> {
     }
 }
 
-fn offset(p: Pos, d: Pos) -> Option<Pos> {
-    Some([
-        p[0].checked_add(d[0])?,
-        p[1].checked_add(d[1])?,
-        p[2].checked_add(d[2])?,
-    ])
-}
-
 pub(super) fn append(
     assets: &GeometryAssets,
     cells: &BTreeMap<Pos, (&String, &Block)>,
-    occlusion: &BTreeMap<Pos, bool>,
+    occlusion: &HashSet<Pos>,
     meshes: &mut Vec<Mesh>,
     instances: &mut Vec<Instance>,
 ) -> Result<()> {
@@ -91,7 +83,7 @@ pub(super) fn append(
                         let w = if level == 0 || level >= 8 { 10. } else { 1. };
                         sum += height * w;
                         weight += w;
-                    } else if !occlusion.get(&p).copied().unwrap_or(false) {
+                    } else if !occlusion.contains(&p) {
                         weight += 1.;
                     }
                 }
@@ -103,9 +95,7 @@ pub(super) fn append(
             let Some(p) = offset(position, direction) else {
                 return true;
             };
-            !same(p)
-                && !(occlusion.get(&p).copied().unwrap_or(false)
-                    && (i != 1 || heights.iter().all(|&h| h == 1.)))
+            !same(p) && !(occlusion.contains(&p) && (i != 1 || heights.iter().all(|&h| h == 1.)))
         });
         if !visible.iter().any(|&v| v) {
             continue;

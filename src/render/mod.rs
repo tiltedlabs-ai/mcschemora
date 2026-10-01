@@ -8,7 +8,7 @@ pub mod parts;
 pub mod png;
 mod special;
 
-use models::{Builder, choice_hash};
+use models::Builder;
 
 use crate::{
     Result,
@@ -17,7 +17,7 @@ use crate::{
 use serde::Serialize;
 use serde_json::Value;
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashSet},
     fs,
     path::{Path, PathBuf},
 };
@@ -74,7 +74,7 @@ pub struct Mesh {
     pub occludes: bool,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Draw {
     pub mesh: usize,
     pub quads: Vec<usize>,
@@ -87,6 +87,18 @@ pub struct Instance {
     pub rotation: [f32; 4],
     pub name: String,
     pub draws: Vec<Draw>,
+}
+
+impl Instance {
+    fn validate_transform(&self) -> Result<()> {
+        if !self.position.iter().all(|v| v.is_finite())
+            || !self.rotation.iter().all(|v| v.is_finite())
+            || (self.rotation.iter().map(|v| v * v).sum::<f32>() - 1.).abs() > 1e-4
+        {
+            return Err("Invalid scene instance transform".into());
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -278,7 +290,6 @@ impl GeometryAssets {
             if fluids::is_fluid(block) {
                 continue;
             }
-            let text = block.text();
             let mut state = builder.state(block);
             let source = &document.regions[*region];
             let local = std::array::from_fn(|i| position[i] - source.origin[i]);
@@ -326,6 +337,7 @@ impl GeometryAssets {
                     attached.insert(key, state.clone());
                 }
             }
+            let text = &state.name;
             if state.parts.iter().flatten().any(|(mesh, _)| {
                 builder.meshes[*mesh]
                     .quads
@@ -348,30 +360,7 @@ impl GeometryAssets {
                     message: message.clone(),
                 });
             }
-            let mut draws: Vec<Draw> = state
-                .parts
-                .iter()
-                .enumerate()
-                .map(|(part, choices)| {
-                    let total: u64 = choices.iter().map(|(_, weight)| u64::from(*weight)).sum();
-                    let mut pick = choice_hash(*position, &text, part) % total;
-                    let mesh = choices
-                        .iter()
-                        .find_map(|(mesh, weight)| {
-                            if pick < u64::from(*weight) {
-                                Some(*mesh)
-                            } else {
-                                pick -= u64::from(*weight);
-                                None
-                            }
-                        })
-                        .unwrap();
-                    Draw {
-                        mesh,
-                        quads: (0..builder.meshes[mesh].quads.len()).collect(),
-                    }
-                })
-                .collect();
+            let mut draws = state.draws(*position, &builder.meshes);
             if matches!(
                 block.name.as_str(),
                 "minecraft:spawner" | "minecraft:trial_spawner"
@@ -393,17 +382,15 @@ impl GeometryAssets {
                 draws,
             });
         }
-        let occlusion: BTreeMap<Pos, bool> = instances
+        let occlusion: HashSet<Pos> = instances
             .iter()
-            .map(|instance| {
-                (
-                    instance.position.map(|v| v as i32),
-                    instance
-                        .draws
-                        .iter()
-                        .any(|draw| builder.meshes[draw.mesh].occludes),
-                )
+            .filter(|instance| {
+                instance
+                    .draws
+                    .iter()
+                    .any(|draw| builder.meshes[draw.mesh].occludes)
             })
+            .map(|instance| instance.position.map(|v| v as i32))
             .collect();
         fluids::append(
             self,
@@ -419,15 +406,8 @@ impl GeometryAssets {
                     let Some(direction) = quad.cull_face else {
                         return true;
                     };
-                    let mut neighbor = [0; 3];
-                    for i in 0..3 {
-                        let Some(n) = (instance.position[i] as i32).checked_add(direction[i])
-                        else {
-                            return true;
-                        };
-                        neighbor[i] = n;
-                    }
-                    !occlusion.get(&neighbor).copied().unwrap_or(false)
+                    !geometry::offset(instance.position.map(|v| v as i32), direction)
+                        .is_some_and(|neighbor| occlusion.contains(&neighbor))
                 });
             }
             instance.draws.retain(|draw| !draw.quads.is_empty());

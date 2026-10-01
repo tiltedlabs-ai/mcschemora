@@ -1,5 +1,5 @@
 use super::geometry::{DIRECTIONS, UV_CORNERS, corners, normal, rotate};
-use super::{AlphaMode, GeometryAssets, Mesh, Quad, Vertex};
+use super::{AlphaMode, Draw, GeometryAssets, Mesh, Quad, Vertex};
 use crate::{
     Result,
     model::{Block, Pos},
@@ -66,9 +66,43 @@ struct Face {
 
 #[derive(Clone)]
 pub(super) struct StateGeometry {
+    pub(super) name: String,
     pub(super) parts: Vec<Vec<(usize, u32)>>,
     pub(super) messages: Vec<String>,
 }
+
+impl StateGeometry {
+    pub(super) fn draws(&self, position: Pos, meshes: &[Mesh]) -> Vec<Draw> {
+        self.parts
+            .iter()
+            .enumerate()
+            .map(|(part, choices)| {
+                let mesh = if let [(mesh, _)] = choices.as_slice() {
+                    *mesh
+                } else {
+                    let total: u64 = choices.iter().map(|(_, weight)| u64::from(*weight)).sum();
+                    let mut pick = choice_hash(position, &self.name, part) % total;
+                    choices
+                        .iter()
+                        .find_map(|(mesh, weight)| {
+                            if pick < u64::from(*weight) {
+                                Some(*mesh)
+                            } else {
+                                pick -= u64::from(*weight);
+                                None
+                            }
+                        })
+                        .unwrap()
+                };
+                Draw {
+                    mesh,
+                    quads: (0..meshes[mesh].quads.len()).collect(),
+                }
+            })
+            .collect()
+    }
+}
+
 pub(super) struct Builder<'a> {
     pub(super) assets: &'a GeometryAssets,
     pub(super) meshes: Vec<Mesh>,
@@ -133,11 +167,8 @@ impl Builder<'_> {
         if let Some(state) = self.states.get(block) {
             return state.clone();
         }
-        let state = match self.compile_state(block) {
-            Ok(parts) => StateGeometry {
-                parts,
-                messages: Vec::new(),
-            },
+        let (parts, messages) = match self.compile_state(block) {
+            Ok(parts) => (parts, Vec::new()),
             Err(message) => {
                 let key = ("__placeholder__".into(), 0, 0, false);
                 let mesh = if let Some(&mesh) = self.applications.get(&key) {
@@ -171,13 +202,17 @@ impl Builder<'_> {
                     self.applications.insert(key, mesh);
                     mesh
                 };
-                StateGeometry {
-                    parts: vec![vec![(mesh, 1)]],
-                    messages: vec![format!("{message}; showing missing-geometry placeholder")],
-                }
+                (
+                    vec![vec![(mesh, 1)]],
+                    vec![format!("{message}; showing missing-geometry placeholder")],
+                )
             }
         };
-        let state = Arc::new(state);
+        let state = Arc::new(StateGeometry {
+            name: block.text(),
+            parts,
+            messages,
+        });
         self.states.insert(block.clone(), state.clone());
         state
     }
@@ -448,7 +483,7 @@ fn boundary_face(positions: [[f32; 3]; 4], direction: Pos) -> bool {
         .all(|p| (p[axis] - plane).abs() < 1e-5 && p.iter().all(|v| *v >= -1e-5 && *v <= 1.00001))
 }
 
-pub(super) fn choice_hash(position: Pos, block: &str, part: usize) -> u64 {
+fn choice_hash(position: Pos, block: &str, part: usize) -> u64 {
     let mut hash = 0xcbf29ce484222325u64;
     for byte in position
         .iter()

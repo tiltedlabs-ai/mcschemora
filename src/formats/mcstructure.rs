@@ -91,7 +91,7 @@ pub(super) fn read_bedrock(root: &Compound, doc: &mut Document) -> Result<()> {
             present.insert(p);
         }
         if b != &Block::air() {
-            r.blocks.insert(p, b.clone());
+            r.blocks.set(p, b);
         }
     }
     let mut position_data = BTreeMap::new();

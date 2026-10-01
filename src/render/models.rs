@@ -6,7 +6,7 @@ use crate::{
 };
 use serde::Deserialize;
 use serde_json::Value;
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 #[derive(Clone, Debug, Deserialize)]
 struct Application {
@@ -73,7 +73,7 @@ pub(super) struct Builder<'a> {
     pub(super) assets: &'a GeometryAssets,
     pub(super) meshes: Vec<Mesh>,
     pub(super) applications: BTreeMap<(String, i32, i32, bool), usize>,
-    pub(super) states: BTreeMap<Block, StateGeometry>,
+    pub(super) states: BTreeMap<Block, Arc<StateGeometry>>,
 }
 
 fn property_matches(actual: Option<&String>, expected: &str) -> bool {
@@ -129,7 +129,7 @@ fn applications(value: &Value) -> Result<Vec<Application>> {
 }
 
 impl Builder<'_> {
-    pub(super) fn state(&mut self, block: &Block) -> StateGeometry {
+    pub(super) fn state(&mut self, block: &Block) -> Arc<StateGeometry> {
         if let Some(state) = self.states.get(block) {
             return state.clone();
         }
@@ -177,6 +177,7 @@ impl Builder<'_> {
                 }
             }
         };
+        let state = Arc::new(state);
         self.states.insert(block.clone(), state.clone());
         state
     }

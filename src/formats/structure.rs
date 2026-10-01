@@ -36,7 +36,7 @@ pub(super) fn read_structure(root: &Compound, doc: &mut Document) -> Result<()> 
             return Err("Duplicate structure block coordinate".into());
         }
         if b != Block::air() {
-            r.blocks.insert(p, b);
+            r.blocks.set(p, &b);
         }
         if let Some(data) = c.get("nbt") {
             r.block_entities.insert(p, compound(data)?.clone());

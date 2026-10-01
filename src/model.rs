@@ -1,3 +1,6 @@
+mod block_storage;
+pub use block_storage::BlockStorage;
+
 use crate::{Result, registry};
 use fastnbt::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -173,7 +176,7 @@ pub struct BedrockData {
 pub struct Region {
     pub origin: Pos,
     pub bounds: Bounds,
-    pub blocks: BTreeMap<Pos, Block>,
+    pub blocks: BlockStorage,
     pub block_entities: BTreeMap<Pos, Compound>,
     pub entities: Vec<Entity>,
     pub retained: RetainedData,
@@ -207,9 +210,9 @@ impl Region {
         }
         Ok(())
     }
-    pub fn write(
+    pub fn write<B: std::borrow::Borrow<Block>>(
         &mut self,
-        edits: Vec<(Pos, Block, Option<Compound>)>,
+        edits: Vec<(Pos, B, Option<Compound>)>,
         grow: Option<Bounds>,
     ) -> Result<()> {
         let bounds = match grow {
@@ -218,17 +221,18 @@ impl Region {
         };
         self.check_bounds(bounds)?;
         for (p, b, nbt) in edits {
+            let b = b.borrow();
             if let Some(present) = &mut self.present {
                 present.insert(p);
             }
-            if self.get(p).name != b.name {
+            if self.blocks.get(&p).is_none_or(|old| old.name != b.name) {
                 self.block_entities.remove(&p);
             }
-            if b == Block::air() {
+            if b.name == "minecraft:air" && b.properties.is_empty() {
                 self.blocks.remove(&p);
                 self.block_entities.remove(&p);
             } else {
-                self.blocks.insert(p, b);
+                self.blocks.set(p, b);
             }
             if let Some(data) = nbt {
                 self.block_entities.insert(p, data);
@@ -363,13 +367,14 @@ impl Selection {
                 "Copying retained biome, tick, or Bedrock layer data is not implemented".into(),
             );
         }
+        let air = std::sync::Arc::new(Block::air());
         let edits = self
             .positions()
             .into_iter()
             .map(|p| {
                 (
                     std::array::from_fn(|i| p[i] - self.bounds.start[i]),
-                    r.get(p),
+                    r.blocks.shared(&p).unwrap_or_else(|| air.clone()),
                     r.block_entities.get(&p).cloned(),
                 )
             })
@@ -400,7 +405,7 @@ pub struct Fragment {
     pub edition: String,
     pub version: String,
     pub size: Pos,
-    pub edits: Vec<(Pos, Block, Option<Compound>)>,
+    pub edits: Vec<(Pos, std::sync::Arc<Block>, Option<Compound>)>,
     pub entities: Vec<Entity>,
 }
 pub fn direction(s: &str) -> Result<Pos> {

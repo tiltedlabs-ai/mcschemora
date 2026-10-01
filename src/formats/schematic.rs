@@ -45,7 +45,7 @@ pub(super) fn read_legacy(root: &Compound, doc: &mut Document) -> Result<()> {
         let raw = Block::parse(state)?;
         let b = catalog.resolve(&raw).unwrap_or(raw);
         if b != Block::air() {
-            r.blocks.insert(p, b);
+            r.blocks.set(p, &b);
         }
     }
     read_block_entities(root, "TileEntities", &mut r, false)?;

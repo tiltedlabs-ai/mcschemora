@@ -73,7 +73,7 @@ pub(super) fn read_schem(root: &Compound, doc: &mut Document) -> Result<()> {
             .ok_or_else(|| format!("Missing palette index {n}"))?
             .clone();
         if b != Block::air() {
-            r.blocks.insert(p, b);
+            r.blocks.set(p, &b);
         }
     }
     if at != raw.len() {

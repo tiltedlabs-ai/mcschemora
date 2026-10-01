@@ -224,7 +224,7 @@ impl GeometryAssets {
             {
                 continue;
             }
-            for (local, block) in &region.blocks {
+            for (local, block) in region.blocks.iter() {
                 if block.is_air() {
                     continue;
                 }
@@ -264,8 +264,10 @@ impl GeometryAssets {
         };
         let mut instances = Vec::new();
         let mut tinted = BTreeSet::new();
-        let mut attached: BTreeMap<(crate::model::Block, String), models::StateGeometry> =
-            BTreeMap::new();
+        let mut attached: BTreeMap<
+            (crate::model::Block, String),
+            std::sync::Arc<models::StateGeometry>,
+        > = BTreeMap::new();
         for (position, (region, block)) in &cells {
             if matches!(
                 block.name.as_str(),
@@ -294,14 +296,15 @@ impl GeometryAssets {
                 if let Some(cached) = attached.get(&key) {
                     state = cached.clone();
                 } else {
+                    let modified = std::sync::Arc::make_mut(&mut state);
                     if let Some(data) = data {
-                        for choices in &mut state.parts {
+                        for choices in &mut modified.parts {
                             for (mesh, _) in choices {
                                 let mut geometry = builder.meshes[*mesh].clone();
                                 if let Err(message) =
                                     attachments::decorate(self, block, data, &mut geometry)
                                 {
-                                    state.messages.push(message);
+                                    modified.messages.push(message);
                                 }
                                 *mesh = builder.meshes.len();
                                 builder.meshes.push(geometry);
@@ -311,13 +314,13 @@ impl GeometryAssets {
                     match attachments::contents(&mut builder, block, data, document.registry()?) {
                         Ok(mesh) if !mesh.quads.is_empty() => {
                             if block.name == "minecraft:moving_piston" {
-                                state.parts.clear();
+                                modified.parts.clear();
                             }
                             let index = builder.meshes.len();
                             builder.meshes.push(mesh);
-                            state.parts.push(vec![(index, 1)]);
+                            modified.parts.push(vec![(index, 1)]);
                         }
-                        Err(message) => state.messages.push(message),
+                        Err(message) => modified.messages.push(message),
                         _ => (),
                     }
                     attached.insert(key, state.clone());

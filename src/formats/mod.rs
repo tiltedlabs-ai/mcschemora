@@ -167,7 +167,7 @@ fn prepare<'a>(
         }
         let blocks: BTreeSet<_> = r
             .blocks
-            .values()
+            .states()
             .chain(std::iter::once(&Block::air()))
             .cloned()
             .collect();
@@ -237,8 +237,8 @@ fn single(doc: &Document, flatten: bool) -> Result<Cow<'_, Region>> {
     }
     for source in doc.regions.values() {
         let t = Transform::move_by(source.origin);
-        for (p, b) in &source.blocks {
-            r.blocks.insert(t.cell(*p)?, b.clone());
+        for (p, b) in source.blocks.iter() {
+            r.blocks.set(t.cell(*p)?, b);
         }
         for (p, data) in &source.block_entities {
             r.block_entities.insert(t.cell(*p)?, data.clone());

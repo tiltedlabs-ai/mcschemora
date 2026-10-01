@@ -651,7 +651,7 @@ fn build_scene<'a>(
     let mut palette = StatePalette::default();
     let mut state_ids = Vec::with_capacity(count);
     for (region_name, region) in &doc.regions {
-        for (&local, raw) in &region.blocks {
+        for (&local, raw) in region.blocks.iter() {
             let state = palette.get_or_insert(raw, || {
                 let resolved = registry.resolve(raw);
                 let valid = resolved.is_ok();

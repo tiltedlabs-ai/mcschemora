@@ -24,7 +24,7 @@ impl Document {
         blocks: impl IntoIterator<Item = (Pos, Block)>,
     ) -> Result<()> {
         let catalog = self.registry()?;
-        let mut resolved: BTreeMap<Block, Block> = BTreeMap::new();
+        let mut resolved: BTreeMap<Block, std::sync::Arc<Block>> = BTreeMap::new();
         let edits = blocks
             .into_iter()
             .map(|(p, b)| {
@@ -34,7 +34,7 @@ impl Document {
                         let block = catalog
                             .resolve(entry.key())
                             .map_err(|e| format!("{name} {p:?}: {e}"))?;
-                        entry.insert(block).clone()
+                        entry.insert(std::sync::Arc::new(block)).clone()
                     }
                 };
                 Ok((p, block, None))
@@ -166,27 +166,14 @@ impl Region {
             if air {
                 self.blocks.clear();
             } else {
-                // Collect sorted keys in bulk instead of doing one tree search and insertion per block.
-                self.blocks = fill_positions(selection)
-                    .map(|p| (p, block.clone()))
-                    .collect();
+                self.blocks.fill(fill_positions(selection), block, true);
             }
         } else if air {
             for p in fill_positions(selection) {
                 self.blocks.remove(&p);
             }
         } else {
-            for p in fill_positions(selection) {
-                match self.blocks.entry(p) {
-                    Entry::Vacant(entry) => {
-                        entry.insert(block.clone());
-                    }
-                    Entry::Occupied(mut entry) if entry.get() != block => {
-                        entry.insert(block.clone());
-                    }
-                    Entry::Occupied(_) => (),
-                }
-            }
+            self.blocks.fill(fill_positions(selection), block, false);
         }
         self.bounds = bounds;
         Ok(())

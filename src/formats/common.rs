@@ -35,7 +35,7 @@ pub(super) fn tag_block(v: &V) -> Result<Block> {
 pub(super) fn palette(r: &Region) -> (Vec<Block>, BTreeMap<Block, usize>) {
     let mut blocks = vec![Block::air()];
     let mut ids = BTreeMap::from([(Block::air(), 0)]);
-    for b in r.blocks.values() {
+    for b in r.blocks.states() {
         if !ids.contains_key(b) {
             let n = blocks.len();
             ids.insert(b.clone(), n);

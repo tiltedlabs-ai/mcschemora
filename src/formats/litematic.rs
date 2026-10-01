@@ -65,7 +65,7 @@ pub(super) fn read_litematic(root: &Compound, doc: &mut Document) -> Result<()> 
                 .ok_or("Invalid Litematica palette index")?
                 .clone();
             if b != Block::air() {
-                r.blocks.insert(p, b);
+                r.blocks.set(p, &b);
             }
         }
         read_block_entities(c, "TileEntities", &mut r, false)?;

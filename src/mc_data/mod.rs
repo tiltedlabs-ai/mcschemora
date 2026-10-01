@@ -2,8 +2,6 @@ mod visual_atlas;
 mod visual_models;
 mod visuals;
 
-pub(crate) const VISUAL_FORMAT: u32 = 2;
-
 use crate::Result;
 use fs2::FileExt;
 use serde_json::Value;

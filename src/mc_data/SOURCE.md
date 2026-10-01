@@ -13,15 +13,14 @@ Visuals use [PrismarineJS/minecraft-assets](https://github.com/PrismarineJS/mine
 at commit `67c9b138b00a6b67c29ba68dae74c41faef4889d`. 
 
 Relevant inputs are `blocks_states.json`, `blocks_models.json`, all block PNGs
-and their metadata, colormap PNGs and metadata, and item marker textures
-(`barrier`, `structure_void`, and `light_00` through `light_15`). 
+and their metadata, entity and item textures, colormaps, and `font/ascii.png`.
 
-## Prepared format 1
+## Prepared format 3
 
-- `blockstates.json`: map from canonical block IDs to variants and multipart
-  conditions. Model references are canonical IDs. Rotations, weights, and UV
+- `blockstates.json`: map from block IDs to variants and multipart
+  conditions. Model references are IDs. Rotations, weights, and UV
   locking remain unchanged.
-- `models.json`: map from canonical model IDs to flattened inherited models.
+- `models.json`: map from model IDs to flattened inherited models.
   Child texture and display bindings override parent bindings. Faces reference
   final sprite IDs and carry explicit UVs. Texture objects and face
   `texture_flags` preserve additional source fields such as `force_translucent`.

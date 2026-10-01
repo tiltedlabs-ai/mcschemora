@@ -1,4 +1,4 @@
-use super::{Cache, JSON_LIMIT, VISUAL_FORMAT, safe_path, visual_atlas, visual_models};
+use super::{Cache, JSON_LIMIT, safe_path, visual_atlas, visual_models};
 use crate::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -55,15 +55,8 @@ fn selected(path: &str) -> bool {
             || path.starts_with("entity/")
             || path.starts_with("colormap/"))
             && (path.ends_with(".png") || path.ends_with(".png.mcmeta")))
-        || path.strip_prefix("items/").is_some_and(|p| {
-            let name = p.trim_end_matches(".mcmeta").trim_end_matches(".png");
-            (p.ends_with(".png") || p.ends_with(".png.mcmeta"))
-                && (name == "barrier"
-                    || name == "structure_void"
-                    || name
-                        .strip_prefix("light_")
-                        .is_some_and(|n| n.len() == 2 && n.parse::<u8>().is_ok_and(|n| n <= 15)))
-        })
+        || ((path.starts_with("items/") || path == "font/ascii.png")
+            && (path.ends_with(".png") || path.ends_with(".png.mcmeta")))
 }
 
 fn blob_hash(bytes: &[u8]) -> String {
@@ -80,10 +73,9 @@ fn complete(path: &Path) -> bool {
     let Ok(manifest) = serde_json::from_slice::<Value>(&bytes) else {
         return false;
     };
-    manifest["preparation_format"] == VISUAL_FORMAT
-        && ["models.json", "blockstates.json", "textures.json"]
-            .iter()
-            .all(|file| path.join(file).is_file())
+    ["models.json", "blockstates.json", "textures.json"]
+        .iter()
+        .all(|file| path.join(file).is_file())
         && manifest["atlases"].as_array().is_some_and(|atlases| {
             !atlases.is_empty()
                 && atlases.iter().all(|atlas| {
@@ -103,11 +95,10 @@ impl Cache {
             .root
             .join("minecraft-assets")
             .join("prepared")
-            .join(format!("v{VISUAL_FORMAT}"))
             .join(bundle))
     }
     fn visual_index(&self, base: &Path) -> Result<Index> {
-        let path = base.join(format!("index-v{VISUAL_FORMAT}.json"));
+        let path = base.join("index.json");
         if path.is_file() {
             return serde_json::from_value(self.json(&path)?).map_err(|e| e.to_string());
         }
@@ -229,7 +220,6 @@ impl Cache {
         let base = self.root.join("minecraft-assets").join(REVISION);
         let record_path = base.join("resolutions").join(format!("{version}.json"));
         if let Ok(record) = self.json(&record_path)
-            && record["preparation_format"] == VISUAL_FORMAT
             && let Some(bundle) = record["bundle"].as_str()
         {
             let prepared = self.prepared_visual_path(bundle)?;
@@ -339,7 +329,7 @@ impl Cache {
                 &self.json(&temp.path().join("textures.json"))?,
             )?;
             let manifest = json!({
-                "preparation_format": VISUAL_FORMAT, "bundle": source.bundle,
+                "bundle": source.bundle,
                 "source": {"repository": "https://github.com/PrismarineJS/minecraft-assets", "revision": REVISION, "versions": versions},
                 "files": source.files, "atlases": atlas, "unresolved_texture_variables": unresolved,
                 "limitations": ["Entity textures are included; entity geometry is not supplied by this bundle.", "Fluids and entity-rendered blocks require specialized geometry.", "Tint indices and colormaps are retained; biome tint colors are not evaluated.", "Animations use their first declared frame; interpolation is not rendered.", "Unbound variables in abstract model templates remain symbolic."]
@@ -353,7 +343,7 @@ impl Cache {
         fs::create_dir_all(record_path.parent().unwrap()).map_err(|e| e.to_string())?;
         write_json(
             &record_path,
-            &json!({"requested_version": version, "resolved_version": resolved, "match": if version == resolved { if versions.len() > 1 { "known_identical" } else { "exact" } } else { "approximate" }, "equivalent_versions": versions, "bundle": source.bundle, "preparation_format": VISUAL_FORMAT, "source_revision": REVISION}),
+            &json!({"requested_version": version, "resolved_version": resolved, "match": if version == resolved { if versions.len() > 1 { "known_identical" } else { "exact" } } else { "approximate" }, "equivalent_versions": versions, "bundle": source.bundle, "source_revision": REVISION}),
         )?;
         Ok(prepared)
     }

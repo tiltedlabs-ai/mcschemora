@@ -82,6 +82,19 @@ print(prepared / "atlas-0.png")
 
 
 
+## Rendering
+
+```python
+scene.export_glb("build.glb")
+scene.export_png("build.png")
+scene.export_png("layer.png", camera="top_down", grid=True, y=10)
+```
+
+Special block model data comes from [block-model-renderer](data/block-models/SOURCE.md). Update with
+```
+python scripts/import_special_models.py
+```
+
 ## Interface
 
 | Object | Operations |
@@ -230,7 +243,6 @@ restored = Schematic.from_bytes(data, format="schem")
   65,536 cells per text layer inspection.
 - Storage is a sparse map. Bulk operations run in Rust, but very large builds
   need future profiling and storage improvements.
-- Renderer, live server connection, undo history, and WASM bindings are outside
   this version. Runtime download/cache support currently targets native platforms.
 
 ## Development

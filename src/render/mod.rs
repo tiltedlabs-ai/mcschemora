@@ -1,4 +1,4 @@
-mod chests;
+mod attachments;
 mod entities;
 mod fluids;
 mod geometry;
@@ -6,6 +6,7 @@ pub mod glb;
 mod models;
 pub mod parts;
 pub mod png;
+mod special;
 
 use models::{Builder, choice_hash};
 
@@ -130,9 +131,6 @@ fn read(path: &Path) -> Result<Value> {
 impl GeometryAssets {
     pub fn load(path: &Path) -> Result<Self> {
         let manifest = read(&path.join("manifest.json"))?;
-        if manifest["preparation_format"] != crate::mc_data::VISUAL_FORMAT {
-            return Err("Unsupported prepared visual format".into());
-        }
         let mut atlases = Vec::new();
         let mut images = Vec::new();
         for atlas in manifest["atlases"]
@@ -265,6 +263,8 @@ impl GeometryAssets {
         };
         let mut instances = Vec::new();
         let mut tinted = BTreeSet::new();
+        let mut attached: BTreeMap<(crate::model::Block, String), models::StateGeometry> =
+            BTreeMap::new();
         for (position, (region, block)) in &cells {
             if matches!(
                 block.name.as_str(),
@@ -276,7 +276,52 @@ impl GeometryAssets {
                 continue;
             }
             let text = block.text();
-            let state = builder.state(block);
+            let mut state = builder.state(block);
+            let source = &document.regions[*region];
+            let local = std::array::from_fn(|i| position[i] - source.origin[i]);
+            let data = source.block_entities.get(&local);
+            if (data.is_some() && attachments::supported(block))
+                || block.name == "minecraft:spawner"
+            {
+                let key = (
+                    (*block).clone(),
+                    data.map(fastsnbt::to_string)
+                        .transpose()
+                        .map_err(|e| e.to_string())?
+                        .unwrap_or_default(),
+                );
+                if let Some(cached) = attached.get(&key) {
+                    state = cached.clone();
+                } else {
+                    if let Some(data) = data {
+                        for choices in &mut state.parts {
+                            for (mesh, _) in choices {
+                                let mut geometry = builder.meshes[*mesh].clone();
+                                if let Err(message) =
+                                    attachments::decorate(self, block, data, &mut geometry)
+                                {
+                                    state.messages.push(message);
+                                }
+                                *mesh = builder.meshes.len();
+                                builder.meshes.push(geometry);
+                            }
+                        }
+                    }
+                    match attachments::contents(&mut builder, block, data, document.registry()?) {
+                        Ok(mesh) if !mesh.quads.is_empty() => {
+                            if block.name == "minecraft:moving_piston" {
+                                state.parts.clear();
+                            }
+                            let index = builder.meshes.len();
+                            builder.meshes.push(mesh);
+                            state.parts.push(vec![(index, 1)]);
+                        }
+                        Err(message) => state.messages.push(message),
+                        _ => (),
+                    }
+                    attached.insert(key, state.clone());
+                }
+            }
             if state.parts.iter().flatten().any(|(mesh, _)| {
                 builder.meshes[*mesh]
                     .quads
@@ -299,7 +344,7 @@ impl GeometryAssets {
                     message: message.clone(),
                 });
             }
-            let draws = state
+            let mut draws: Vec<Draw> = state
                 .parts
                 .iter()
                 .enumerate()
@@ -323,6 +368,19 @@ impl GeometryAssets {
                     }
                 })
                 .collect();
+            if matches!(
+                block.name.as_str(),
+                "minecraft:spawner" | "minecraft:trial_spawner"
+            ) && draws.len() > 1
+            {
+                instances.push(Instance {
+                    is_entity: true,
+                    position: position.map(f64::from),
+                    rotation: [0., 0., 0., 1.],
+                    name: format!("{text} display"),
+                    draws: vec![draws.pop().unwrap()],
+                });
+            }
             instances.push(Instance {
                 is_entity: false,
                 position: position.map(f64::from),

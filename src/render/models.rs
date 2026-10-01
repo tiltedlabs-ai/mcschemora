@@ -84,7 +84,7 @@ fn property_matches(actual: Option<&String>, expected: &str) -> bool {
     if invert { !matches } else { matches }
 }
 
-fn condition(value: &Value, block: &Block) -> Result<bool> {
+pub(super) fn condition(value: &Value, block: &Block) -> Result<bool> {
     let fields = value.as_object().ok_or("Invalid multipart condition")?;
     let mut matches = true;
     for (key, value) in fields {
@@ -182,11 +182,15 @@ impl Builder<'_> {
     }
 
     fn compile_state(&mut self, block: &Block) -> Result<Vec<Vec<(usize, u32)>>> {
-        if matches!(
-            block.name.as_str(),
-            "minecraft:chest" | "minecraft:trapped_chest" | "minecraft:ender_chest"
-        ) {
-            let geometry = super::chests::bake(self.assets, block)?;
+        if block.name == "minecraft:moving_piston" {
+            let mut head = block.clone();
+            head.name = "minecraft:piston_head".into();
+            head.properties.insert("short".into(), "false".into());
+            return self.compile_state(&head);
+        }
+
+        if super::special::contains(block) && !super::special::overlay(block) {
+            let geometry = super::special::bake(self.assets, block)?;
             let mesh = self.meshes.len();
             self.meshes.push(geometry);
             return Ok(vec![vec![(mesh, 1)]]);
@@ -232,10 +236,8 @@ impl Builder<'_> {
                 }
             }
         }
-        if parts.is_empty() {
-            return Err("Blockstate has no matching geometry".into());
-        }
-        parts
+
+        let mut result: Vec<Vec<(usize, u32)>> = parts
             .into_iter()
             .map(|part| {
                 part.into_iter()
@@ -245,7 +247,14 @@ impl Builder<'_> {
                     })
                     .collect()
             })
-            .collect()
+            .collect::<Result<_>>()?;
+        if super::special::overlay(block) {
+            let geometry = super::special::bake(self.assets, block)?;
+            let mesh = self.meshes.len();
+            self.meshes.push(geometry);
+            result.push(vec![(mesh, 1)]);
+        }
+        Ok(result)
     }
 
     fn mesh(&mut self, application: &Application) -> Result<usize> {
@@ -326,7 +335,15 @@ impl Builder<'_> {
                 let cull_face = face
                     .cullface
                     .as_ref()
-                    .map(|direction| crate::model::direction(direction))
+                    .map(|direction| {
+                        crate::model::direction(if direction == "bottom" {
+                            "down"
+                        } else if direction == "top" {
+                            "up"
+                        } else {
+                            direction
+                        })
+                    })
                     .transpose()?
                     .map(|direction| {
                         rotate_state(direction.map(|v| v as f32 + 0.5), application)
@@ -348,12 +365,6 @@ impl Builder<'_> {
                 });
             }
             occludes |= full_cube && opaque_faces == 6;
-        }
-        if quads.is_empty() {
-            return Err(format!(
-                "Model {} needs specialized geometry",
-                application.model
-            ));
         }
         let mesh = self.meshes.len();
         self.meshes.push(Mesh { quads, occludes });

@@ -3,8 +3,8 @@ name = "schemora"
 version = "0.1.0"
 edition = "2024"
 description = "Minecraft schematic authoring and conversion"
-license = "MIT"
-include = ["/data/entity-models/**", "/src/**/*.rs", "/src/mc_data/SOURCE.md", "/Cargo.toml", "/README.md", "/LICENSE"]
+license = "MIT AND MPL-2.0"
+include = ["/data/entity-models/**", "/data/block-models/**", "/src/**/*.rs", "/src/mc_data/SOURCE.md", "/Cargo.toml", "/README.md", "/LICENSE"]
 
 [lib]
 name = "schemora"

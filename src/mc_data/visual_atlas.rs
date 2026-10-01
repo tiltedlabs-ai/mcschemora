@@ -119,6 +119,7 @@ pub(super) fn prepare(cache: &Cache, inputs: &[Input], output: &Path) -> Result<
             "items" => "item",
             "colormap" => "colormap",
             "entity" => "entity",
+            "font" => "font",
             _ => return Err("Unsupported texture directory".into()),
         };
         images.push((

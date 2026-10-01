@@ -36,6 +36,7 @@ struct Vertex {
 }
 
 struct Face {
+    depth: f64,
     grid: bool,
     vertices: [Vertex; 4],
     texture: usize,
@@ -342,6 +343,7 @@ pub fn encode(scene: &PreparedScene, options: &Options) -> Result<Vec<u8>> {
                     1.
                 };
                 faces.push(Face {
+                    depth: vertices.iter().map(|v| v.position[2]).sum(),
                     grid: !instance.is_entity,
                     vertices,
                     texture: quad.texture,
@@ -393,17 +395,9 @@ pub fn encode(scene: &PreparedScene, options: &Options) -> Result<Vec<u8>> {
         let blended = |face: &Face| face.alpha == AlphaMode::Blend;
         blended(a).cmp(&blended(b)).then_with(|| {
             if blended(a) {
-                a.vertices
-                    .iter()
-                    .map(|v| v.position[2])
-                    .sum::<f64>()
-                    .total_cmp(&b.vertices.iter().map(|v| v.position[2]).sum::<f64>())
+                a.depth.total_cmp(&b.depth)
             } else {
-                b.vertices
-                    .iter()
-                    .map(|v| v.position[2])
-                    .sum::<f64>()
-                    .total_cmp(&a.vertices.iter().map(|v| v.position[2]).sum::<f64>())
+                b.depth.total_cmp(&a.depth)
             }
         })
     });
@@ -419,15 +413,37 @@ pub fn encode(scene: &PreparedScene, options: &Options) -> Result<Vec<u8>> {
             f64::from(options.size[i]) * 0.5 - (min[i] + max[i]) * 0.5 * scale
         }),
     });
+    let mut bands = vec![Vec::new(); options.size[1].div_ceil(band_height) as usize];
+    for face in &faces {
+        let min_y = face
+            .vertices
+            .iter()
+            .map(|v| v.position[1])
+            .fold(f64::INFINITY, f64::min);
+        let max_y = face
+            .vertices
+            .iter()
+            .map(|v| v.position[1])
+            .fold(f64::NEG_INFINITY, f64::max);
+        if max_y < 0. || min_y >= f64::from(options.size[1]) {
+            continue;
+        }
+        let first = (min_y.max(0.) as u32 / band_height) as usize;
+        let last = (max_y.max(0.) as u32 / band_height).min(bands.len() as u32 - 1) as usize;
+        for band in &mut bands[first..=last] {
+            band.push(face);
+        }
+    }
     let pixels = std::thread::scope(|scope| {
-        let jobs: Vec<_> = (0..options.size[1])
-            .step_by(band_height as usize)
-            .map(|start_y| {
-                let faces = &faces;
+        let jobs: Vec<_> = bands
+            .into_iter()
+            .enumerate()
+            .map(|(index, faces)| {
+                let start_y = index as u32 * band_height;
                 scope.spawn(move || {
                     render_band(
                         scene,
-                        faces,
+                        &faces,
                         [options.size[0], band_height.min(options.size[1] - start_y)],
                         start_y,
                         grid,
@@ -456,7 +472,7 @@ pub fn encode(scene: &PreparedScene, options: &Options) -> Result<Vec<u8>> {
 
 fn render_band(
     scene: &PreparedScene,
-    faces: &[Face],
+    faces: &[&Face],
     size: [u32; 2],
     start_y: u32,
     grid: Option<grid::Grid>,
@@ -473,19 +489,6 @@ fn render_band(
         colors: std::array::from_fn(|i| linear(i as f32 / 255.)),
     };
     for face in faces {
-        let min_y = face
-            .vertices
-            .iter()
-            .map(|v| v.position[1])
-            .fold(f64::INFINITY, f64::min);
-        let max_y = face
-            .vertices
-            .iter()
-            .map(|v| v.position[1])
-            .fold(f64::NEG_INFINITY, f64::max);
-        if max_y < f64::from(start_y) || min_y >= f64::from(start_y + size[1]) {
-            continue;
-        }
         let texture = &scene.textures[face.texture];
         let atlas = &scene.atlas_images[texture.atlas];
         for indices in [[0, 1, 2], [0, 2, 3]] {

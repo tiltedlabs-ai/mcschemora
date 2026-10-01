@@ -114,6 +114,7 @@ pub struct SceneOptions {
     pub y: Option<[i32; 2]>,
 }
 
+#[derive(Debug)]
 pub struct GeometryAssets {
     atlases: Vec<PathBuf>,
     atlas_images: std::sync::Arc<Vec<image::RgbaImage>>,

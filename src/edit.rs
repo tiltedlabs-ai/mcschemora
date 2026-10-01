@@ -24,13 +24,20 @@ impl Document {
         blocks: impl IntoIterator<Item = (Pos, Block)>,
     ) -> Result<()> {
         let catalog = self.registry()?;
+        let mut resolved: BTreeMap<Block, Block> = BTreeMap::new();
         let edits = blocks
             .into_iter()
             .map(|(p, b)| {
-                catalog
-                    .resolve(&b)
-                    .map(|b| (p, b, None))
-                    .map_err(|e| format!("{name} {p:?}: {e}"))
+                let block = match resolved.entry(b) {
+                    Entry::Occupied(entry) => entry.get().clone(),
+                    Entry::Vacant(entry) => {
+                        let block = catalog
+                            .resolve(entry.key())
+                            .map_err(|e| format!("{name} {p:?}: {e}"))?;
+                        entry.insert(block).clone()
+                    }
+                };
+                Ok((p, block, None))
             })
             .collect::<Result<_>>()?;
         self.region_mut(name)?.write(edits, None)

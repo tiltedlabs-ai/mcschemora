@@ -17,6 +17,7 @@ pub struct MinecraftData {
     metadata: OnceLock<Metadata>,
     legacy: OnceLock<BTreeMap<String, String>>,
     catalogs: Mutex<BTreeMap<String, Arc<Registry>>>,
+    geometry: Mutex<Option<Arc<crate::render::GeometryAssets>>>,
 }
 
 #[derive(Debug)]
@@ -40,6 +41,7 @@ impl MinecraftData {
             metadata: OnceLock::new(),
             legacy: OnceLock::new(),
             catalogs: Mutex::new(BTreeMap::new()),
+            geometry: Mutex::new(None),
         })
     }
 
@@ -174,6 +176,18 @@ impl MinecraftData {
             );
         }
         self.cache.visuals(VISUAL_VERSION, Some("1.21"))
+    }
+
+    pub fn geometry_assets(&self, requested: &str) -> Result<Arc<crate::render::GeometryAssets>> {
+        let path = self.visuals(requested)?;
+        let mut assets = self
+            .geometry
+            .lock()
+            .map_err(|_| "Geometry cache lock poisoned")?;
+        if assets.is_none() {
+            *assets = Some(Arc::new(crate::render::GeometryAssets::load(&path)?));
+        }
+        Ok(assets.as_ref().unwrap().clone())
     }
 
     pub fn registry(&self, requested: &str) -> Result<Arc<Registry>> {

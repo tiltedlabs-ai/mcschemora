@@ -28,8 +28,10 @@ fn render(
     y: Option<[i32; 2]>,
     encode: impl FnOnce(&schemora::render::PreparedScene) -> schemora::Result<Vec<u8>>,
 ) -> PyResult<(Vec<u8>, Vec<String>)> {
-    let path = document.data.visuals(&document.version).map_err(error)?;
-    let assets = schemora::render::GeometryAssets::load(&path).map_err(error)?;
+    let assets = document
+        .data
+        .geometry_assets(&document.version)
+        .map_err(error)?;
     let scene = assets
         .prepare(document, &schemora::render::SceneOptions { region, y })
         .map_err(error)?;

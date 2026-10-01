@@ -88,6 +88,26 @@ fn container(document: &Value, mut binary: Vec<u8>) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
+fn alpha(quad: &Quad, scene: &PreparedScene) -> Result<&'static str> {
+    let sprite = scene
+        .textures
+        .get(quad.texture)
+        .ok_or("Invalid scene texture index")?;
+    Ok(
+        if quad.texture_flags["force_translucent"].as_bool() == Some(true) {
+            "BLEND"
+        } else if quad.texture_flags["force_cutout"].as_bool() == Some(true) {
+            "MASK"
+        } else {
+            match sprite.alpha {
+                AlphaMode::Opaque => "OPAQUE",
+                AlphaMode::Mask => "MASK",
+                AlphaMode::Blend => "BLEND",
+            }
+        },
+    )
+}
+
 pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
     let mut buffer = Buffer::default();
     let mut images = Vec::new();
@@ -123,7 +143,12 @@ pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
                     let quad = mesh.quads.get(index).ok_or("Invalid scene quad index")?;
                     groups
                         .entry((
-                            quad.texture,
+                            scene
+                                .textures
+                                .get(quad.texture)
+                                .ok_or("Invalid scene texture index")?
+                                .atlas,
+                            alpha(quad, scene)?,
                             quad.tint_index,
                             quad.shade,
                             quad.texture_flags.to_string(),
@@ -136,25 +161,17 @@ pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
                 continue;
             }
             let mut primitives = Vec::new();
-            for ((texture, tint, shade, _), quads) in groups {
-                let sprite = scene
-                    .textures
-                    .get(texture)
-                    .ok_or("Invalid scene texture index")?;
+            for ((atlas, alpha, tint, shade, _), quads) in groups {
                 let flags = &quads[0].texture_flags;
-                let translucent = flags["force_translucent"].as_bool() == Some(true);
-                let cutout = flags["force_cutout"].as_bool() == Some(true);
-                let material = if let Some(&index) =
-                    material_ids.get(&(texture, translucent, cutout))
-                {
+                let material = if let Some(&index) = material_ids.get(&(atlas, alpha)) {
                     index
                 } else {
-                    let page = if let Some(&page) = pages.get(&sprite.atlas) {
+                    let page = if let Some(&page) = pages.get(&atlas) {
                         page
                     } else {
                         let path = scene
                             .atlases
-                            .get(sprite.atlas)
+                            .get(atlas)
                             .ok_or("Invalid scene atlas index")?;
                         let png = fs::read(path)
                             .map_err(|e| format!("Read atlas {}: {e}", path.display()))?;
@@ -162,27 +179,16 @@ pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
                         let page = images.len();
                         images.push(json!({"bufferView": view, "mimeType": "image/png"}));
                         textures.push(json!({"sampler": 0, "source": page}));
-                        pages.insert(sprite.atlas, page);
+                        pages.insert(atlas, page);
                         page
                     };
-                    let alpha = if translucent {
-                        "BLEND"
-                    } else if cutout {
-                        "MASK"
-                    } else {
-                        match sprite.alpha {
-                            AlphaMode::Opaque => "OPAQUE",
-                            AlphaMode::Mask => "MASK",
-                            AlphaMode::Blend => "BLEND",
-                        }
-                    };
-                    let mut value = json!({"name": sprite.name, "pbrMetallicRoughness": {"baseColorTexture": {"index": page}, "metallicFactor": 0, "roughnessFactor": 1}, "alphaMode": alpha});
+                    let mut value = json!({"name": format!("atlas-{atlas}-{alpha}"), "pbrMetallicRoughness": {"baseColorTexture": {"index": page}, "metallicFactor": 0, "roughnessFactor": 1}, "alphaMode": alpha});
                     if alpha == "MASK" {
                         value["alphaCutoff"] = json!(0.5);
                     }
                     let index = materials.len();
                     materials.push(value);
-                    material_ids.insert((texture, translucent, cutout), index);
+                    material_ids.insert((atlas, alpha), index);
                     index
                 };
                 let mut positions = Vec::new();
@@ -190,6 +196,7 @@ pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
                 let mut uvs = Vec::new();
                 let mut indices = Vec::new();
                 for quad in &quads {
+                    let sprite = &scene.textures[quad.texture];
                     let base = u32::try_from(positions.len())
                         .map_err(|_| "GLB primitive has too many vertices")?;
                     if base > u32::MAX - 4 {

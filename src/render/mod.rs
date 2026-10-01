@@ -1,9 +1,11 @@
 mod chests;
 mod entities;
+mod fluids;
 mod geometry;
 pub mod glb;
 mod models;
 pub mod parts;
+pub mod png;
 
 use models::{Builder, choice_hash};
 
@@ -48,8 +50,21 @@ pub struct Quad {
     pub texture: usize,
     pub tint_index: Option<i32>,
     pub shade: bool,
+    pub color: [u8; 4],
     pub texture_flags: Value,
     pub cull_face: Option<Pos>,
+}
+
+impl Quad {
+    fn alpha(&self, texture: &Texture) -> AlphaMode {
+        if self.texture_flags["force_translucent"].as_bool() == Some(true) {
+            AlphaMode::Blend
+        } else if self.texture_flags["force_cutout"].as_bool() == Some(true) {
+            AlphaMode::Mask
+        } else {
+            texture.alpha
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -66,6 +81,7 @@ pub struct Draw {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Instance {
+    pub is_entity: bool,
     pub position: [f64; 3],
     pub rotation: [f32; 4],
     pub name: String,
@@ -83,6 +99,8 @@ pub struct Diagnostic {
 #[derive(Clone, Debug, Serialize)]
 pub struct PreparedScene {
     pub atlases: Vec<PathBuf>,
+    #[serde(skip)]
+    pub atlas_images: std::sync::Arc<Vec<image::RgbaImage>>,
     pub textures: Vec<Texture>,
     pub meshes: Vec<Mesh>,
     pub instances: Vec<Instance>,
@@ -97,6 +115,7 @@ pub struct SceneOptions {
 
 pub struct GeometryAssets {
     atlases: Vec<PathBuf>,
+    atlas_images: std::sync::Arc<Vec<image::RgbaImage>>,
     textures: Vec<Texture>,
     texture_ids: BTreeMap<String, usize>,
     models: BTreeMap<String, Value>,
@@ -174,6 +193,7 @@ impl GeometryAssets {
         }
         Ok(Self {
             atlases,
+            atlas_images: std::sync::Arc::new(images),
             textures,
             texture_ids,
             models: serde_json::from_value(read(&path.join("models.json"))?)
@@ -252,6 +272,9 @@ impl GeometryAssets {
             ) {
                 continue;
             }
+            if fluids::is_fluid(block) {
+                continue;
+            }
             let text = block.text();
             let state = builder.state(block);
             if state.parts.iter().flatten().any(|(mesh, _)| {
@@ -274,18 +297,6 @@ impl GeometryAssets {
                     position: *position,
                     block: text.clone(),
                     message: message.clone(),
-                });
-            }
-            if block
-                .properties
-                .get("waterlogged")
-                .is_some_and(|v| v == "true")
-            {
-                diagnostics.push(Diagnostic {
-                    region: (*region).clone(),
-                    position: *position,
-                    block: text.clone(),
-                    message: "Waterlogged fluid overlay is not supported".into(),
                 });
             }
             let draws = state
@@ -313,6 +324,7 @@ impl GeometryAssets {
                 })
                 .collect();
             instances.push(Instance {
+                is_entity: false,
                 position: position.map(f64::from),
                 rotation: [0., 0., 0., 1.],
                 name: text.clone(),
@@ -331,6 +343,13 @@ impl GeometryAssets {
                 )
             })
             .collect();
+        fluids::append(
+            self,
+            &cells,
+            &occlusion,
+            &mut builder.meshes,
+            &mut instances,
+        )?;
         for instance in &mut instances {
             for draw in &mut instance.draws {
                 draw.quads.retain(|&index| {
@@ -384,6 +403,7 @@ impl GeometryAssets {
         }
         Ok(PreparedScene {
             atlases: self.atlases.clone(),
+            atlas_images: self.atlas_images.clone(),
             textures: self.textures.clone(),
             meshes: builder.meshes,
             instances,

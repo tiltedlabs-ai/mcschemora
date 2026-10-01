@@ -73,7 +73,30 @@ def main():
     ]
     region.set_many([((i, 1, 3), value) for i, value in enumerate(entries)])
     diagnostics = scene.export_glb(output / "gallery.glb")
-    assert any("specialized geometry" in message for message in diagnostics)
+    assert scene.export_png(output / "gallery.png", size=(960, 720)) == diagnostics
+    png = (output / "gallery.png").read_bytes()
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+    assert struct.unpack_from(">II", png, 16) == (960, 720)
+    cube.export_png(output / "slice.png", region="main", y=0, camera="top_down")
+    invalid = output / "invalid.png"
+    invalid.unlink(missing_ok=True)
+    for options in [
+        {"size": (0, 100)},
+        {"size": (True, 100)},
+        {"size": (4097, 100)},
+        {"y": (2, 1)},
+        {"y": 100},
+        {"region": "missing"},
+        {"camera": "unknown"},
+    ]:
+        try:
+            scene.export_png(invalid, **options)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"Accepted invalid render options: {options}")
+        assert not invalid.exists()
+    assert not any("placeholder" in message for message in diagnostics)
     assert any("Tint indices" in message for message in diagnostics)
     document = read_glb(output / "gallery.glb")
     assert {material["alphaMode"] for material in document["materials"]} == {

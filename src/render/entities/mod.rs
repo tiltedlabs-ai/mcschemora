@@ -121,6 +121,7 @@ pub(super) fn instance(
     quads: usize,
 ) -> Instance {
     Instance {
+        is_entity: true,
         position,
         rotation,
         name: name.into(),

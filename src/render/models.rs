@@ -158,6 +158,7 @@ impl Builder<'_> {
                                 texture,
                                 tint_index: None,
                                 shade: true,
+                                color: [255; 4],
                                 texture_flags: Value::Null,
                                 cull_face: None,
                             }
@@ -341,6 +342,7 @@ impl Builder<'_> {
                     texture,
                     tint_index: face.tintindex.filter(|&index| index >= 0),
                     shade: element.shade,
+                    color: [255; 4],
                     texture_flags: face.texture_flags.clone(),
                     cull_face,
                 });

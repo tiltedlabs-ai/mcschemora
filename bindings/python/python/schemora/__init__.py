@@ -171,6 +171,20 @@ class Registry:
         return json.loads(self._schematic._native.describe(identifier))
 
 
+def _y_range(y):
+    if y is None:
+        return None
+    if type(y) is int:
+        return (y, y)
+    if (
+        not isinstance(y, (tuple, list))
+        or len(y) != 2
+        or any(type(value) is not int for value in y)
+    ):
+        raise ValueError("y must be an integer or an inclusive pair of integers")
+    return y
+
+
 class Schematic:
     def __init__(self, native):
         self._native = native
@@ -208,16 +222,35 @@ class Schematic:
 
         Select a world Y level with an integer or an inclusive (minimum, maximum) pair.
         """
-        if y is not None:
-            if type(y) is int:
-                y = (y, y)
-            elif (
-                not isinstance(y, (tuple, list))
-                or len(y) != 2
-                or any(type(value) is not int for value in y)
-            ):
-                raise ValueError("y must be an integer or an inclusive pair of integers")
-        content, diagnostics = self._native.glb(region, y)
+        content, diagnostics = self._native.glb(region, _y_range(y))
+        Path(path).write_bytes(content)
+        return tuple(diagnostics)
+
+    def export_png(
+        self,
+        path,
+        *,
+        size=(1024, 1024),
+        camera="isometric",
+        grid=False,
+        region: str | None = None,
+        y=None,
+    ) -> tuple[str, ...]:
+        """Render an automatically framed PNG with a transparent background.
+
+        Camera is "isometric" or "top_down" (north up, east right).
+        Grid adds black block lines with white outlines, excluding entities.
+        Uses the CPU, nearest-neighbor textures, and simple directional lighting.
+        Size is (width, height), with each dimension between 1 and 4096 pixels.
+        Returns the same visual diagnostics as GLB export.
+        """
+        if (
+            not isinstance(size, (tuple, list))
+            or len(size) != 2
+            or any(type(v) is not int or not 1 <= v <= 4096 for v in size)
+        ):
+            raise ValueError("size must be (width, height), each between 1 and 4096")
+        content, diagnostics = self._native.png(region, _y_range(y), size, camera, grid)
         Path(path).write_bytes(content)
         return tuple(diagnostics)
 

@@ -93,19 +93,11 @@ fn alpha(quad: &Quad, scene: &PreparedScene) -> Result<&'static str> {
         .textures
         .get(quad.texture)
         .ok_or("Invalid scene texture index")?;
-    Ok(
-        if quad.texture_flags["force_translucent"].as_bool() == Some(true) {
-            "BLEND"
-        } else if quad.texture_flags["force_cutout"].as_bool() == Some(true) {
-            "MASK"
-        } else {
-            match sprite.alpha {
-                AlphaMode::Opaque => "OPAQUE",
-                AlphaMode::Mask => "MASK",
-                AlphaMode::Blend => "BLEND",
-            }
-        },
-    )
+    Ok(match quad.alpha(sprite) {
+        AlphaMode::Opaque => "OPAQUE",
+        AlphaMode::Mask => "MASK",
+        AlphaMode::Blend => "BLEND",
+    })
 }
 
 pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
@@ -149,6 +141,7 @@ pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
                                 .ok_or("Invalid scene texture index")?
                                 .atlas,
                             alpha(quad, scene)?,
+                            quad.color,
                             quad.tint_index,
                             quad.shade,
                             quad.texture_flags.to_string(),
@@ -161,9 +154,9 @@ pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
                 continue;
             }
             let mut primitives = Vec::new();
-            for ((atlas, alpha, tint, shade, _), quads) in groups {
+            for ((atlas, alpha, color, tint, shade, _), quads) in groups {
                 let flags = &quads[0].texture_flags;
-                let material = if let Some(&index) = material_ids.get(&(atlas, alpha)) {
+                let material = if let Some(&index) = material_ids.get(&(atlas, alpha, color)) {
                     index
                 } else {
                     let page = if let Some(&page) = pages.get(&atlas) {
@@ -183,12 +176,25 @@ pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
                         page
                     };
                     let mut value = json!({"name": format!("atlas-{atlas}-{alpha}"), "pbrMetallicRoughness": {"baseColorTexture": {"index": page}, "metallicFactor": 0, "roughnessFactor": 1}, "alphaMode": alpha});
+                    if color != [255; 4] {
+                        let factor: [f32; 4] = std::array::from_fn(|i| {
+                            let v = f32::from(color[i]) / 255.;
+                            if i == 3 {
+                                v
+                            } else if v <= 0.04045 {
+                                v / 12.92
+                            } else {
+                                ((v + 0.055) / 1.055).powf(2.4)
+                            }
+                        });
+                        value["pbrMetallicRoughness"]["baseColorFactor"] = json!(factor);
+                    }
                     if alpha == "MASK" {
                         value["alphaCutoff"] = json!(0.5);
                     }
                     let index = materials.len();
                     materials.push(value);
-                    material_ids.insert((atlas, alpha), index);
+                    material_ids.insert((atlas, alpha, color), index);
                     index
                 };
                 let mut positions = Vec::new();

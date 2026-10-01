@@ -22,6 +22,31 @@ fn lock(d: &Shared) -> PyResult<MutexGuard<'_, Document>> {
 fn state(b: Block) -> State {
     (b.name, b.properties)
 }
+fn render(
+    document: &Document,
+    region: Option<String>,
+    y: Option<[i32; 2]>,
+    encode: impl FnOnce(&schemora::render::PreparedScene) -> schemora::Result<Vec<u8>>,
+) -> PyResult<(Vec<u8>, Vec<String>)> {
+    let path = document.data.visuals(&document.version).map_err(error)?;
+    let assets = schemora::render::GeometryAssets::load(&path).map_err(error)?;
+    let scene = assets
+        .prepare(document, &schemora::render::SceneOptions { region, y })
+        .map_err(error)?;
+    let bytes = encode(&scene).map_err(error)?;
+    let diagnostics = scene
+        .diagnostics
+        .iter()
+        .map(|d| {
+            format!(
+                "{} at {:?} in region {:?}: {}",
+                d.block, d.position, d.region, d.message
+            )
+        })
+        .collect();
+    Ok((bytes, diagnostics))
+}
+
 #[pyclass(name = "MinecraftData")]
 struct PyMinecraftData {
     data: Arc<registry::MinecraftData>,
@@ -114,25 +139,41 @@ impl PyDocument {
         region: Option<String>,
         y: Option<[i32; 2]>,
     ) -> PyResult<(Bound<'py, PyBytes>, Vec<String>)> {
-        let (bytes, diagnostics) = py.detach(|| -> PyResult<_> {
-            let document = lock(&self.data)?;
-            let path = document.data.visuals(&document.version).map_err(error)?;
-            let assets = schemora::render::GeometryAssets::load(&path).map_err(error)?;
-            let scene = assets
-                .prepare(&document, &schemora::render::SceneOptions { region, y })
-                .map_err(error)?;
-            let bytes = schemora::render::glb::encode(&scene).map_err(error)?;
-            let diagnostics = scene
-                .diagnostics
-                .iter()
-                .map(|d| {
-                    format!(
-                        "{} at {:?} in region {:?}: {}",
-                        d.block, d.position, d.region, d.message
-                    )
-                })
-                .collect();
-            Ok((bytes, diagnostics))
+        let (bytes, diagnostics) = py.detach(|| {
+            render(
+                &*lock(&self.data)?,
+                region,
+                y,
+                schemora::render::glb::encode,
+            )
+        })?;
+        Ok((PyBytes::new(py, &bytes), diagnostics))
+    }
+    fn png<'py>(
+        &self,
+        py: Python<'py>,
+        region: Option<String>,
+        y: Option<[i32; 2]>,
+        size: [u32; 2],
+        camera: &str,
+        grid: bool,
+    ) -> PyResult<(Bound<'py, PyBytes>, Vec<String>)> {
+        let camera = match camera {
+            "isometric" => schemora::render::png::Camera::Isometric,
+            "top_down" => schemora::render::png::Camera::TopDown,
+            _ => {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "camera must be isometric or top_down",
+                ));
+            }
+        };
+        let (bytes, diagnostics) = py.detach(|| {
+            render(&*lock(&self.data)?, region, y, |scene| {
+                schemora::render::png::encode(
+                    scene,
+                    &schemora::render::png::Options { size, camera, grid },
+                )
+            })
         })?;
         Ok((PyBytes::new(py, &bytes), diagnostics))
     }

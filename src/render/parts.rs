@@ -158,6 +158,7 @@ impl GeometryAssets {
                     texture,
                     tint_index: None,
                     shade: true,
+                    color: [255; 4],
                     texture_flags: serde_json::Value::Null,
                     cull_face: None,
                 });

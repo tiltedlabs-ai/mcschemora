@@ -110,6 +110,7 @@ fn main() -> Result<()> {
     scene.meshes = vec![mesh, posed];
     scene.instances = (0..2)
         .map(|mesh| Instance {
+            is_entity: false,
             position: [mesh as f64 * 3., 0., 0.],
             rotation: [0., 0., 0., 1.],
             name: format!("model_parts_{mesh}"),

@@ -113,6 +113,14 @@ impl GeometryAssets {
                 return Err("Cuboid bounds must be finite".into());
             }
             for (direction, face) in &cuboid.faces {
+                let positions = corners(direction, cuboid.from, cuboid.to)?
+                    .map(|p| frame.point(p).map(|v| v / 16.));
+                if !positions.iter().flatten().all(|v| v.is_finite()) {
+                    return Err("Model part vertex overflow".into());
+                }
+                let Some(normal) = normal(positions) else {
+                    continue;
+                };
                 let texture = *self
                     .texture_ids
                     .get(&face.texture)
@@ -130,14 +138,6 @@ impl GeometryAssets {
                         face.texture
                     ));
                 }
-                let positions = corners(direction, cuboid.from, cuboid.to)?
-                    .map(|p| frame.point(p).map(|v| v / 16.));
-                if !positions.iter().flatten().all(|v| v.is_finite()) {
-                    return Err("Model part vertex overflow".into());
-                }
-                let Some(normal) = normal(positions) else {
-                    continue;
-                };
                 if !normal.iter().all(|v| v.is_finite())
                     || normal.iter().map(|v| v * v).sum::<f32>() < 0.5
                 {

@@ -99,6 +99,12 @@ pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
     let mut material_ids = BTreeMap::new();
     let mut mesh_ids = BTreeMap::new();
     for instance in &scene.instances {
+        if !instance.position.iter().all(|v| v.is_finite())
+            || !instance.rotation.iter().all(|v| v.is_finite())
+            || (instance.rotation.iter().map(|v| v * v).sum::<f32>() - 1.).abs() > 1e-4
+        {
+            return Err("Invalid scene instance transform".into());
+        }
         let key: Vec<_> = instance
             .draws
             .iter()
@@ -137,7 +143,10 @@ pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
                     .ok_or("Invalid scene texture index")?;
                 let flags = &quads[0].texture_flags;
                 let translucent = flags["force_translucent"].as_bool() == Some(true);
-                let material = if let Some(&index) = material_ids.get(&(texture, translucent)) {
+                let cutout = flags["force_cutout"].as_bool() == Some(true);
+                let material = if let Some(&index) =
+                    material_ids.get(&(texture, translucent, cutout))
+                {
                     index
                 } else {
                     let page = if let Some(&page) = pages.get(&sprite.atlas) {
@@ -158,6 +167,8 @@ pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
                     };
                     let alpha = if translucent {
                         "BLEND"
+                    } else if cutout {
+                        "MASK"
                     } else {
                         match sprite.alpha {
                             AlphaMode::Opaque => "OPAQUE",
@@ -171,7 +182,7 @@ pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
                     }
                     let index = materials.len();
                     materials.push(value);
-                    material_ids.insert((texture, translucent), index);
+                    material_ids.insert((texture, translucent, cutout), index);
                     index
                 };
                 let mut positions = Vec::new();
@@ -205,10 +216,10 @@ pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
             mesh_ids.insert(key, index);
             index
         };
-        nodes.push(json!({"name": instance.block, "mesh": mesh, "translation": instance.position}));
+        nodes.push(json!({"name": instance.name, "mesh": mesh, "translation": instance.position, "rotation": instance.rotation}));
     }
     if nodes.is_empty() {
-        return Err("Selected blocks have no visible geometry to export".into());
+        return Err("Selected scene has no visible geometry to export".into());
     }
     let document = json!({
         "asset": {"version": "2.0", "generator": concat!("schemora/", env!("CARGO_PKG_VERSION"))},

@@ -1,10 +1,9 @@
 mod chests;
+mod entities;
 mod geometry;
 pub mod glb;
 mod models;
 pub mod parts;
-
-pub use crate::mc_data::visual::{EntityCatalog, EntityDefinition, entity_catalog};
 
 use models::{Builder, choice_hash};
 
@@ -67,8 +66,9 @@ pub struct Draw {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Instance {
-    pub position: Pos,
-    pub block: String,
+    pub position: [f64; 3],
+    pub rotation: [f32; 4],
+    pub name: String,
     pub draws: Vec<Draw>,
 }
 
@@ -195,6 +195,7 @@ impl GeometryAssets {
         }
         let selected_y = |y: i32| options.y.is_none_or(|range| y >= range[0] && y <= range[1]);
         let mut cells = BTreeMap::new();
+        let mut selected_entities = Vec::new();
         let mut diagnostics = Vec::new();
         for (name, region) in &document.regions {
             if options
@@ -227,25 +228,12 @@ impl GeometryAssets {
                     .y
                     .is_none_or(|range| y >= f64::from(range[0]) && y < f64::from(range[1]) + 1.)
                 {
-                    let position = std::array::from_fn(|i| {
-                        (entity.position[i] + f64::from(region.origin[i])).floor() as i32
-                    });
-                    diagnostics.push(Diagnostic {
-                        region: name.clone(),
-                        position,
-                        block: entity
-                            .data
-                            .get("id")
-                            .and_then(|v| {
-                                if let fastnbt::Value::String(s) = v {
-                                    Some(s.clone())
-                                } else {
-                                    None
-                                }
-                            })
-                            .unwrap_or_else(|| "entity".into()),
-                        message: "Entity geometry is not supported".into(),
-                    });
+                    let position: [f64; 3] =
+                        std::array::from_fn(|i| entity.position[i] + f64::from(region.origin[i]));
+                    if !position.iter().all(|v| v.is_finite()) {
+                        return Err("Non-finite entity position".into());
+                    }
+                    selected_entities.push((name, entity, position));
                 }
             }
         }
@@ -325,8 +313,9 @@ impl GeometryAssets {
                 })
                 .collect();
             instances.push(Instance {
-                position: *position,
-                block: text.clone(),
+                position: position.map(f64::from),
+                rotation: [0., 0., 0., 1.],
+                name: text.clone(),
                 draws,
             });
         }
@@ -334,7 +323,7 @@ impl GeometryAssets {
             .iter()
             .map(|instance| {
                 (
-                    instance.position,
+                    instance.position.map(|v| v as i32),
                     instance
                         .draws
                         .iter()
@@ -351,7 +340,8 @@ impl GeometryAssets {
                     };
                     let mut neighbor = [0; 3];
                     for i in 0..3 {
-                        let Some(n) = instance.position[i].checked_add(direction[i]) else {
+                        let Some(n) = (instance.position[i] as i32).checked_add(direction[i])
+                        else {
                             return true;
                         };
                         neighbor[i] = n;
@@ -362,6 +352,36 @@ impl GeometryAssets {
             instance.draws.retain(|draw| !draw.quads.is_empty());
         }
         instances.retain(|instance| !instance.draws.is_empty());
+        let mut entity_meshes: BTreeMap<String, Result<usize>> = BTreeMap::new();
+        for (region, entity, position) in selected_entities {
+            let result = entities::facing(entity).and_then(|rotation| {
+                let mesh = entity_meshes
+                    .entry(entities::id(entity).into())
+                    .or_insert_with(|| {
+                        let mesh = entities::bake(self, entities::id(entity))?;
+                        let id = builder.meshes.len();
+                        builder.meshes.push(mesh);
+                        Ok(id)
+                    })
+                    .clone()?;
+                Ok(entities::instance(
+                    entities::id(entity),
+                    position,
+                    rotation,
+                    mesh,
+                    builder.meshes[mesh].quads.len(),
+                ))
+            });
+            match result {
+                Ok(instance) => instances.push(instance),
+                Err(message) => diagnostics.push(Diagnostic {
+                    region: region.clone(),
+                    position: position.map(|v| v.floor() as i32),
+                    block: entities::id(entity).into(),
+                    message,
+                }),
+            }
+        }
         Ok(PreparedScene {
             atlases: self.atlases.clone(),
             textures: self.textures.clone(),

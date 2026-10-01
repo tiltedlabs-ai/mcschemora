@@ -7,6 +7,8 @@ use std::{
     sync::{Arc, Mutex, OnceLock},
 };
 
+pub const VISUAL_VERSION: &str = "1.21.1";
+
 pub(crate) const MIN_DATA_VERSION: i32 = 1519;
 
 #[derive(Debug)]
@@ -161,12 +163,17 @@ impl MinecraftData {
     }
 
     pub fn visuals(&self, requested: &str) -> Result<PathBuf> {
-        let version = self.registry(requested)?.version.clone();
-        let family = self
-            .metadata()?
-            .record(&version)
-            .and_then(|v| v["majorVersion"].as_str());
-        self.cache.visuals(&version, family)
+        let version = if requested == "latest" {
+            self.latest()?
+        } else {
+            requested.to_owned()
+        };
+        if version != VISUAL_VERSION {
+            eprintln!(
+                "warning: visuals for Java {version} are not supported; falling back to Java {VISUAL_VERSION} textures and models"
+            );
+        }
+        self.cache.visuals(VISUAL_VERSION, Some("1.21"))
     }
 
     pub fn registry(&self, requested: &str) -> Result<Arc<Registry>> {

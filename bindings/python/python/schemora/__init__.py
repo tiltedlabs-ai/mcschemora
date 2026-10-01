@@ -150,7 +150,7 @@ class MinecraftData:
         return Path(self._native.dataset_path(version, kind))
 
     def visuals(self, version="latest") -> Path:
-        """Return cached prepared models, blockstates, texture mappings, and atlas pages."""
+        """Return the shared Java 1.21.1 visual bundle for rendering any version."""
         return Path(self._native.visuals(version))
 
 

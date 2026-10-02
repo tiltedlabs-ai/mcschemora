@@ -44,6 +44,3 @@ Thumbs.db
 *.swp
 *.swo
 *~
-
-# Generated examples.
-/examples/output/

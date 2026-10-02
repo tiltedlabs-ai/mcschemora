@@ -1,4 +1,4 @@
-.PHONY: setup rebuild format lint example
+.PHONY: setup rebuild format lint
 
 setup:
 	uv sync --all-packages
@@ -8,15 +8,10 @@ rebuild:
 
 format:
 	cargo fmt --all
-	uv run --all-packages ruff format bindings/python/python examples
+	uv run --all-packages ruff format bindings/python/python
 
 lint:
 	cargo fmt --all -- --check
 	cargo clippy --workspace --all-targets -- -D warnings
-	uv run --all-packages ruff format --check bindings/python/python examples
-	uv run --all-packages ruff check bindings/python/python examples
-
-example:
-	uv run --all-packages python examples/build.py
-	uv run --all-packages python examples/inspect_files.py
-	uv run --all-packages python examples/check_edits.py
+	uv run --all-packages ruff format --check bindings/python/python
+	uv run --all-packages ruff check bindings/python/python

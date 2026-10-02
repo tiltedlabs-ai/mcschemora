@@ -9,7 +9,6 @@ Install [uv](https://docs.astral.sh/uv/) and a current stable
 
 ```sh
 uv sync --all-packages
-uv run --all-packages python examples/build.py
 ```
 
 
@@ -261,7 +260,6 @@ bindings/python/
   python/schemora/            Public Python package
   Cargo.toml
   pyproject.toml
-examples/                    Runnable builds and file inspection
 Cargo.toml                   Cargo workspace and core crate
 pyproject.toml               uv workspace and Ruff configuration
 uv.lock                      Python development dependency lock
@@ -278,29 +276,9 @@ Format and lint:
 ```sh
 cargo fmt --all
 cargo clippy --workspace --all-targets -- -D warnings
-uv run --all-packages ruff format bindings/python/python examples
-uv run --all-packages ruff check bindings/python/python examples
+uv run --all-packages ruff format bindings/python/python
+uv run --all-packages ruff check bindings/python/python
 ```
-
-Example-based verification, without a unit-test suite:
-
-```sh
-uv run --all-packages python examples/build.py
-uv run --all-packages python examples/inspect_files.py
-uv run --all-packages python examples/check_edits.py
-uv run --all-packages python examples/check_validation.py
-```
-
-To check every state in every advertised Java catalog (takes several minutes):
-
-```sh
-uv run --all-packages python examples/check_catalogs.py
-```
-
-Pass version names to check specific catalogs, `--cache-dir` to select the cache,
-`--offline` to check already fetched catalogs, or `--transforms-only` to skip
-file round-trips. The script checks schemas, defaults, placement, invalid-state
-rejection, four Java file formats, Y rotation, and X/Z reflections.
 
 To build a wheel:
 

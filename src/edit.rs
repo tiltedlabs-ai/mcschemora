@@ -1,3 +1,5 @@
+//! Catalog-checked document edits and operations on attached entity data.
+
 use crate::{Result, helpers, model::*, nbt, transform::Transform};
 use std::{borrow::Borrow, collections::BTreeMap};
 
@@ -10,18 +12,22 @@ pub(crate) fn check_position(p: [f64; 3]) -> Result<()> {
     Ok(())
 }
 
-impl Document {
-    pub fn add_region(&mut self, name: &str, origin: Pos) -> Result<()> {
+impl Schematic {
+    /// Adds an empty region at a world origin; its name must be nonempty and unique.
+    pub fn add_region(&mut self, name: &str, origin: Position) -> Result<()> {
         if name.is_empty() || self.regions.contains_key(name) {
             return Err("Region name must be nonempty and unique".into());
         }
         self.regions.insert(name.into(), Region::new(origin));
         Ok(())
     }
+    /// Resolves block states and commits local cell writes atomically.
+    ///
+    /// Later writes to the same position take precedence. Bounds expand when permitted.
     pub fn set_blocks<B: Borrow<Block>>(
         &mut self,
         name: &str,
-        blocks: impl IntoIterator<Item = (Pos, B)>,
+        blocks: impl IntoIterator<Item = (Position, B)>,
     ) -> Result<()> {
         let catalog = self.registry()?;
         let mut resolved: BTreeMap<Block, std::sync::Arc<Block>> = BTreeMap::new();
@@ -45,11 +51,12 @@ impl Document {
             .collect::<Result<_>>()?;
         self.region_mut(name)?.write(edits, None)
     }
+    /// Validates a palette and commits indexed local cell writes atomically.
     pub fn set_indexed_blocks(
         &mut self,
         name: &str,
         palette: &[Block],
-        cells: Vec<(Pos, usize)>,
+        cells: Vec<(Position, usize)>,
     ) -> Result<()> {
         if cells.iter().any(|(_, index)| *index >= palette.len()) {
             return Err("Block palette index out of range".into());
@@ -69,14 +76,16 @@ impl Document {
             .collect::<Result<Vec<_>>>()?;
         self.region_mut(name)?.write_indexed(&palette, cells)
     }
+    /// Fills selected cells with a resolved block without changing free entities.
     pub fn fill(&mut self, name: &str, selection: &Selection, block: &Block) -> Result<()> {
         let block = self.registry()?.resolve(block)?;
         self.region_mut(name)?.fill(selection, &block)
     }
+    /// Validates and replaces supplied properties at local cell positions atomically.
     pub fn patch(
         &mut self,
         name: &str,
-        positions: impl IntoIterator<Item = Pos>,
+        positions: impl IntoIterator<Item = Position>,
         properties: &BTreeMap<String, String>,
     ) -> Result<()> {
         let r = self.region(name)?;
@@ -90,6 +99,7 @@ impl Document {
             .collect();
         self.set_blocks(name, blocks)
     }
+    /// Clears selected blocks, attached data, and selected free entities.
     pub fn delete(&mut self, name: &str, selection: &Selection) -> Result<()> {
         if self.edition == "bedrock" {
             return Err("Bedrock layered editing is not implemented".into());
@@ -97,14 +107,17 @@ impl Document {
         self.region_mut(name)?.clear(selection);
         Ok(())
     }
+    /// Validates and commits a placement anchored at a local cell position.
+    ///
+    /// Occupied targets require replace=true. Beds anchor at the foot and doors at the lower half.
     pub fn place(
         &mut self,
         name: &str,
-        recipe: &helpers::Recipe,
-        at: Pos,
+        placement: &helpers::Placement,
+        at: Position,
         replace: bool,
     ) -> Result<()> {
-        let edits = helpers::recipe(self.registry()?, recipe, at)?;
+        let edits = helpers::resolve_placement(self.registry()?, placement, at)?;
         let r = self.region(name)?;
         if !replace {
             for (p, _, _) in &edits {
@@ -115,7 +128,10 @@ impl Document {
         }
         self.region_mut(name)?.write(edits, None)
     }
-    pub fn paste(&mut self, name: &str, at: Pos, fragment: &Fragment) -> Result<()> {
+    /// Pastes a fragment at a local anchor, replacing cells and preserving unrelated entities.
+    ///
+    /// Edition and version must match. Copied entities receive fresh references.
+    pub fn paste(&mut self, name: &str, at: Position, fragment: &Fragment) -> Result<()> {
         if self.edition != fragment.edition || self.version != fragment.version {
             return Err("Fragments require matching editions and versions; use explicit file conversion for mappings".into());
         }
@@ -139,6 +155,9 @@ impl Document {
         self.next_entity = next;
         Ok(())
     }
+    /// Adds entity NBT at a local floating-point position and returns a fresh reference.
+    ///
+    /// The compound must include id. Position and any required bounds expansion are checked.
     pub fn add_entity(&mut self, name: &str, at: [f64; 3], data: Compound) -> Result<u64> {
         check_position(at)?;
         nbt::string(nbt::get(&data, "id")?)?;
@@ -224,9 +243,13 @@ impl Region {
             .position(|e| e.reference == reference)
             .ok_or_else(|| "Unknown entity reference".into())
     }
+    /// Borrows an entity by its document-local reference within this region.
     pub fn entity(&self, reference: u64) -> Result<&Entity> {
         Ok(&self.entities[self.entity_index(reference)?])
     }
+    /// Replaces supplied position and full NBT; omitted fields are preserved.
+    ///
+    /// Positions are local and finite. Replacement NBT must include id.
     pub fn update_entity(
         &mut self,
         reference: u64,
@@ -258,12 +281,14 @@ impl Region {
         }
         Ok(())
     }
+    /// Removes an entity, or returns an error if its reference is unknown in this region.
     pub fn remove_entity(&mut self, reference: u64) -> Result<()> {
         let index = self.entity_index(reference)?;
         self.entities.remove(index);
         Ok(())
     }
-    pub fn set_block_entity(&mut self, at: Pos, data: Compound) -> Result<()> {
+    /// Sets NBT at a local cell after checking id against the owning block.
+    pub fn set_block_entity(&mut self, at: Position, data: Compound) -> Result<()> {
         let id = nbt::string(nbt::get(&data, "id")?)?;
         if !helpers::compatible(id, &self.get(at)) {
             return Err(format!(
@@ -278,7 +303,7 @@ impl Region {
 
 /// Stream cells in the map's [x, y, z] key order. Filtered selections already
 /// have this order; rectangular selections need no position list or sorting.
-fn fill_positions(selection: &Selection) -> Box<dyn Iterator<Item = Pos> + '_> {
+fn fill_positions(selection: &Selection) -> Box<dyn Iterator<Item = Position> + '_> {
     if let Some(cells) = &selection.cells {
         Box::new(cells.iter().copied())
     } else {

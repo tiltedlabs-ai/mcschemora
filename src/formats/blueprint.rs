@@ -1,9 +1,11 @@
+//! Minecraft Wiki layered-blueprint export and import.
+
 pub mod import;
 mod sprites;
 
 use crate::{
     Result,
-    model::{Block, Document, MAX_VOLUME, Pos},
+    model::{Block, MAX_VOLUME, Position, Schematic},
     transform::Transform,
 };
 use std::collections::{BTreeMap, BTreeSet};
@@ -11,12 +13,18 @@ use std::fmt::Write;
 
 const SYMBOLS: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!$%()+,./:;?@^_~";
 
+/// Selection and presentation settings for Minecraft Wiki layered-blueprint output.
 #[derive(Clone, Debug)]
 pub struct Options {
+    /// Nonempty blueprint title.
     pub name: String,
+    /// Named region to export; None includes all regions.
     pub region: Option<String>,
+    /// Inclusive world Y range; None includes all layers containing blocks.
     pub y: Option<[i32; 2]>,
+    /// Number of quarter turns about Y.
     pub rotation: i32,
+    /// Block IDs or full state strings mapped to wiki sprite identifiers.
     pub sprites: BTreeMap<String, String>,
 }
 
@@ -32,9 +40,12 @@ impl Default for Options {
     }
 }
 
+/// Blueprint markup and diagnostics describing omitted data.
 #[derive(Clone, Debug)]
 pub struct Output {
+    /// UTF-8 Minecraft Wiki layered-blueprint markup.
     pub text: String,
+    /// State details, attached data, and entities omitted from the sprite plan.
     pub diagnostics: Vec<String>,
 }
 
@@ -55,7 +66,11 @@ fn escaped(value: &str) -> String {
         .collect()
 }
 
-pub fn encode(document: &Document, options: &Options) -> Result<Output> {
+/// Exports selected Java blocks as layered wiki markup without modifying the document.
+///
+/// Returns diagnostics for visual omissions. Overlapping selected cells and oversized
+/// layers are errors.
+pub fn encode(document: &Schematic, options: &Options) -> Result<Output> {
     if document.edition != "java" {
         return Err("Layered blueprints require Java Edition block states".into());
     }
@@ -82,7 +97,7 @@ pub fn encode(document: &Document, options: &Options) -> Result<Output> {
     let catalog = document.registry()?;
     let transform = Transform::rotate("y", options.rotation, [0.5; 3])?;
     let selected_y = |y: i32| options.y.is_none_or(|range| y >= range[0] && y <= range[1]);
-    let mut cells = BTreeMap::<Pos, Block>::new();
+    let mut cells = BTreeMap::<Position, Block>::new();
     let mut palette = BTreeMap::<Block, String>::new();
     let mut diagnostics = BTreeSet::new();
     let mut entities = 0;
@@ -156,8 +171,8 @@ pub fn encode(document: &Document, options: &Options) -> Result<Output> {
             SYMBOLS.len()
         ));
     }
-    let min: Pos = std::array::from_fn(|axis| cells.keys().map(|p| p[axis]).min().unwrap());
-    let max: Pos = std::array::from_fn(|axis| cells.keys().map(|p| p[axis]).max().unwrap());
+    let min: Position = std::array::from_fn(|axis| cells.keys().map(|p| p[axis]).min().unwrap());
+    let max: Position = std::array::from_fn(|axis| cells.keys().map(|p| p[axis]).max().unwrap());
     let width = (i64::from(max[0]) - i64::from(min[0]) + 3) as usize;
     let depth = (i64::from(max[2]) - i64::from(min[2]) + 3) as usize;
     let y = options.y.unwrap_or([min[1], max[1]]);
@@ -191,7 +206,7 @@ pub fn encode(document: &Document, options: &Options) -> Result<Output> {
         writeln!(text, "|{}={sprite}", symbols[block]).unwrap();
     }
     let border = " ".repeat(width);
-    let mut layers = BTreeMap::<i32, Vec<(Pos, char)>>::new();
+    let mut layers = BTreeMap::<i32, Vec<(Position, char)>>::new();
     for (position, block) in &cells {
         layers
             .entry(position[1])

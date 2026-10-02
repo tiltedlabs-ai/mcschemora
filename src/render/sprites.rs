@@ -1,9 +1,11 @@
+//! Flat diagrams using bundled Minecraft Wiki block and entity sprites.
+
 mod indexed;
 
 use super::{SceneOptions, View};
 use crate::{
     Result,
-    model::{Block, Document},
+    model::{Block, Schematic},
     sprite_ids,
 };
 use image::{
@@ -16,13 +18,20 @@ use std::{
     sync::OnceLock,
 };
 
+/// Selection and presentation settings for flat wiki sprite diagrams.
 #[derive(Clone, Debug)]
 pub struct Options {
+    /// Region and inclusive world-coordinate filters.
     pub selection: SceneOptions,
+    /// Top, bottom, or cardinal view; isometric is unsupported.
     pub view: View,
+    /// Pixels per cell, from 1 through 128.
     pub cell_size: u32,
+    /// Whether to draw cell boundaries.
     pub grid: bool,
+    /// Whether to include free-entity icons.
     pub entities: bool,
+    /// Block IDs or full state strings mapped to bundled sprite identifiers.
     pub sprites: BTreeMap<String, String>,
 }
 
@@ -39,8 +48,11 @@ impl Default for Options {
     }
 }
 
+/// Encoded sprite PNG and messages describing omitted visual details.
 pub struct Output {
+    /// Encoded PNG bytes.
     pub png: Vec<u8>,
+    /// Sprite approximations and state or attached-data omissions.
     pub diagnostics: Vec<String>,
 }
 
@@ -261,7 +273,10 @@ struct Cell<'a> {
     depth: f64,
 }
 
-pub fn encode(document: &Document, options: &Options) -> Result<Output> {
+/// Projects selected content into a flat PNG using bundled wiki sprites.
+///
+/// Does not require downloaded geometry assets or change the document.
+pub fn encode(document: &Schematic, options: &Options) -> Result<Output> {
     if document.edition != "java" {
         return Err("Sprite rendering requires Java Edition block states".into());
     }

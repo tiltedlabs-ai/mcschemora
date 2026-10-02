@@ -7,7 +7,7 @@ use crate::{
 use fastnbt::ByteArray;
 use std::collections::HashMap;
 
-pub(super) fn read_schem(root: &Compound, doc: &mut Document) -> Result<()> {
+pub(super) fn read_schem(root: &Compound, doc: &mut Schematic) -> Result<()> {
     let root = if let Some(v) = root.get("Schematic") {
         compound(v)?
     } else {
@@ -104,7 +104,7 @@ pub(super) fn read_schem(root: &Compound, doc: &mut Document) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn write_schem(doc: &Document, r: &Region) -> Result<Compound> {
+pub(super) fn write_schem(doc: &Schematic, r: &Region) -> Result<Compound> {
     let (pal, ids) = palette(r);
     let mut data = vec![];
     for p in r.bounds.positions() {

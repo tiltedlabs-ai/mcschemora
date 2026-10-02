@@ -22,7 +22,9 @@ MODULES = ["Module:SpriteFile", "Module:SpriteGrid", "Module:Schematic/data"]
 def request(url):
     for attempt in range(6):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "SchemoraSpriteImporter/1.0"})
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "MCSchemoraSpriteImporter/1.0"}
+            )
             with urllib.request.urlopen(req, timeout=60) as response:
                 return response.read()
         except (urllib.error.URLError, TimeoutError) as error:
@@ -255,7 +257,7 @@ def main():
     parser.add_argument(
         "--cache-dir",
         type=pathlib.Path,
-        default=pathlib.Path(tempfile.gettempdir()) / "schemora-wiki-sprites-cache",
+        default=pathlib.Path(tempfile.gettempdir()) / "mcschemora-wiki-sprites-cache",
     )
     parser.add_argument(
         "--refresh", action="store_true", help="Fetch a new inventory and module snapshot"

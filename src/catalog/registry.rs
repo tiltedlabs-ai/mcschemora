@@ -14,9 +14,12 @@ fn index(value: Value) -> Result<BTreeMap<String, Value>> {
         .collect()
 }
 
+/// Block schemas, item IDs, and living-mob IDs for one Java version.
 #[derive(Debug)]
 pub struct Registry {
+    /// Resolved Java version string.
     pub version: String,
+    /// Numeric Minecraft data version for this registry.
     pub data_version: i32,
     blocks: BTreeMap<String, BlockSchema>,
     items: BTreeSet<String>,
@@ -25,6 +28,7 @@ pub struct Registry {
     pub(crate) validation_shapes: std::sync::OnceLock<crate::validate::Shapes>,
 }
 
+/// Adds minecraft: when an identifier has no namespace.
 pub fn namespace(id: &str) -> String {
     if id.contains(':') {
         id.to_owned()
@@ -153,12 +157,14 @@ impl Registry {
             .get(name)
             .ok_or_else(|| format!("Unknown block {name} in Java {}", self.version))
     }
+    /// Returns a block schema with id, properties, version, and numeric_id.
     pub fn describe(&self, id: &str) -> Result<Value> {
         let name = namespace(id);
         let schema = self.schema(&name)?;
         Ok(json!({"id": name, "properties": schema.properties,
             "version": self.version, "numeric_id": schema.numeric_id}))
     }
+    /// Validates supplied block properties and fills omitted properties with defaults.
     pub fn resolve(&self, block: &Block) -> Result<Block> {
         let props = &self.schema(&block.name)?.properties;
         for (key, value) in &block.properties {
@@ -187,6 +193,7 @@ impl Registry {
         Ok(result)
     }
 
+    /// Checks that an item identifier exists in this version.
     pub fn item(&self, id: &str) -> Result<()> {
         if self.items.contains(&namespace(id)) {
             Ok(())
@@ -194,6 +201,7 @@ impl Registry {
             Err(format!("Unknown item {id} in Java {}", self.version))
         }
     }
+    /// Validates a living-mob identifier and returns its namespaced form.
     pub fn mob_id(&self, id: &str) -> Result<String> {
         let name = namespace(id);
         if self.mobs.contains(&name) {
@@ -203,6 +211,7 @@ impl Registry {
         }
     }
 
+    /// Returns the classic numeric block ID and metadata, or errors if unmapped.
     pub fn legacy_pair(&self, block: &Block) -> Result<(u16, u8)> {
         self.legacy_reverse
             .get(block)

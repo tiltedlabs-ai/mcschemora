@@ -1,3 +1,5 @@
+//! Binary glTF export of prepared scene geometry and embedded texture atlases.
+
 use super::{AlphaMode, Draw, PreparedScene, Quad, geometry};
 use crate::Result;
 use serde_json::{Value, json};
@@ -88,6 +90,7 @@ fn container(document: &Value, mut binary: Vec<u8>) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
+/// Encodes shared scene meshes and instances as binary glTF with embedded textures.
 pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
     let mut buffer = Buffer::default();
     let mut images = Vec::new();
@@ -209,7 +212,7 @@ pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
         return Err("Selected scene has no visible geometry to export".into());
     }
     let document = json!({
-        "asset": {"version": "2.0", "generator": concat!("schemora/", env!("CARGO_PKG_VERSION"))},
+        "asset": {"version": "2.0", "generator": concat!("mcschemora/", env!("CARGO_PKG_VERSION"))},
         "scene": 0, "scenes": [{"nodes": (0..nodes.len()).collect::<Vec<_>>()}],
         "nodes": nodes, "meshes": meshes, "materials": materials, "textures": textures,
         "images": images, "samplers": [{"magFilter": 9728, "minFilter": 9728, "wrapS": 33071, "wrapT": 33071}],

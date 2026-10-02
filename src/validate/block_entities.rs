@@ -1,6 +1,6 @@
 use super::{Point, Report, name, scene::Scene};
 use crate::{
-    model::{Block, Compound, Document, Pos},
+    model::{Block, Compound, Position, Schematic},
     versions::ITEM_COMPONENTS,
 };
 use fastnbt::Value;
@@ -81,8 +81,8 @@ pub(super) fn check(
     p: Point,
     data: &Compound,
     region: &str,
-    local: Pos,
-    doc: &Document,
+    local: Position,
+    doc: &Schematic,
     report: &mut Report,
 ) {
     let Some(block) = scene.get(p) else {

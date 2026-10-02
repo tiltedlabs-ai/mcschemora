@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 from time import perf_counter
 
-from schemora import MinecraftData, Schematic, block, mob
+from mcschemora import MinecraftData, Schematic, block, mob
 
 COLORS = (
     "white orange magenta light_blue yellow lime pink gray light_gray cyan "
@@ -90,10 +90,10 @@ def timed(results, stage, operation):
 def print_table(runs):
     headers = ["Stage", *(f"Run {i + 1}" for i in range(len(runs))), "Median", "Min", "Max"]
     rows = []
-    for stage in (*STAGES, "Schemora total"):
+    for stage in (*STAGES, "MCSchemora total"):
         values = [
             sum(run[name] for name in STAGES if name != "Prepare inputs")
-            if stage == "Schemora total"
+            if stage == "MCSchemora total"
             else run[stage]
             for run in runs
         ]
@@ -103,7 +103,7 @@ def print_table(runs):
             + [f"{statistics.median(values):.3f}", f"{min(values):.3f}", f"{max(values):.3f}"]
         )
     widths = [max(len(row[i]) for row in [headers, *rows]) for i in range(len(headers))]
-    print("\nWall-clock seconds (Schemora total excludes input preparation):")
+    print("\nWall-clock seconds (MCSchemora total excludes input preparation):")
     for row in [headers, *rows]:
         print(" | ".join(value.ljust(widths[i]) for i, value in enumerate(row)))
 
@@ -119,7 +119,7 @@ def main():
     parser.add_argument("--cache-dir", type=Path)
     parser.add_argument("--offline", action="store_true")
     parser.add_argument(
-        "--output", type=Path, default=Path(tempfile.gettempdir()) / "schemora-benchmark"
+        "--output", type=Path, default=Path(tempfile.gettempdir()) / "mcschemora-benchmark"
     )
     args = parser.parse_args()
     if not 1 <= args.side <= 256 or args.entities < 0 or args.runs < 1:
@@ -145,7 +145,7 @@ def main():
     warmup = Schematic.create(version=args.version, data=data)
     warmup.region().set((0, 0, 0), block("stone"))
     warmup.region().entities.add(MOBS[0], at=(0.5, 1.0, 0.5))
-    with tempfile.TemporaryDirectory(prefix="schemora-benchmark-warmup-") as directory:
+    with tempfile.TemporaryDirectory(prefix="mcschemora-benchmark-warmup-") as directory:
         warmup.export_sprites(Path(directory) / "sprites.png")
         warmup.export_png(Path(directory) / "geometry.png", size=(32, 32), view="top")
     del warmup
@@ -208,7 +208,7 @@ def main():
     print(
         "Save/load include filesystem I/O with a warm OS cache; no fsync or cold-disk simulation."
     )
-    print("Prepare inputs: random sampling and placement lists; excluded from Schemora total.")
+    print("Prepare inputs: random sampling and placement lists; excluded from MCSchemora total.")
     print("Author scene: scene creation, set_many batches of 16,384, and entity additions.")
     print("Authoring includes the public Python API conversion and Rust insertion costs.")
 

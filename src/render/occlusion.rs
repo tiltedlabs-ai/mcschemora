@@ -1,8 +1,8 @@
 use super::geometry::offset;
-use crate::model::Pos;
+use crate::model::Position;
 use std::collections::HashSet;
 
-const NEIGHBORS: [Pos; 6] = [
+const NEIGHBORS: [Position; 6] = [
     [-1, 0, 0],
     [1, 0, 0],
     [0, -1, 0],
@@ -13,15 +13,15 @@ const NEIGHBORS: [Pos; 6] = [
 
 pub(super) enum Occlusion {
     Dense {
-        origin: Pos,
+        origin: Position,
         size: [usize; 3],
         bits: Vec<u64>,
     },
-    Sparse(HashSet<Pos>),
+    Sparse(HashSet<Position>),
 }
 
 impl Occlusion {
-    pub(super) fn new(positions: impl ExactSizeIterator<Item = Pos>) -> Self {
+    pub(super) fn new(positions: impl ExactSizeIterator<Item = Position>) -> Self {
         let count = positions.len();
         let mut min = [i32::MAX; 3];
         let mut max = [i32::MIN; 3];
@@ -48,7 +48,7 @@ impl Occlusion {
         }
     }
 
-    fn index(position: &Pos, origin: &Pos, size: &[usize; 3]) -> Option<usize> {
+    fn index(position: &Position, origin: &Position, size: &[usize; 3]) -> Option<usize> {
         let mut local = [0; 3];
         for axis in 0..3 {
             local[axis] =
@@ -64,7 +64,7 @@ impl Occlusion {
         bits[index / 64] & (1 << (index % 64)) != 0
     }
 
-    pub(super) fn insert(&mut self, position: Pos) {
+    pub(super) fn insert(&mut self, position: Position) {
         match self {
             Self::Dense { origin, size, bits } => {
                 let index = Self::index(&position, origin, size).unwrap();
@@ -76,7 +76,7 @@ impl Occlusion {
         }
     }
 
-    pub(super) fn contains(&self, position: &Pos) -> bool {
+    pub(super) fn contains(&self, position: &Position) -> bool {
         match self {
             Self::Dense { origin, size, bits } => {
                 Self::index(position, origin, size).is_some_and(|index| Self::occupied(bits, index))
@@ -85,7 +85,7 @@ impl Occlusion {
         }
     }
 
-    pub(super) fn encloses(&self, position: Pos) -> bool {
+    pub(super) fn encloses(&self, position: Position) -> bool {
         match self {
             Self::Dense { origin, size, bits } => {
                 for axis in 0..3 {

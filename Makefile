@@ -1,10 +1,19 @@
-.PHONY: setup rebuild format lint
+.PHONY: setup rebuild format lint docs docs-check docs-wasm
 
 setup:
 	uv sync --all-packages
 
 rebuild:
-	uv sync --all-packages --reinstall-package schemora
+	uv sync --all-packages --reinstall-package mcschemora
+
+docs-wasm:
+	npm --prefix bindings/wasm run build
+
+docs: rebuild docs-wasm
+	uv run --all-packages python scripts/generate_docs.py
+
+docs-check: rebuild docs-wasm
+	uv run --all-packages python scripts/generate_docs.py --check
 
 format:
 	cargo fmt --all

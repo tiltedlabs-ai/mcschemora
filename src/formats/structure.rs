@@ -5,7 +5,7 @@ use crate::{
     nbt::{Tag as V, *},
 };
 
-pub(super) fn read_structure(root: &Compound, doc: &mut Document) -> Result<()> {
+pub(super) fn read_structure(root: &Compound, doc: &mut Schematic) -> Result<()> {
     version(
         doc,
         root.get("DataVersion")
@@ -48,7 +48,7 @@ pub(super) fn read_structure(root: &Compound, doc: &mut Document) -> Result<()> 
     Ok(())
 }
 
-pub(super) fn write_structure(doc: &Document, r: &Region) -> Result<Compound> {
+pub(super) fn write_structure(doc: &Schematic, r: &Region) -> Result<Compound> {
     let (pal, ids) = palette(r);
     let mut blocks = vec![];
     let sparse = r.present.as_ref();

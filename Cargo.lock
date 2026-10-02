@@ -446,6 +446,48 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 
 [[package]]
+name = "mcschemora"
+version = "0.1.0"
+dependencies = [
+ "fastnbt",
+ "fastsnbt",
+ "flate2",
+ "fs2",
+ "image",
+ "js-sys",
+ "png",
+ "pollster",
+ "serde",
+ "serde_json",
+ "sha1",
+ "tempfile",
+ "ureq",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "mcschemora-python"
+version = "0.1.0"
+dependencies = [
+ "mcschemora",
+ "pollster",
+ "pyo3",
+]
+
+[[package]]
+name = "mcschemora-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "mcschemora",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
 name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -731,47 +773,6 @@ name = "ryu"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
-
-[[package]]
-name = "schemora"
-version = "0.1.0"
-dependencies = [
- "fastnbt",
- "fastsnbt",
- "flate2",
- "fs2",
- "image",
- "js-sys",
- "png",
- "serde",
- "serde_json",
- "sha1",
- "tempfile",
- "ureq",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
-name = "schemora-python"
-version = "0.1.0"
-dependencies = [
- "pollster",
- "pyo3",
- "schemora",
-]
-
-[[package]]
-name = "schemora-wasm"
-version = "0.1.0"
-dependencies = [
- "js-sys",
- "schemora",
- "serde_json",
- "wasm-bindgen",
- "wasm-bindgen-futures",
-]
 
 [[package]]
 name = "serde"

@@ -22,15 +22,15 @@ pub(super) const BEDROCK_SIMPLE: [&str; 13] = [
     "coal_block",
 ];
 
-fn positions(size: Pos) -> impl Iterator<Item = Pos> {
+fn positions(size: Position) -> impl Iterator<Item = Position> {
     (0..size[0])
         .flat_map(move |x| (0..size[1]).flat_map(move |y| (0..size[2]).map(move |z| [x, y, z])))
 }
-fn index(p: Pos, size: Pos) -> usize {
+fn index(p: Position, size: Position) -> usize {
     ((p[0] * size[1] + p[1]) * size[2] + p[2]) as usize
 }
 
-pub(super) fn read_bedrock(root: &Compound, doc: &mut Document) -> Result<()> {
+pub(super) fn read_bedrock(root: &Compound, doc: &mut Schematic) -> Result<()> {
     if number(get(root, "format_version")?)? != 1 {
         return Err("Unsupported mcstructure format version".into());
     }
@@ -153,7 +153,7 @@ pub(super) fn palette_entry(b: &Block, original: Option<&BedrockData>) -> Result
     ))
 }
 
-pub(super) fn write_bedrock(doc: &Document, r: &Region) -> Result<Compound> {
+pub(super) fn write_bedrock(doc: &Schematic, r: &Region) -> Result<Compound> {
     let n = r.bounds.volume()?;
     let original = r.retained.bedrock.as_ref();
     let (pal, mut ids) = palette(r);

@@ -46,5 +46,6 @@ Thumbs.db
 *~
 
 bindings/wasm/pkg/
+examples/output/
 
-/bindings/python/python/schemora/licenses/
+/bindings/python/python/mcschemora/licenses/

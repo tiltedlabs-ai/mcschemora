@@ -1,21 +1,29 @@
+//! Grid-aligned local transforms with block-state and entity orientation updates.
+
 use crate::{Result, catalog, model::*};
 use fastnbt::Value;
 use std::collections::BTreeSet;
 
+/// A grid transform applied to local cells, block states, and free entities.
 #[derive(Clone, Copy)]
 pub struct Transform {
+    /// Integer orientation matrix; supported operations use axis-aligned transforms.
     pub matrix: [[i32; 3]; 3],
+    /// Floating-point pivot in local cell-boundary coordinates.
     pub pivot: [f64; 3],
-    pub offset: Pos,
+    /// Integer displacement applied after the pivoted orientation transform.
+    pub offset: Position,
 }
 impl Transform {
-    pub fn move_by(offset: Pos) -> Self {
+    /// Creates an integer translation without changing orientation.
+    pub fn move_by(offset: Position) -> Self {
         Self {
             matrix: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
             pivot: [0.; 3],
             offset,
         }
     }
+    /// Creates quarter turns about Y; positive steps turn north toward west.
     pub fn rotate(axis: &str, steps: i32, pivot: [f64; 3]) -> Result<Self> {
         if axis != "y" {
             return Err(
@@ -35,6 +43,7 @@ impl Transform {
             offset: [0; 3],
         })
     }
+    /// Creates a reflection about an X or Z plane at the supplied local coordinate.
     pub fn flip(axis: &str, center: f64) -> Result<Self> {
         let a = match axis {
             "x" => 0,
@@ -46,6 +55,7 @@ impl Transform {
         t.pivot[a] = center;
         Ok(t)
     }
+    /// Transforms a floating-point position, rejecting nonfinite or out-of-range results.
     pub fn point(&self, p: [f64; 3]) -> Result<[f64; 3]> {
         let q = std::array::from_fn(|i| {
             self.pivot[i]
@@ -61,7 +71,8 @@ impl Transform {
         }
         Ok(q)
     }
-    pub fn cell(&self, p: Pos) -> Result<Pos> {
+    /// Transforms a cell by its center, rejecting results off the integer grid.
+    pub fn cell(&self, p: Position) -> Result<Position> {
         let q = self.point(p.map(|n| n as f64 + 0.5))?;
         let q = q.map(|v| v - 0.5);
         if q.iter().any(|v| (*v - v.round()).abs() > 1e-8) {
@@ -69,7 +80,7 @@ impl Transform {
         }
         Ok(q.map(|v| v.round() as i32))
     }
-    fn vector(&self, p: Pos) -> Pos {
+    fn vector(&self, p: Position) -> Position {
         std::array::from_fn(|i| (0..3).map(|j| self.matrix[i][j] * p[j]).sum())
     }
     fn angle(&self, radians: f64) -> f64 {
@@ -78,9 +89,11 @@ impl Transform {
         let nz = self.matrix[2][0] as f64 * x + self.matrix[2][2] as f64 * z;
         (-nx).atan2(nz)
     }
+    /// Whether the transform rotates or reflects rather than only translating.
     pub fn changes_orientation(&self) -> bool {
         self.matrix != [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
     }
+    /// Whether the horizontal orientation reverses handedness.
     pub fn mirrored(&self) -> bool {
         self.matrix[0][0] * self.matrix[2][2] - self.matrix[0][2] * self.matrix[2][0] < 0
     }
@@ -149,6 +162,9 @@ impl Transform {
             })
             .collect()
     }
+    /// Transforms orientation properties after catalog resolution.
+    ///
+    /// Errors when a supported state mapping cannot be established.
     pub fn block(&self, b: &Block, catalog: &catalog::Registry) -> Result<Block> {
         if !self.changes_orientation() {
             return Ok(b.clone());
@@ -219,8 +235,13 @@ impl Transform {
         Ok(direction_name(self.vector(direction(side)?)))
     }
 }
+/// Transforms selected content atomically and returns its destination membership.
+///
+/// Coordinates are local to the named region. duplicate preserves source content; replace
+/// allows occupied targets. Selected air clears destinations, and self-overlap is safe
+/// for moves. Retained spatial data or unsupported state and NBT mappings cause errors.
 pub fn transform_selection(
-    doc: &mut Document,
+    doc: &mut Schematic,
     name: &str,
     sel: &Selection,
     t: Transform,

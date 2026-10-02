@@ -1,5 +1,5 @@
 [package]
-name = "schemora-python"
+name = "mcschemora-python"
 version = "0.1.0"
 edition = "2024"
 publish = false
@@ -9,7 +9,7 @@ name = "_core"
 crate-type = ["cdylib"]
 
 [dependencies]
-schemora = { path = "../.." }
+mcschemora = { path = "../.." }
 pyo3 = { version = "0.27", features = ["extension-module", "abi3-py310"] }
 
 pollster = "0.4"

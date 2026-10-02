@@ -12,10 +12,7 @@ validation always use the exact requested version.
 Visuals use [PrismarineJS/minecraft-assets](https://github.com/PrismarineJS/minecraft-assets/tree/67c9b138b00a6b67c29ba68dae74c41faef4889d)
 at commit `67c9b138b00a6b67c29ba68dae74c41faef4889d`. 
 
-Relevant inputs are `blocks_states.json`, `blocks_models.json`, all block PNGs
-and their metadata, entity and item textures, colormaps, and `font/ascii.png`.
-
-## Prepared format 3
+## Prepared format
 
 - `blockstates.json`: map from block IDs to variants and multipart
   conditions. Model references are IDs. Rotations, weights, and UV

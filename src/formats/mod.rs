@@ -14,6 +14,7 @@ mod schem;
 mod schematic;
 mod structure;
 
+/// Supported codec names; nbt and snbt refer to Java structure documents.
 pub const FORMATS: [&str; 7] = [
     "blueprint",
     "schem",
@@ -24,11 +25,15 @@ pub const FORMATS: [&str; 7] = [
     "mcstructure",
 ];
 
+/// Blueprint-only import settings; other codecs require empty defaults.
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ImportOptions {
+    /// Explicit Java version required for blueprints; latest is not accepted.
     pub version: Option<String>,
-    pub origin: Option<Pos>,
+    /// Blueprint region origin in world coordinates; None defaults to zero.
+    pub origin: Option<Position>,
+    /// Blueprint symbols mapped to full block-state strings.
     pub palette: BTreeMap<String, String>,
 }
 
@@ -43,12 +48,13 @@ fn valid_format(f: &str) -> Result<()> {
     }
 }
 
+/// Decodes bytes and loads an authoring catalog when one exists for the imported version.
 pub async fn decode(
     data: &[u8],
     format: &str,
     source: std::sync::Arc<MinecraftData>,
     options: &ImportOptions,
-) -> Result<Document> {
+) -> Result<Schematic> {
     valid_format(format)?;
     if data.len() > nbt::MAX_BYTES {
         return Err("Input exceeds 256 MiB".into());
@@ -80,7 +86,7 @@ pub async fn decode(
     if format == "schematic" {
         source.load("1.13").await?;
     }
-    let mut doc = Document::imported(source);
+    let mut doc = Schematic::imported(source);
     doc.source_format = Some(format.into());
     match format {
         "schem" => schem::read_schem(&root, &mut doc)?,
@@ -104,14 +110,16 @@ pub async fn decode(
     Ok(doc)
 }
 
+/// Preflight results separating blocking errors from explicitly acceptable omissions.
 #[derive(Default)]
 pub struct ExportReport {
+    /// Problems that prevent export even when loss is accepted.
     pub errors: Vec<String>,
+    /// Omissions that require allow_loss=true during encoding.
     pub losses: Vec<String>,
 }
 
-/// Inspect the same preparation and checks used by encode.
-pub fn check_export(doc: &Document, format: &str, flatten: bool) -> Result<ExportReport> {
+pub fn check_export(doc: &Schematic, format: &str, flatten: bool) -> Result<ExportReport> {
     valid_format(format)?;
     Ok(match prepare(doc, format, flatten) {
         Ok((_, losses)) => ExportReport {
@@ -126,13 +134,13 @@ pub fn check_export(doc: &Document, format: &str, flatten: bool) -> Result<Expor
 }
 
 fn prepare<'a>(
-    doc: &'a Document,
+    doc: &'a Schematic,
     format: &str,
     flatten: bool,
 ) -> Result<(Option<Cow<'a, Region>>, Vec<String>)> {
     valid_format(format)?;
     if doc.regions.is_empty() {
-        return Err("Document has no regions".into());
+        return Err("Schematic has no regions".into());
     }
     if doc.edition == "bedrock" && format != "mcstructure" {
         return Err("Bedrock-to-Java state and entity mapping is not implemented".into());
@@ -244,7 +252,7 @@ fn prepare<'a>(
     Ok((single, losses))
 }
 
-fn single(doc: &Document, flatten: bool) -> Result<Cow<'_, Region>> {
+fn single(doc: &Schematic, flatten: bool) -> Result<Cow<'_, Region>> {
     if doc.regions.len() == 1 {
         return Ok(Cow::Borrowed(doc.regions.values().next().unwrap()));
     }
@@ -310,7 +318,11 @@ fn single(doc: &Document, flatten: bool) -> Result<Cow<'_, Region>> {
     Ok(Cow::Owned(r))
 }
 
-pub fn encode(doc: &Document, format: &str, allow_loss: bool, flatten: bool) -> Result<Vec<u8>> {
+/// Encodes a document, rejecting blocking errors and unaccepted losses.
+///
+/// allow_loss accepts reported omissions. flatten merges regions for single-region formats
+/// and reports boundary loss; overlapping region bounds error.
+pub fn encode(doc: &Schematic, format: &str, allow_loss: bool, flatten: bool) -> Result<Vec<u8>> {
     let (single, losses) = prepare(doc, format, flatten)?;
     if !allow_loss && !losses.is_empty() {
         return Err(format!(

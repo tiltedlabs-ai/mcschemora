@@ -1,20 +1,26 @@
+//! Imports supported Minecraft Wiki layered-blueprint templates into Java documents.
+
 use super::sprites;
 use crate::{
     Result,
     catalog::MinecraftData,
     formats::ImportOptions,
-    model::{Block, Bounds, Document, Region},
+    model::{Block, Bounds, Region, Schematic},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
 
+/// Imports one UTF-8 layered-blueprint template using a loaded, explicit Java catalog.
+///
+/// options.version must name a fixed version already loaded into source. Palette overrides
+/// resolve ambiguous symbols; inferred states are reported in import_diagnostics.
 pub fn decode(
     data: &[u8],
     source: Arc<MinecraftData>,
     options: &ImportOptions,
-) -> Result<Document> {
+) -> Result<Schematic> {
     let version = options
         .version
         .as_deref()
@@ -106,7 +112,7 @@ pub fn decode(
             ));
         }
     }
-    let mut document = Document::new("java", version, source)?;
+    let mut document = Schematic::new("java", version, source)?;
     let catalog = document.registry()?;
     let sheet = settings.get("sheet").copied().unwrap_or("BlockSprite");
     let references: BTreeMap<String, String> = used

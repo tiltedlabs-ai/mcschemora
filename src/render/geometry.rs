@@ -1,10 +1,10 @@
-use crate::{Result, model::Pos};
+use crate::{Result, model::Position};
 use std::sync::LazyLock;
 
 pub(super) const DIRECTIONS: [&str; 6] = ["down", "up", "north", "south", "west", "east"];
 pub(super) const UV_CORNERS: [[f32; 2]; 4] = [[0., 0.], [0., 1.], [1., 1.], [1., 0.]];
 
-pub(super) fn offset(p: Pos, d: Pos) -> Option<Pos> {
+pub(super) fn offset(p: Position, d: Position) -> Option<Position> {
     Some([
         p[0].checked_add(d[0])?,
         p[1].checked_add(d[1])?,

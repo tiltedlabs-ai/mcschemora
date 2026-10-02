@@ -6,7 +6,7 @@ use crate::{
 };
 use fastnbt::ByteArray;
 
-pub(super) fn read_legacy(root: &Compound, doc: &mut Document) -> Result<()> {
+pub(super) fn read_legacy(root: &Compound, doc: &mut Schematic) -> Result<()> {
     let catalog = doc.data.registry("1.13")?;
     doc.version = catalog.version.clone();
     doc.data_version = catalog.data_version;
@@ -57,7 +57,7 @@ pub(super) fn read_legacy(root: &Compound, doc: &mut Document) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn write_legacy(doc: &Document, r: &Region) -> Result<Compound> {
+pub(super) fn write_legacy(doc: &Schematic, r: &Region) -> Result<Compound> {
     let mut ids = vec![];
     let mut data = vec![];
     let mut high = vec![0u8; r.bounds.volume()?.div_ceil(2)];

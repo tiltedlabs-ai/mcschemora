@@ -53,7 +53,7 @@ pub(super) fn bytes(v: &V) -> Result<Vec<u8>> {
     }
 }
 
-pub(super) fn block_entities(r: &Region, start: Pos, wrapped: bool) -> V {
+pub(super) fn block_entities(r: &Region, start: Position, wrapped: bool) -> V {
     V::List(
         r.block_entities
             .iter()
@@ -81,7 +81,7 @@ pub(super) fn block_entities(r: &Region, start: Pos, wrapped: bool) -> V {
     )
 }
 
-pub(super) fn entities(r: &Region, start: Pos, kind: &str) -> V {
+pub(super) fn entities(r: &Region, start: Position, kind: &str) -> V {
     V::List(
         r.entities
             .iter()
@@ -121,7 +121,7 @@ pub(super) fn read_entities(
     root: &Compound,
     key: &str,
     r: &mut Region,
-    doc: &mut Document,
+    doc: &mut Schematic,
     kind: &str,
 ) -> Result<()> {
     if let Some(value) = root.get(key) {
@@ -185,7 +185,7 @@ pub(super) fn read_block_entities(
     Ok(())
 }
 
-pub(super) fn version(doc: &mut Document, n: i32) -> Result<()> {
+pub(super) fn version(doc: &mut Schematic, n: i32) -> Result<()> {
     doc.data_version = n;
     doc.version = doc
         .data
@@ -194,7 +194,7 @@ pub(super) fn version(doc: &mut Document, n: i32) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn dimensions(c: &Compound) -> Result<Pos> {
+pub(super) fn dimensions(c: &Compound) -> Result<Position> {
     let mut p = [0; 3];
     for (i, key) in ["Width", "Height", "Length"].iter().enumerate() {
         let v = get(c, key)?;

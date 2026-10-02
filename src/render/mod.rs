@@ -1,3 +1,5 @@
+//! Native scene preparation and PNG, GLB, and wiki sprite rendering.
+
 mod attachments;
 mod cells;
 mod entities;
@@ -19,7 +21,7 @@ use occlusion::Occlusion;
 
 use crate::{
     Result,
-    model::{Document, Pos},
+    model::{Position, Schematic},
 };
 use serde::Serialize;
 use serde_json::Value;
@@ -29,38 +31,60 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// Texture transparency handling shared by native renderers.
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
 pub enum AlphaMode {
+    /// Fully opaque pixels.
     Opaque,
+    /// Cutout transparency with an alpha threshold.
     Mask,
+    /// Partial transparency blended with the background.
     Blend,
 }
 
+/// An atlas-backed texture used by scene faces.
 #[derive(Clone, Debug, Serialize)]
 pub struct Texture {
+    /// Namespaced texture identifier.
     pub name: String,
+    /// Index of the containing atlas in PreparedScene.
     pub atlas: usize,
+    /// Normalized atlas rectangle [u0, v0, u1, v1].
     pub uv: [f32; 4],
+    /// Texture width and height in pixels.
     pub size: [u32; 2],
+    /// Default alpha handling for faces using this texture.
     pub alpha: AlphaMode,
 }
 
+/// A face vertex with mesh-local position and texture-local UV coordinates.
 #[derive(Clone, Copy, Debug, Serialize)]
 pub struct Vertex {
+    /// Position in mesh-local block units.
     pub position: [f32; 3],
+    /// Normalized coordinates within the face texture.
     pub uv: [f32; 2],
 }
 
+/// A textured face with culling, tint, and shading metadata.
 #[derive(Clone, Debug, Serialize)]
 pub struct Quad {
+    /// Four vertices in face winding order.
     pub vertices: [Vertex; 4],
+    /// Mesh-local face normal.
     pub normal: [f32; 3],
+    /// Index into the scene texture array.
     pub texture: usize,
+    /// Optional Minecraft tint slot.
     pub tint_index: Option<i32>,
+    /// Whether to apply directional lighting.
     pub shade: bool,
+    /// RGBA tint channels, from 0 through 255.
     pub color: [u8; 4],
+    /// Texture overrides, including cutout or translucent handling.
     pub texture_flags: Value,
-    pub cull_face: Option<Pos>,
+    /// Optional cardinal neighbor direction used for face culling.
+    pub cull_face: Option<Position>,
 }
 
 impl Quad {
@@ -75,24 +99,36 @@ impl Quad {
     }
 }
 
+/// Reusable textured faces for a block or entity model.
 #[derive(Clone, Debug, Serialize)]
 pub struct Mesh {
+    /// Faces in model-local coordinates.
     pub quads: Vec<Quad>,
+    /// Whether the model can fully occlude neighboring block faces.
     pub occludes: bool,
 }
 
+/// A subset of one reusable mesh drawn by a scene instance.
 #[derive(Clone, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Draw {
+    /// Index into the scene mesh array.
     pub mesh: usize,
+    /// Indices of visible faces within the selected mesh.
     pub quads: Vec<usize>,
 }
 
+/// A block or entity placement referencing shared mesh geometry.
 #[derive(Clone, Debug, Serialize)]
 pub struct Instance {
+    /// Whether this placement represents a free entity.
     pub is_entity: bool,
+    /// World position in block units.
     pub position: [f64; 3],
+    /// Unit quaternion [x, y, z, w] applied to mesh-local positions.
     pub rotation: [f32; 4],
+    /// Minecraft identifier or block-state description.
     pub name: String,
+    /// Mesh subsets visible at this placement.
     pub draws: Vec<Draw>,
 }
 
@@ -108,35 +144,52 @@ impl Instance {
     }
 }
 
+/// A located message describing a visual approximation or omitted detail.
 #[derive(Clone, Debug, Serialize)]
 pub struct Diagnostic {
+    /// Region containing the affected content.
     pub region: String,
-    pub position: Pos,
+    /// World cell position of the affected content.
+    pub position: Position,
+    /// Block or entity description associated with the message.
     pub block: String,
+    /// Human-readable limitation or approximation.
     pub message: String,
 }
 
+/// Shared geometry and decoded atlases consumed by PNG and GLB exporters.
 #[derive(Clone, Debug, Serialize)]
 pub struct PreparedScene {
+    /// Paths to source atlas images.
     pub atlases: Vec<PathBuf>,
+    /// Shared decoded RGBA atlas images.
     #[serde(skip)]
     pub atlas_images: std::sync::Arc<Vec<image::RgbaImage>>,
+    /// Atlas texture descriptors.
     pub textures: Vec<Texture>,
+    /// Reusable block and entity meshes.
     pub meshes: Vec<Mesh>,
+    /// World placements and visible mesh faces.
     pub instances: Vec<Instance>,
+    /// Visual limitations detected while preparing the scene.
     pub diagnostics: Vec<Diagnostic>,
 }
 
+/// Region selection and inclusive world-coordinate filters for visual exports.
 #[derive(Clone, Debug, Default)]
 pub struct SceneOptions {
+    /// Named region to include; None includes all regions.
     pub region: Option<String>,
+    /// Inclusive world X range; None keeps all X coordinates.
     pub x: Option<[i32; 2]>,
+    /// Inclusive world Y range; None keeps all Y coordinates.
     pub y: Option<[i32; 2]>,
+    /// Inclusive world Z range; None keeps all Z coordinates.
     pub z: Option<[i32; 2]>,
 }
 
 impl SceneOptions {
-    pub(crate) fn validate(&self, document: &Document) -> Result<()> {
+    pub(crate) fn validate(&self, document: &Schematic) -> Result<()> {
         for (axis, range) in ["X", "Y", "Z"].into_iter().zip([self.x, self.y, self.z]) {
             if range.is_some_and(|range| range[0] > range[1]) {
                 return Err(format!("{axis} range start exceeds end"));
@@ -160,6 +213,7 @@ impl SceneOptions {
     }
 }
 
+/// Loaded texture atlases and models shared across native scene preparation.
 #[derive(Debug)]
 pub struct GeometryAssets {
     atlases: Vec<PathBuf>,
@@ -176,6 +230,7 @@ fn read(path: &Path) -> Result<Value> {
 }
 
 impl GeometryAssets {
+    /// Loads a prepared visual bundle directory and validates its atlases and textures.
     pub fn load(path: &Path) -> Result<Self> {
         let manifest = read(&path.join("manifest.json"))?;
         let mut atlases = Vec::new();
@@ -248,7 +303,10 @@ impl GeometryAssets {
         })
     }
 
-    pub fn prepare(&self, document: &Document, options: &SceneOptions) -> Result<PreparedScene> {
+    /// Prepares selected world geometry without changing the document.
+    ///
+    /// Collects diagnostics for unavailable models and visual approximations.
+    pub fn prepare(&self, document: &Schematic, options: &SceneOptions) -> Result<PreparedScene> {
         if document.edition != "java" {
             return Err("Geometry preparation requires Java Edition visuals".into());
         }

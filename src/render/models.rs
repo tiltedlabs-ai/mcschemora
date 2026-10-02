@@ -4,7 +4,7 @@ use super::geometry::{DIRECTIONS, UV_CORNERS, corners, normal};
 use super::{Draw, GeometryAssets, Mesh, Quad, Vertex};
 use crate::{
     Result,
-    model::{Block, Pos},
+    model::{Block, Position},
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -36,7 +36,7 @@ pub(super) struct StateGeometry {
 }
 
 impl StateGeometry {
-    pub(super) fn selected_meshes(&self, position: Pos) -> impl Iterator<Item = usize> + '_ {
+    pub(super) fn selected_meshes(&self, position: Position) -> impl Iterator<Item = usize> + '_ {
         self.parts.iter().enumerate().map(move |(part, choices)| {
             if let [(mesh, _)] = choices.as_slice() {
                 *mesh
@@ -76,7 +76,7 @@ impl StateGeometry {
 
     pub(super) fn draws<'a>(
         &'a self,
-        position: Pos,
+        position: Position,
         meshes: &'a [Mesh],
         occlusion: &'a super::occlusion::Occlusion,
     ) -> impl Iterator<Item = Draw> + 'a {
@@ -310,7 +310,7 @@ impl Builder<'_> {
     }
 }
 
-fn choice_hash(position: Pos, block: &str, part: usize) -> u64 {
+fn choice_hash(position: Position, block: &str, part: usize) -> u64 {
     let mut hash = 0xcbf29ce484222325u64;
     for byte in position
         .iter()

@@ -1,3 +1,5 @@
+//! CPU rendering of prepared scene geometry to PNG bytes.
+
 mod grid;
 mod projection;
 mod raster;
@@ -6,10 +8,14 @@ use super::{AlphaMode, PreparedScene, View};
 use crate::Result;
 use image::{ImageEncoder, codecs::png::PngEncoder};
 
+/// Output dimensions, camera view, and grid settings for textured PNG rendering.
 #[derive(Clone, Debug)]
 pub struct Options {
+    /// Width and height in pixels, each from 1 through 4096.
     pub size: [u32; 2],
+    /// Camera orientation; default is isometric.
     pub view: View,
+    /// Whether to draw outlined block edges, excluding free entities.
     pub grid: bool,
 }
 
@@ -39,6 +45,9 @@ struct Face {
     color: [f32; 4],
 }
 
+/// Renders a prepared scene as an automatically framed, transparent PNG.
+///
+/// Uses CPU rasterization, nearest-neighbor textures, and directional lighting.
 pub fn encode(scene: &PreparedScene, options: &Options) -> Result<Vec<u8>> {
     if options.size.iter().any(|&v| v == 0 || v > 4096) {
         return Err("PNG dimensions must be between 1 and 4096 pixels".into());

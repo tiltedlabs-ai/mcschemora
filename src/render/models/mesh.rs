@@ -1,7 +1,7 @@
 use super::Application;
 use crate::{
     Result,
-    model::Pos,
+    model::Position,
     render::{
         AlphaMode, GeometryAssets, Mesh, Quad, Vertex,
         geometry::{UV_CORNERS, corners, normal, rotate},
@@ -155,7 +155,7 @@ fn cull_face(
     face: &Face,
     positions: [[f32; 3]; 4],
     application: &Application,
-) -> Result<Option<Pos>> {
+) -> Result<Option<Position>> {
     Ok(face
         .cullface
         .as_ref()
@@ -240,7 +240,7 @@ fn lock_uv(
     }))
 }
 
-fn boundary_face(positions: [[f32; 3]; 4], direction: Pos) -> bool {
+fn boundary_face(positions: [[f32; 3]; 4], direction: Position) -> bool {
     let Some(axis) = direction.iter().position(|&n| n != 0) else {
         return false;
     };

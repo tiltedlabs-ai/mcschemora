@@ -3,7 +3,7 @@ requires = ["maturin>=1.15,<2"]
 build-backend = "maturin"
 
 [project]
-name = "schemora"
+name = "mcschemora"
 version = "0.1.0"
 description = "Minecraft schematic authoring"
 requires-python = ">=3.10"
@@ -12,6 +12,6 @@ license = "MIT"
 
 [tool.maturin]
 python-source = "python"
-module-name = "schemora._core"
-include = [{ path = "licenses/**/*", from = "out-dir", to = "schemora/" }]
-exclude = ["**/__pycache__/**", "**/*.pyc", "python/schemora/licenses/**/*"]
+module-name = "mcschemora._core"
+include = [{ path = "licenses/**/*", from = "out-dir", to = "mcschemora/" }]
+exclude = ["**/__pycache__/**", "**/*.pyc", "python/mcschemora/licenses/**/*"]

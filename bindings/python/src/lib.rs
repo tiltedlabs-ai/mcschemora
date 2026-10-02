@@ -1,36 +1,36 @@
 //! PyO3 adapter. Core data and editing rules stay in Rust.
-use pyo3::{exceptions::PyValueError, prelude::*, types::PyBytes};
-use schemora::{
+use mcschemora::{
     catalog, formats, helpers,
     model::*,
     nbt,
     transform::{Transform, transform_selection},
 };
+use pyo3::{exceptions::PyValueError, prelude::*, types::PyBytes};
 use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex, MutexGuard},
 };
-type Shared = Arc<Mutex<Document>>;
+type Shared = Arc<Mutex<Schematic>>;
 type State = (String, BTreeMap<String, String>);
 fn error(e: impl ToString) -> PyErr {
     PyValueError::new_err(e.to_string())
 }
-fn lock(d: &Shared) -> PyResult<MutexGuard<'_, Document>> {
-    d.lock().map_err(|_| error("Document lock poisoned"))
+fn lock(d: &Shared) -> PyResult<MutexGuard<'_, Schematic>> {
+    d.lock().map_err(|_| error("Schematic lock poisoned"))
 }
 fn state(b: Block) -> State {
     (b.name, b.properties)
 }
 fn render(
-    document: &Document,
-    options: schemora::render::SceneOptions,
-    encode: impl FnOnce(&schemora::render::PreparedScene) -> schemora::Result<Vec<u8>>,
+    schematic: &Schematic,
+    options: mcschemora::render::SceneOptions,
+    encode: impl FnOnce(&mcschemora::render::PreparedScene) -> mcschemora::Result<Vec<u8>>,
 ) -> PyResult<(Vec<u8>, Vec<String>)> {
-    let assets = document
+    let assets = schematic
         .data
-        .geometry_assets(&document.version)
+        .geometry_assets(&schematic.version)
         .map_err(error)?;
-    let scene = assets.prepare(document, &options).map_err(error)?;
+    let scene = assets.prepare(schematic, &options).map_err(error)?;
     let bytes = encode(&scene).map_err(error)?;
     let diagnostics = scene
         .diagnostics
@@ -88,12 +88,12 @@ impl PyMinecraftData {
     }
 }
 
-#[pyclass(name = "Document")]
-struct PyDocument {
+#[pyclass(name = "Schematic")]
+struct PySchematic {
     data: Shared,
 }
 #[pymethods]
-impl PyDocument {
+impl PySchematic {
     #[new]
     fn new(
         py: Python<'_>,
@@ -105,7 +105,7 @@ impl PyDocument {
             data: Arc::new(Mutex::new(
                 py.detach(|| {
                     pollster::block_on(source.data.load(version))?;
-                    Document::new(edition, version, source.data.clone())
+                    Schematic::new(edition, version, source.data.clone())
                 })
                 .map_err(error)?,
             )),
@@ -118,7 +118,7 @@ impl PyDocument {
         format: &str,
         source: &PyMinecraftData,
         version: Option<String>,
-        origin: Option<Pos>,
+        origin: Option<Position>,
         palette: std::collections::BTreeMap<String, String>,
     ) -> PyResult<Self> {
         let options = formats::ImportOptions {
@@ -160,8 +160,8 @@ impl PyDocument {
         let (bytes, diagnostics) = py.detach(|| {
             render(
                 &*lock(&self.data)?,
-                schemora::render::SceneOptions { region, x, y, z },
-                schemora::render::glb::encode,
+                mcschemora::render::SceneOptions { region, x, y, z },
+                mcschemora::render::glb::encode,
             )
         })?;
         Ok((PyBytes::new(py, &bytes), diagnostics))
@@ -180,11 +180,11 @@ impl PyDocument {
         let (bytes, diagnostics) = py.detach(|| {
             render(
                 &*lock(&self.data)?,
-                schemora::render::SceneOptions { region, x, y, z },
+                mcschemora::render::SceneOptions { region, x, y, z },
                 |scene| {
-                    schemora::render::png::encode(
+                    mcschemora::render::png::encode(
                         scene,
-                        &schemora::render::png::Options { size, view, grid },
+                        &mcschemora::render::png::Options { size, view, grid },
                     )
                 },
             )
@@ -204,10 +204,10 @@ impl PyDocument {
         let (cell_size, grid, entities) = style;
         let [x, y, z] = ranges;
         let output = py.detach(|| {
-            schemora::render::sprites::encode(
+            mcschemora::render::sprites::encode(
                 &*lock(&self.data)?,
-                &schemora::render::sprites::Options {
-                    selection: schemora::render::SceneOptions { region, x, y, z },
+                &mcschemora::render::sprites::Options {
+                    selection: mcschemora::render::SceneOptions { region, x, y, z },
                     view,
                     cell_size,
                     grid,
@@ -254,7 +254,7 @@ impl PyDocument {
             name: name.into(),
         })
     }
-    fn add_region(&self, name: &str, origin: Pos) -> PyResult<PyRegion> {
+    fn add_region(&self, name: &str, origin: Position) -> PyResult<PyRegion> {
         lock(&self.data)?.add_region(name, origin).map_err(error)?;
         Ok(PyRegion {
             data: self.data.clone(),
@@ -294,34 +294,34 @@ struct PyRegion {
     name: String,
 }
 impl PyRegion {
-    fn with<T>(&self, f: impl FnOnce(&mut Region) -> schemora::Result<T>) -> PyResult<T> {
+    fn with<T>(&self, f: impl FnOnce(&mut Region) -> mcschemora::Result<T>) -> PyResult<T> {
         let mut d = lock(&self.data)?;
         f(d.region_mut(&self.name).map_err(error)?).map_err(error)
     }
 }
 #[pymethods]
 impl PyRegion {
-    fn bounds(&self) -> PyResult<(Pos, Pos)> {
+    fn bounds(&self) -> PyResult<(Position, Position)> {
         self.with(|r| Ok((r.bounds.start, r.bounds.size)))
     }
-    fn origin(&self) -> PyResult<Pos> {
+    fn origin(&self) -> PyResult<Position> {
         self.with(|r| Ok(r.origin))
     }
-    fn get(&self, at: Pos) -> PyResult<State> {
+    fn get(&self, at: Position) -> PyResult<State> {
         self.with(|r| Ok(state(r.get(at))))
     }
-    fn set_many(&self, palette: Vec<State>, cells: Vec<(Pos, usize)>) -> PyResult<()> {
+    fn set_many(&self, palette: Vec<State>, cells: Vec<(Position, usize)>) -> PyResult<()> {
         let palette = palette
             .into_iter()
             .map(|(id, props)| Block::new(&id, props))
-            .collect::<schemora::Result<Vec<_>>>()
+            .collect::<mcschemora::Result<Vec<_>>>()
             .map_err(error)?;
         lock(&self.data)?
             .set_indexed_blocks(&self.name, &palette, cells)
             .map_err(error)
     }
 
-    fn select(&self, start: Pos, size: Pos) -> PyResult<PySelection> {
+    fn select(&self, start: Position, size: Position) -> PyResult<PySelection> {
         let d = lock(&self.data)?;
         let r = d.region(&self.name).map_err(error)?;
         Ok(PySelection {
@@ -330,24 +330,24 @@ impl PyRegion {
             selection: Selection::new(r, Bounds::new(start, size).map_err(error)?),
         })
     }
-    fn set_fragment(&self, at: Pos, fragment: &PyFragment) -> PyResult<()> {
+    fn set_fragment(&self, at: Position, fragment: &PyFragment) -> PyResult<()> {
         lock(&self.data)?
             .paste(&self.name, at, &fragment.fragment)
             .map_err(error)
     }
-    fn place(&self, placement: &PyPlacement, at: Pos, replace: bool) -> PyResult<()> {
+    fn place(&self, placement: &PyPlacement, at: Position, replace: bool) -> PyResult<()> {
         lock(&self.data)?
-            .place(&self.name, &placement.recipe, at, replace)
+            .place(&self.name, &placement.placement, at, replace)
             .map_err(error)
     }
 
-    fn block_entity_get(&self, at: Pos) -> PyResult<Option<String>> {
+    fn block_entity_get(&self, at: Position) -> PyResult<Option<String>> {
         self.with(|r| r.block_entities.get(&at).map(nbt::to_snbt).transpose())
     }
-    fn block_entity_set(&self, at: Pos, snbt: &str) -> PyResult<()> {
+    fn block_entity_set(&self, at: Position, snbt: &str) -> PyResult<()> {
         self.with(|r| r.set_block_entity(at, nbt::from_snbt(snbt)?))
     }
-    fn block_entity_remove(&self, at: Pos) -> PyResult<()> {
+    fn block_entity_remove(&self, at: Position) -> PyResult<()> {
         self.with(|r| {
             r.block_entities.remove(&at);
             Ok(())
@@ -393,7 +393,7 @@ struct PyFragment {
 }
 #[pymethods]
 impl PyFragment {
-    fn size(&self) -> Pos {
+    fn size(&self) -> Position {
         self.fragment.size
     }
 }
@@ -418,7 +418,7 @@ impl PySelection {
 }
 #[pymethods]
 impl PySelection {
-    fn bounds(&self) -> (Pos, Pos) {
+    fn bounds(&self) -> (Position, Position) {
         (self.selection.bounds.start, self.selection.bounds.size)
     }
     fn select(&self, id: Option<&str>, properties: BTreeMap<String, String>) -> PyResult<Self> {
@@ -449,7 +449,7 @@ impl PySelection {
             .map_err(error)
     }
 
-    fn move_by(&mut self, offset: Pos, replace: bool) -> PyResult<()> {
+    fn move_by(&mut self, offset: Position, replace: bool) -> PyResult<()> {
         self.selection = self.apply(Transform::move_by(offset), false, replace)?;
         Ok(())
     }
@@ -476,7 +476,7 @@ impl PySelection {
         self.selection = self.apply(t, false, replace)?;
         Ok(())
     }
-    fn duplicate(&self, offset: Pos, replace: bool) -> PyResult<Self> {
+    fn duplicate(&self, offset: Position, replace: bool) -> PyResult<Self> {
         Ok(Self {
             data: self.data.clone(),
             name: self.name.clone(),
@@ -504,7 +504,7 @@ impl PySelection {
         }
         Ok(counts)
     }
-    fn layer(&self, y: i32) -> PyResult<Vec<(Pos, String)>> {
+    fn layer(&self, y: i32) -> PyResult<Vec<(Position, String)>> {
         let d = lock(&self.data)?;
         let r = d.region(&self.name).map_err(error)?;
         if self.selection.bounds.size[0] as i64 * self.selection.bounds.size[2] as i64 > 65536 {
@@ -528,28 +528,46 @@ impl PySelection {
             .collect())
     }
 }
+/// A placement committed with Region.place; validated against the target version.
 #[pyclass(name = "Placement", frozen)]
 struct PyPlacement {
-    recipe: helpers::Recipe,
+    placement: helpers::Placement,
 }
 
-/// Place both bed halves; at is the foot block.
+/// Creates a bed placement anchored at the foot block when placed.
+///
+/// Args:
+///     color: Minecraft bed color.
+///     head_toward: Direction from the foot to the head: north, south, east, or west.
+///
+/// Returns:
+///     A two-block placement for Region.place. Validated when placed.
 #[pyfunction]
 #[pyo3(signature = (*, color="red", head_toward="north"))]
 fn bed(color: &str, head_toward: &str) -> PyPlacement {
     PyPlacement {
-        recipe: helpers::Recipe::Bed {
+        placement: helpers::Placement::Bed {
             color: color.into(),
             head_toward: head_toward.into(),
         },
     }
 }
-/// Place both door halves; at is the lower block.
+/// Creates a door placement anchored at the lower block when placed.
+///
+/// Args:
+///     material: Minecraft door material, such as oak or iron.
+///     facing: Horizontal facing direction.
+///     hinge: Hinge side, left or right.
+///     open: Whether the door is open.
+///     powered: Whether the door is powered.
+///
+/// Returns:
+///     A two-block placement for Region.place. Validated when placed.
 #[pyfunction]
 #[pyo3(signature = (*, material="oak", facing="north", hinge="left", open=false, powered=false))]
 fn door(material: &str, facing: &str, hinge: &str, open: bool, powered: bool) -> PyPlacement {
     PyPlacement {
-        recipe: helpers::Recipe::Door {
+        placement: helpers::Placement::Door {
             material: material.into(),
             facing: facing.into(),
             hinge: hinge.into(),
@@ -558,21 +576,39 @@ fn door(material: &str, facing: &str, hinge: &str, open: bool, powered: bool) ->
         },
     }
 }
+/// Creates a single-chest placement with optional inventory contents.
+///
+/// Args:
+///     facing: Horizontal facing direction.
+///     items: Slots 0 through 26 mapped to item() values; None leaves it empty.
+///
+/// Returns:
+///     A placement for Region.place. Items and states are validated when placed.
 #[pyfunction]
 #[pyo3(signature = (*, facing="north", items=None))]
 fn chest(facing: &str, items: Option<BTreeMap<i8, helpers::Item>>) -> PyPlacement {
     PyPlacement {
-        recipe: helpers::Recipe::Chest {
+        placement: helpers::Placement::Chest {
             facing: facing.into(),
             items: items.unwrap_or_default(),
         },
     }
 }
+/// Creates a standing-sign placement with plain text on its front face.
+///
+/// Args:
+///     lines: Up to four text lines; omitted lines are blank.
+///     material: Minecraft sign material, such as oak.
+///     rotation: Minecraft rotation value, 0 through 15.
+///     color: Minecraft text color.
+///
+/// Returns:
+///     A placement for Region.place, with text encoded for the target version.
 #[pyfunction]
 #[pyo3(signature = (lines, *, material="oak", rotation=0, color="black"))]
 fn sign(lines: Vec<String>, material: &str, rotation: i32, color: &str) -> PyPlacement {
     PyPlacement {
-        recipe: helpers::Recipe::Sign {
+        placement: helpers::Placement::Sign {
             lines,
             material: material.into(),
             rotation,
@@ -582,7 +618,7 @@ fn sign(lines: Vec<String>, material: &str, rotation: i32, color: &str) -> PyPla
 }
 #[pymodule]
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_class::<PyDocument>()?;
+    m.add_class::<PySchematic>()?;
     m.add_class::<PyRegion>()?;
     m.add_class::<PySelection>()?;
     m.add_class::<PyFragment>()?;

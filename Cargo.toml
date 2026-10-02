@@ -1,13 +1,13 @@
 [package]
-name = "schemora"
+name = "mcschemora"
 version = "0.1.0"
 edition = "2024"
 description = "Minecraft schematic authoring and conversion"
 license = "MIT AND MPL-2.0"
-include = ["/data/wiki-sprites/**", "/data/entity-models/**", "/data/block-models/**", "/src/**/*.rs", "/src/catalog/storage/native/SOURCE.md", "/Cargo.toml", "/README.md", "/LICENSE"]
+include = ["/data/wiki-sprites/**", "/data/entity-models/**", "/data/block-models/**", "/src/**/*.rs", "/src/catalog/storage/native/SOURCE.md", "/examples/*.rs", "/Cargo.toml", "/README.md", "/LICENSE"]
 
 [lib]
-name = "schemora"
+name = "mcschemora"
 crate-type = ["rlib"]
 
 [workspace]
@@ -28,6 +28,9 @@ tempfile = "3"
 sha1 = "0.10"
 png = "0.18"
 image = { version = "0.25", default-features = false, features = ["png"] }
+
+[dev-dependencies]
+pollster = "0.4"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"

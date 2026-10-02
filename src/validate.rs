@@ -1,3 +1,5 @@
+//! Game-rule validation with separate errors, warnings, and unknown results.
+
 mod block_entities;
 mod portals;
 mod rules;
@@ -7,15 +9,19 @@ mod shapes;
 pub(crate) use block_entities::block_entity_id;
 pub(crate) use shapes::Shapes;
 
-use crate::model::{Block, Document, Pos, direction};
+use crate::model::{Block, Position, Schematic, direction};
 use scene::{Cell, Scene};
 use shapes::Support;
 use std::collections::HashSet;
 
+/// Read-only game-rule validation results; no world ticks are simulated.
 #[derive(Debug, Default)]
 pub struct Report {
+    /// Structural violations or invalid block and attached-data states.
     pub errors: Vec<String>,
+    /// Unstable states and advisory document notices.
     pub warnings: Vec<String>,
+    /// Checks requiring unavailable game data or surrounding world blocks.
     pub unknown: Vec<String>,
 }
 
@@ -35,7 +41,7 @@ fn add(p: Point, d: Point) -> Point {
 fn neg(d: Point) -> Point {
     d.map(|n| -n)
 }
-fn world(origin: Pos, p: Pos) -> Point {
+fn world(origin: Position, p: Position) -> Point {
     std::array::from_fn(|i| i64::from(origin[i]) + i64::from(p[i]))
 }
 fn name(b: &Block) -> &str {
@@ -103,7 +109,11 @@ impl Check<'_, '_> {
     }
 }
 
-pub fn validate(doc: &Document) -> Report {
+/// Checks a document without modifying it.
+///
+/// Java catalogs and surrounding blocks determine which rules can be checked. Other editions
+/// and unavailable support data produce unknown results.
+pub fn validate(doc: &Schematic) -> Report {
     let mut report = Report {
         warnings: doc
             .notices

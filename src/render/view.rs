@@ -1,12 +1,20 @@
+/// Camera orientation; cardinal names describe the viewer location.
 #[derive(Clone, Copy, Debug, Default)]
 pub enum View {
+    /// Diagonal view showing top and side faces.
     #[default]
     Isometric,
+    /// View from above.
     Top,
+    /// View from below.
     Bottom,
+    /// View from north with world-up vertical.
     North,
+    /// View from south with world-up vertical.
     South,
+    /// View from east with world-up vertical.
     East,
+    /// View from west with world-up vertical.
     West,
 }
 

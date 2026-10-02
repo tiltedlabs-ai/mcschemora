@@ -1,3 +1,5 @@
+//! Hierarchical cuboid models baked against the native geometry texture catalog.
+
 use super::{
     GeometryAssets, Mesh, Quad, Vertex,
     geometry::{UV_CORNERS, corners, normal, rotate},
@@ -5,12 +7,18 @@ use super::{
 use crate::Result;
 use std::collections::BTreeMap;
 
+/// A hierarchical model part with a local transform and named children.
 #[derive(Clone, Debug)]
 pub struct Part {
+    /// Local translation in model pixels; 16 pixels equal one block.
     pub pivot: [f32; 3],
+    /// Euler rotations in degrees, applied about X, Y, then Z.
     pub rotation: [f32; 3],
+    /// Positive scale factors along local X, Y, and Z.
     pub scale: [f32; 3],
+    /// Cuboids attached to this part.
     pub cuboids: Vec<Cuboid>,
+    /// Child parts inheriting this transform.
     pub children: BTreeMap<String, Part>,
 }
 
@@ -26,17 +34,25 @@ impl Default for Part {
     }
 }
 
+/// An axis-aligned box in model pixel coordinates.
 #[derive(Clone, Debug)]
 pub struct Cuboid {
+    /// Minimum local model coordinates.
     pub from: [f32; 3],
+    /// Maximum local model coordinates.
     pub to: [f32; 3],
+    /// Faces indexed by cardinal direction name.
     pub faces: BTreeMap<String, Face>,
 }
 
+/// Texture mapping for a model-part face.
 #[derive(Clone, Debug, Default)]
 pub struct Face {
+    /// Texture identifier present in the geometry assets.
     pub texture: String,
+    /// Texture pixel rectangle [u0, v0, u1, v1].
     pub uv: [f32; 4],
+    /// UV rotation in degrees; multiples of 90 are supported.
     pub rotation: u16,
 }
 
@@ -93,6 +109,7 @@ impl Frame {
 }
 
 impl GeometryAssets {
+    /// Bakes a part hierarchy into block-unit mesh geometry using loaded textures.
     pub fn bake_parts(&self, root: &Part) -> Result<Mesh> {
         let identity = Frame {
             axes: [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]],

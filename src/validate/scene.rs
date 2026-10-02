@@ -3,7 +3,7 @@ use super::shapes::{Shapes, Support, face_index, face_rectangles, support, wall_
 use super::{DOWN, Point, Report, add, name, world};
 use crate::{
     catalog::Registry,
-    model::{Block, Document, Pos, Region},
+    model::{Block, Position, Region, Schematic},
 };
 use std::collections::HashMap;
 
@@ -52,7 +52,7 @@ impl State {
 #[derive(Clone, Copy)]
 pub(super) struct Cell<'a> {
     pub(super) region: &'a str,
-    pub(super) local: Pos,
+    pub(super) local: Position,
     pub(super) point: Point,
     pub(super) state: usize,
 }
@@ -78,7 +78,7 @@ enum BlockIndex {
 }
 
 impl BlockIndex {
-    fn new(doc: &Document, count: usize) -> Self {
+    fn new(doc: &Schematic, count: usize) -> Self {
         if doc.regions.len() == 1 {
             let region = doc.regions.values().next().unwrap();
             if let Ok(volume) = region.bounds.volume()
@@ -192,7 +192,7 @@ fn contains_known(region: &Region, point: Point) -> bool {
             .is_none_or(|cells| cells.contains(&local))
 }
 
-pub(super) fn check_region_bounds(doc: &Document, report: &mut Report) {
+pub(super) fn check_region_bounds(doc: &Schematic, report: &mut Report) {
     let mut regions: Vec<_> = doc
         .regions
         .iter()
@@ -243,7 +243,7 @@ impl<'a> StatePalette<'a> {
 }
 
 pub(super) fn build_scene<'a>(
-    doc: &'a Document,
+    doc: &'a Schematic,
     registry: &Registry,
     shapes: Option<&Shapes>,
     report: &mut Report,

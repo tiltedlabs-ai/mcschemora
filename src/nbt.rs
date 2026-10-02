@@ -1,12 +1,14 @@
 //! NBT primitives shared by the file codecs. SNBT keeps numeric tag types visible.
 use crate::{
     Result,
-    model::{Compound, Pos},
+    model::{Compound, Position},
 };
 pub use fastnbt::Value as Tag;
 use fastnbt::{ByteArray, IntArray, LongArray, Value};
 use std::io::{Read, Write};
+/// Maximum encoded or expanded NBT input size in bytes.
 pub const MAX_BYTES: usize = 256 * 1024 * 1024;
+/// Borrows a compound tag, or returns an error for another tag type.
 pub fn compound(v: &Value) -> Result<&Compound> {
     if let Value::Compound(c) = v {
         Ok(c)
@@ -14,6 +16,7 @@ pub fn compound(v: &Value) -> Result<&Compound> {
         Err("Expected NBT compound".into())
     }
 }
+/// Borrows a list tag, or returns an error for another tag type.
 pub fn list(v: &Value) -> Result<&Vec<Value>> {
     if let Value::List(c) = v {
         Ok(c)
@@ -21,9 +24,11 @@ pub fn list(v: &Value) -> Result<&Vec<Value>> {
         Err("Expected NBT list".into())
     }
 }
+/// Borrows a named field, or returns an error if it is absent.
 pub fn get<'a>(c: &'a Compound, k: &str) -> Result<&'a Value> {
     c.get(k).ok_or_else(|| format!("Missing NBT field {k}"))
 }
+/// Reads an integer tag as i32, rejecting other types and overflow.
 pub fn number(v: &Value) -> Result<i32> {
     match v {
         Value::Byte(n) => Ok(*n as i32),
@@ -33,6 +38,7 @@ pub fn number(v: &Value) -> Result<i32> {
         _ => Err("Expected integer NBT".into()),
     }
 }
+/// Borrows a string tag, or returns an error for another tag type.
 pub fn string(v: &Value) -> Result<&str> {
     if let Value::String(s) = v {
         Ok(s)
@@ -40,7 +46,8 @@ pub fn string(v: &Value) -> Result<&str> {
         Err("Expected string NBT".into())
     }
 }
-pub fn xyz(v: &Value) -> Result<Pos> {
+/// Reads three integer coordinates from an int array, list, or x/y/z compound.
+pub fn xyz(v: &Value) -> Result<Position> {
     match v {
         Value::IntArray(a) if a.len() == 3 => Ok([a[0], a[1], a[2]]),
         Value::List(l) if l.len() == 3 => Ok([number(&l[0])?, number(&l[1])?, number(&l[2])?]),
@@ -52,6 +59,7 @@ pub fn xyz(v: &Value) -> Result<Pos> {
         _ => Err("Expected three integer coordinates".into()),
     }
 }
+/// Reads a three-element float or double list, rejecting nonfinite coordinates.
 pub fn doubles(v: &Value) -> Result<[f64; 3]> {
     let l = list(v)?;
     if l.len() != 3 {
@@ -70,13 +78,16 @@ pub fn doubles(v: &Value) -> Result<[f64; 3]> {
     }
     Ok(p)
 }
-pub fn ints(p: Pos) -> Value {
+/// Encodes X, Y, and Z as a list of integer tags.
+pub fn ints(p: Position) -> Value {
     Value::List(p.into_iter().map(Value::Int).collect())
 }
-pub fn int_array(p: Pos) -> Value {
+/// Encodes X, Y, and Z as an NBT integer array.
+pub fn int_array(p: Position) -> Value {
     Value::IntArray(IntArray::new(p.to_vec()))
 }
-pub fn pos_compound(p: Pos) -> Value {
+/// Encodes integer coordinates as an x/y/z compound.
+pub fn pos_compound(p: Position) -> Value {
     Value::Compound(
         ["x", "y", "z"]
             .into_iter()
@@ -85,21 +96,29 @@ pub fn pos_compound(p: Pos) -> Value {
             .collect(),
     )
 }
+/// Encodes X, Y, and Z as a list of double tags.
 pub fn double_list(p: [f64; 3]) -> Value {
     Value::List(p.into_iter().map(Value::Double).collect())
 }
+/// Creates a compound tag from named fields.
 pub fn c<const N: usize>(pairs: [(&str, Value); N]) -> Value {
     Value::Compound(pairs.into_iter().map(|(k, v)| (k.into(), v)).collect())
 }
+/// Creates a string tag.
 pub fn s(s: impl Into<String>) -> Value {
     Value::String(s.into())
 }
+/// Parses a typed SNBT compound without erasing numeric tag types.
 pub fn from_snbt(s: &str) -> Result<Compound> {
     fastsnbt::from_str(s).map_err(|e| e.to_string())
 }
+/// Serializes a compound as typed SNBT.
 pub fn to_snbt(c: &Compound) -> Result<String> {
     fastsnbt::to_string(c).map_err(|e| e.to_string())
 }
+/// Decodes a compound from raw or gzip-compressed NBT.
+///
+/// little selects Bedrock little-endian encoding. Input and expanded data are size-limited.
 pub fn decode(data: &[u8], little: bool) -> Result<Compound> {
     if data.len() > MAX_BYTES {
         return Err("NBT input exceeds 256 MiB".into());
@@ -135,6 +154,7 @@ pub fn decode(data: &[u8], little: bool) -> Result<Compound> {
         unreachable!()
     }
 }
+/// Encodes a compound as NBT; little selects Bedrock byte order and gzip compresses it.
 pub fn encode(root: &Compound, little: bool, gzip: bool) -> Result<Vec<u8>> {
     let raw = if little {
         let mut w = vec![10, 0, 0];

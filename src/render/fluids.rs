@@ -3,7 +3,7 @@ use super::occlusion::Occlusion;
 use super::{Draw, GeometryAssets, Instance, Mesh, Quad, Vertex};
 use crate::{
     Result,
-    model::{Block, Pos},
+    model::{Block, Position},
 };
 use std::collections::BTreeMap;
 
@@ -51,7 +51,7 @@ pub(super) fn append(
         let Some(fluid_kind) = kind(block) else {
             continue;
         };
-        let same = |p: Pos| {
+        let same = |p: Position| {
             cells
                 .get(&p)
                 .is_some_and(|other| kind(other) == Some(fluid_kind))

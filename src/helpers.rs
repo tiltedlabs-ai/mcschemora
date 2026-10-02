@@ -1,30 +1,50 @@
+//! Placement recipes and inventory, sign, and living-mob NBT.
+
 use crate::versions::{COLORED_SIGNS, DUAL_SIDED_SIGNS, ITEM_COMPONENTS, NBT_TEXT_COMPONENTS};
 use crate::{Result, catalog, model::*, nbt};
 use fastnbt::Value;
 use std::collections::BTreeMap;
 
+/// Inventory item identifier, count, and optional typed SNBT components.
 pub type Item = (String, i32, Option<String>);
 #[derive(Clone)]
-pub enum Recipe {
+pub enum Placement {
+    /// Two bed halves anchored at the foot block.
     Bed {
+        /// Minecraft bed color.
         color: String,
+        /// Horizontal direction from the foot to the head.
         head_toward: String,
     },
+    /// Two door halves anchored at the lower block.
     Door {
+        /// Minecraft door material, such as oak or iron.
         material: String,
+        /// Horizontal facing direction.
         facing: String,
+        /// Hinge side, left or right.
         hinge: String,
+        /// Whether the door is open.
         open: bool,
+        /// Whether the door is powered.
         powered: bool,
     },
+    /// A single chest and inventory, with slots 0 through 26.
     Chest {
+        /// Horizontal facing direction.
         facing: String,
+        /// Slots mapped to item identifiers, counts, and optional components.
         items: BTreeMap<i8, Item>,
     },
+    /// A standing sign with up to four lines of front text.
     Sign {
+        /// Minecraft sign material, such as oak.
         material: String,
+        /// Minecraft rotation value, 0 through 15.
         rotation: i32,
+        /// Minecraft text color.
         color: String,
+        /// Up to four plain-text lines; omitted lines are blank.
         lines: Vec<String>,
     },
 }
@@ -35,14 +55,17 @@ fn make(catalog: &catalog::Registry, id: &str, props: Vec<(&str, String)>) -> Re
         props.into_iter().map(|(k, v)| (k.into(), v)).collect(),
     )?)
 }
-pub fn recipe(
+/// Resolves and validates a placement into local cells and version-appropriate NBT.
+///
+/// No document is changed. at is the bed foot, lower door half, or single-block anchor.
+pub fn resolve_placement(
     catalog: &catalog::Registry,
-    recipe: &Recipe,
-    at: Pos,
-) -> Result<Vec<(Pos, Block, Option<Compound>)>> {
+    placement: &Placement,
+    at: Position,
+) -> Result<Vec<(Position, Block, Option<Compound>)>> {
     let mut cells = vec![];
-    match recipe {
-        Recipe::Bed {
+    match placement {
+        Placement::Bed {
             color,
             head_toward: head,
         } => {
@@ -66,7 +89,7 @@ pub fn recipe(
                 ));
             }
         }
-        Recipe::Door {
+        Placement::Door {
             material,
             facing,
             hinge,
@@ -93,7 +116,7 @@ pub fn recipe(
                 ));
             }
         }
-        Recipe::Chest {
+        Placement::Chest {
             facing,
             items: inventory,
         } => {
@@ -133,7 +156,7 @@ pub fn recipe(
                 ])),
             ));
         }
-        Recipe::Sign {
+        Placement::Sign {
             material,
             rotation,
             color,
@@ -211,10 +234,14 @@ pub fn recipe(
     }
     Ok(cells)
 }
+/// Whether a block-entity identifier matches the owning block type.
 pub fn compatible(id: &str, b: &Block) -> bool {
     crate::validate::block_entity_id(b) == Some(id.strip_prefix("minecraft:").unwrap_or(id))
 }
 
+/// Creates living-mob NBT after catalog validation.
+///
+/// Supplied id and persistence replace those in data; missing Rotation defaults to zero.
 pub fn mob(
     catalog: &catalog::Registry,
     id: &str,

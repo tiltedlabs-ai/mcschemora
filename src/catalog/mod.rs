@@ -1,3 +1,5 @@
+//! Pinned Java catalogs, version resolution, and shared asset caching.
+
 mod registry;
 pub(crate) mod source;
 mod storage;
@@ -11,6 +13,7 @@ use std::{
     sync::{Arc, Mutex, OnceLock},
 };
 
+/// Java version of the shared native rendering asset bundle.
 #[cfg(not(target_arch = "wasm32"))]
 pub const VISUAL_VERSION: &str = "1.21.1";
 
@@ -20,6 +23,7 @@ struct Loaded {
     datasets: BTreeMap<String, Value>,
 }
 
+/// Shared access to pinned catalogs and native disk or browser memory caches.
 #[derive(Debug)]
 pub struct MinecraftData {
     cache: storage::Cache,
@@ -31,6 +35,9 @@ pub struct MinecraftData {
 }
 
 impl MinecraftData {
+    /// Creates a provider without loading metadata or catalogs.
+    ///
+    /// Native cache_dir=None uses the platform default. Offline mode rejects uncached downloads.
     pub fn new(cache_dir: Option<PathBuf>, offline: bool) -> Result<Self> {
         Ok(Self {
             cache: storage::Cache::new(cache_dir, offline)?,
@@ -46,6 +53,7 @@ impl MinecraftData {
         source::json(relative, &self.cache.read(relative).await?)
     }
 
+    /// Loads version metadata needed by versions() and data-version lookup.
     pub async fn initialize(&self) -> Result<()> {
         if self.metadata.get().is_none() {
             let paths = self.read("dataPaths.json").await?;
@@ -61,14 +69,17 @@ impl MinecraftData {
         })
     }
 
+    /// Lists supported Java versions; initialize() or load() must have completed.
     pub fn versions(&self) -> Result<Vec<String>> {
         Ok(self.metadata()?.versions())
     }
 
+    /// Looks up a loaded metadata entry by numeric data version.
     pub fn version_for_data_version(&self, id: i32) -> Result<Option<String>> {
         Ok(self.metadata()?.version_for_data_version(id))
     }
 
+    /// Loads and shares a Java registry, resolving latest to the newest supported release.
     pub async fn load(&self, requested: &str) -> Result<Arc<Registry>> {
         self.initialize().await?;
         let metadata = self.metadata()?;
@@ -116,6 +127,7 @@ impl MinecraftData {
         Ok(registry)
     }
 
+    /// Returns an already loaded registry; this method does not download catalogs.
     pub fn registry(&self, requested: &str) -> Result<Arc<Registry>> {
         let version = self.metadata()?.resolve(requested)?;
         self.catalogs
@@ -126,6 +138,7 @@ impl MinecraftData {
             .ok_or_else(|| format!("Java {version} catalog is not loaded; call load() first"))
     }
 
+    /// Returns a dataset from an already loaded catalog.
     pub fn dataset(&self, requested: &str, kind: &str) -> Result<Value> {
         let version = self.metadata()?.resolve(requested)?;
         self.catalogs
@@ -147,11 +160,15 @@ impl MinecraftData {
             .ok_or_else(|| "Legacy mappings are not loaded".into())
     }
 
+    /// Returns the native filesystem cache directory.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn cache_dir(&self) -> &std::path::Path {
         &self.cache.root
     }
 
+    /// Prepares and returns the shared Java 1.21.1 visual bundle directory.
+    ///
+    /// Catalog metadata must be loaded. Other versions use the same bundle with a warning.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn load_visuals(&self, requested: &str) -> Result<PathBuf> {
         let version = self.metadata()?.resolve(requested)?;
@@ -163,6 +180,7 @@ impl MinecraftData {
         self.cache.load_visuals(VISUAL_VERSION, Some("1.21"))
     }
 
+    /// Loads and shares the native geometry assets for the shared visual bundle.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn geometry_assets(&self, requested: &str) -> Result<Arc<crate::render::GeometryAssets>> {
         let path = self.load_visuals(requested)?;

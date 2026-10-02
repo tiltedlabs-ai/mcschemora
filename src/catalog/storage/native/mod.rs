@@ -33,7 +33,7 @@ fn default_root() -> Result<PathBuf> {
             .map(PathBuf::from)
             .or_else(|| std::env::var_os("HOME").map(|p| PathBuf::from(p).join(".cache")))
     };
-    base.map(|p| p.join("schemora"))
+    base.map(|p| p.join("mcschemora"))
         .ok_or_else(|| "Cannot determine a cache directory; provide cache_dir".into())
 }
 
@@ -138,7 +138,7 @@ impl Cache {
                 let response = self
                     .agent
                     .get(url)
-                    .set("User-Agent", "schemora/0.1")
+                    .set("User-Agent", "mcschemora/0.1")
                     .call()
                     .map_err(|e| format!("Download {url}: {e}"))?;
                 let mut bytes = Vec::new();

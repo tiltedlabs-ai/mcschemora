@@ -9,7 +9,7 @@ resolution-markers = [
 
 [manifest]
 members = [
-    "schemora",
+    "mcschemora",
 ]
 
 [manifest.dependency-groups]
@@ -320,7 +320,7 @@ wheels = [
 ]
 
 [[package]]
-name = "schemora"
+name = "mcschemora"
 version = "0.1.0"
 source = { editable = "bindings/python" }
 

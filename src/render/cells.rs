@@ -1,11 +1,11 @@
 use super::SceneOptions;
 use crate::{
     Result,
-    model::{Block, Document, Pos, Region},
+    model::{Block, Position, Region, Schematic},
 };
 
 pub(super) struct Cell {
-    pub(super) position: Pos,
+    pub(super) position: Position,
     pub(super) region: usize,
     pub(super) palette: u32,
 }
@@ -16,7 +16,7 @@ pub(super) struct Cells<'a> {
 }
 
 impl<'a> Cells<'a> {
-    pub(super) fn new(document: &'a Document, options: &SceneOptions) -> Result<Self> {
+    pub(super) fn new(document: &'a Schematic, options: &SceneOptions) -> Result<Self> {
         let regions: Vec<_> = document
             .regions
             .iter()
@@ -69,7 +69,7 @@ impl<'a> Cells<'a> {
             .palette_entry(cell.palette)
     }
 
-    pub(super) fn get(&self, position: &Pos) -> Option<&'a Block> {
+    pub(super) fn get(&self, position: &Position) -> Option<&'a Block> {
         self.entries
             .binary_search_by_key(position, |cell| cell.position)
             .ok()

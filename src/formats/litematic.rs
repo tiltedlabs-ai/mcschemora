@@ -6,7 +6,7 @@ use crate::{
 };
 use fastnbt::LongArray;
 
-pub(super) fn read_litematic(root: &Compound, doc: &mut Document) -> Result<()> {
+pub(super) fn read_litematic(root: &Compound, doc: &mut Schematic) -> Result<()> {
     let v = number(get(root, "Version")?)?;
     if !(4..=6).contains(&v) {
         return Err(format!(
@@ -84,7 +84,7 @@ pub(super) fn read_litematic(root: &Compound, doc: &mut Document) -> Result<()> 
     Ok(())
 }
 
-pub(super) fn write_litematic(doc: &Document) -> Result<Compound> {
+pub(super) fn write_litematic(doc: &Schematic) -> Result<Compound> {
     let mut regions = Compound::new();
     let mut volume = 0i64;
     let mut count = 0i64;
@@ -136,7 +136,7 @@ pub(super) fn write_litematic(doc: &Document) -> Result<Compound> {
     }
     let mut metadata = doc.metadata.clone();
     for (k, v) in [
-        ("Name", s("Schemora build")),
+        ("Name", s("MCSchemora build")),
         ("Author", s("")),
         ("Description", s("")),
         ("TimeCreated", V::Long(0)),
@@ -166,7 +166,7 @@ pub(super) fn write_litematic(doc: &Document) -> Result<Compound> {
     ]))
 }
 
-fn rebase_ticks(value: Option<&V>, start: Pos) -> Result<V> {
+fn rebase_ticks(value: Option<&V>, start: Position) -> Result<V> {
     let Some(value) = value else {
         return Ok(V::List(vec![]));
     };

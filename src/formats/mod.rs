@@ -1,6 +1,10 @@
 //! Structure file codecs. Lossy conversions require explicit acknowledgement.
 use crate::{Result, catalog::MinecraftData, model::*, nbt, transform::Transform};
-use std::{borrow::Cow, collections::BTreeSet};
+use serde::Deserialize;
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, BTreeSet},
+};
 
 pub mod blueprint;
 mod common;
@@ -20,6 +24,14 @@ pub const FORMATS: [&str; 7] = [
     "mcstructure",
 ];
 
+#[derive(Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ImportOptions {
+    pub version: Option<String>,
+    pub origin: Option<Pos>,
+    pub palette: BTreeMap<String, String>,
+}
+
 fn valid_format(f: &str) -> Result<()> {
     if FORMATS.contains(&f) {
         Ok(())
@@ -35,7 +47,7 @@ pub async fn decode(
     data: &[u8],
     format: &str,
     source: std::sync::Arc<MinecraftData>,
-    options: &blueprint::import::Options,
+    options: &ImportOptions,
 ) -> Result<Document> {
     valid_format(format)?;
     if data.len() > nbt::MAX_BYTES {
@@ -82,7 +94,7 @@ pub async fn decode(
         return Err("File has no regions".into());
     }
     if doc.edition == "java" {
-        if doc.data_version > 0 && doc.data_version < crate::catalog::MIN_DATA_VERSION {
+        if doc.data_version > 0 && doc.data_version < crate::versions::MIN_JAVA_DATA_VERSION {
             return Err("Files older than Java 1.13 are unsupported".into());
         }
         if doc.data.versions()?.contains(&doc.version) {

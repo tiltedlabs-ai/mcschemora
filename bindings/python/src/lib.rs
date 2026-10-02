@@ -121,7 +121,7 @@ impl PyDocument {
         origin: Option<Pos>,
         palette: std::collections::BTreeMap<String, String>,
     ) -> PyResult<Self> {
-        let options = formats::blueprint::import::Options {
+        let options = formats::ImportOptions {
             version,
             origin,
             palette,

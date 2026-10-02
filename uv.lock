@@ -15,7 +15,7 @@ members = [
 [manifest.dependency-groups]
 dev = [
     { name = "litemapy", specifier = ">=0.11.0b0,<0.12" },
-    { name = "maturin", specifier = ">=1.9,<2" },
+    { name = "maturin", specifier = ">=1.15,<2" },
     { name = "nbtlib", specifier = ">=2,<3" },
     { name = "ruff", specifier = ">=0.14,<1" },
 ]

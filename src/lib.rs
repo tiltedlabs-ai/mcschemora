@@ -7,6 +7,7 @@ pub mod nbt;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod render;
 mod sprite_ids;
+mod versions;
 
 pub type Result<T> = std::result::Result<T, String>;
 pub mod transform;

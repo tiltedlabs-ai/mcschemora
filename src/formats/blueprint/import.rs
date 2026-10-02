@@ -2,21 +2,19 @@ use super::sprites;
 use crate::{
     Result,
     catalog::MinecraftData,
-    model::{Block, Bounds, Document, Pos, Region},
+    formats::ImportOptions,
+    model::{Block, Bounds, Document, Region},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
 
-#[derive(Default)]
-pub struct Options {
-    pub version: Option<String>,
-    pub origin: Option<Pos>,
-    pub palette: BTreeMap<String, String>,
-}
-
-pub fn decode(data: &[u8], source: Arc<MinecraftData>, options: &Options) -> Result<Document> {
+pub fn decode(
+    data: &[u8],
+    source: Arc<MinecraftData>,
+    options: &ImportOptions,
+) -> Result<Document> {
     let version = options
         .version
         .as_deref()

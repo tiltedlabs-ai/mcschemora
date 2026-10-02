@@ -5,7 +5,6 @@ mod storage;
 use crate::Result;
 pub use registry::{Registry, namespace};
 use serde_json::Value;
-pub(crate) use source::MIN_DATA_VERSION;
 use std::{
     collections::BTreeMap,
     path::PathBuf,

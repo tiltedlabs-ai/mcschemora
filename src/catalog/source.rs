@@ -1,4 +1,4 @@
-use crate::Result;
+use crate::{Result, versions::MIN_JAVA_DATA_VERSION};
 use serde_json::Value;
 use std::{
     collections::BTreeMap,
@@ -8,7 +8,6 @@ use std::{
 pub const REVISION: &str = "8ffb321c74cffe779acf5c447d08c473c4c291d7";
 pub(super) const JSON_LIMIT: u64 = 32 * 1024 * 1024;
 pub(super) const KINDS: [&str; 4] = ["blocks", "items", "entities", "blockCollisionShapes"];
-pub(crate) const MIN_DATA_VERSION: i32 = 1519;
 
 pub(crate) fn safe_path(value: &str) -> Result<&Path> {
     let path = Path::new(value);
@@ -80,7 +79,7 @@ impl Metadata {
             .find(|v| v["minecraftVersion"].as_str() == Some(version))
             .and_then(|v| v["dataVersion"].as_i64())
             .and_then(|v| i32::try_from(v).ok())
-            .filter(|v| *v >= MIN_DATA_VERSION)
+            .filter(|v| *v >= MIN_JAVA_DATA_VERSION)
             .filter(|_| self.paths.contains_key(version))
             .ok_or_else(|| {
                 format!(

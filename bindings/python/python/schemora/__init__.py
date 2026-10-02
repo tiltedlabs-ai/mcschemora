@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import lru_cache
+from os import PathLike
 from pathlib import Path
 from types import MappingProxyType
+from typing import TypeAlias
 
 from . import _core
 from ._core import Placement as _Placement
@@ -32,10 +34,20 @@ __all__ = [
     "mob",
 ]
 __version__ = "0.1.0"
-Position = tuple[int, int, int]
+Position: TypeAlias = tuple[int, int, int]
+FloatPosition: TypeAlias = tuple[float, float, float]
+PropertyValue: TypeAlias = str | int | bool
+AxisRange: TypeAlias = int | tuple[int, int] | list[int] | None
+JsonValue: TypeAlias = bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"] | None
+_Path: TypeAlias = str | PathLike[str]
+_Item: TypeAlias = tuple[str, int, str | None]
 
 
-def _properties(values: Mapping) -> dict[str, str]:
+def _position(value: Sequence[int]) -> Position:
+    return value[0], value[1], value[2]
+
+
+def _properties(values: Mapping[str, PropertyValue]) -> dict[str, str]:
     result = {}
     for key, value in values.items():
         if not isinstance(key, str):
@@ -58,13 +70,13 @@ class Block:
     _properties: tuple[tuple[str, str], ...] = ()
     _hash: int = field(init=False, repr=False, compare=False)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         object.__setattr__(self, "_hash", hash((self.id, self._properties)))
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return self._hash
 
-    def __reduce__(self):
+    def __reduce__(self) -> tuple[type[Block], tuple[str, tuple[tuple[str, str], ...]]]:
         return type(self), (self.id, self._properties)
 
     @property
@@ -76,12 +88,12 @@ class Block:
         return self.id + (f"[{suffix}]" if suffix else "")
 
     @classmethod
-    def _from_native(cls, value):
+    def _from_native(cls, value: tuple[str, dict[str, str]]) -> Block:
         name, properties = value
         return cls(name, tuple(sorted(properties.items())))
 
 
-def block(identifier: str, **states) -> Block:
+def block(identifier: str, **states: PropertyValue) -> Block:
     """Describe a block using Minecraft property names."""
     if not isinstance(identifier, str):
         raise TypeError("Block identifier must be a string")
@@ -100,9 +112,9 @@ class Bounds:
     size: Position
 
     @classmethod
-    def _from_native(cls, value):
+    def _from_native(cls, value: tuple[list[int], list[int]]) -> Bounds:
         start, size = value
-        return cls(tuple(start), tuple(size))
+        return cls(_position(start), _position(size))
 
 
 @dataclass(frozen=True)
@@ -138,7 +150,7 @@ class Report:
 class MinecraftData:
     """Download pinned Java catalogs into a shared runtime cache."""
 
-    def __init__(self, cache_dir=None, *, offline=False):
+    def __init__(self, cache_dir: _Path | None = None, *, offline: bool = False) -> None:
         directory = None if cache_dir is None else Path(cache_dir).expanduser().resolve()
         self._native = _core.MinecraftData(directory, offline)
 
@@ -151,13 +163,14 @@ class MinecraftData:
         """Available Java catalogs at or above the 1.13 minimum."""
         return tuple(self._native.versions())
 
-    def load(self, version="latest") -> str:
+    def load(self, version: str = "latest") -> str:
         return self._native.load(version)
 
-    def dataset(self, version: str, kind: str):
-        return json.loads(self._native.dataset(version, kind))
+    def dataset(self, version: str, kind: str) -> JsonValue:
+        dataset: JsonValue = json.loads(self._native.dataset(version, kind))
+        return dataset
 
-    def load_visuals(self, version="latest") -> Path:
+    def load_visuals(self, version: str = "latest") -> Path:
         """Return the shared Java 1.21.1 visual bundle for rendering any version."""
         return Path(self._native.load_visuals(version))
 
@@ -167,19 +180,20 @@ def _default_data() -> MinecraftData:
     return MinecraftData()
 
 
-def _source(data):
+def _source(data: MinecraftData | None) -> _core.MinecraftData:
     return (data if data is not None else _default_data())._native
 
 
 class Registry:
-    def __init__(self, schematic):
+    def __init__(self, schematic: Schematic) -> None:
         self._schematic = schematic
 
-    def describe(self, identifier: str) -> dict:
-        return json.loads(self._schematic._native.describe(identifier))
+    def describe(self, identifier: str) -> dict[str, JsonValue]:
+        description: dict[str, JsonValue] = json.loads(self._schematic._native.describe(identifier))
+        return description
 
 
-def _axis_range(value, axis):
+def _axis_range(value: AxisRange, axis: str) -> tuple[int, int] | None:
     if value is None:
         return None
     if type(value) is int:
@@ -194,28 +208,30 @@ def _axis_range(value, axis):
         raise ValueError(f"{axis} range start exceeds end")
     if any(not -(2**31) <= v < 2**31 for v in value):
         raise ValueError(f"{axis} coordinates must fit signed 32-bit integers")
-    return value
+    return value[0], value[1]
 
 
 class Schematic:
-    def __init__(self, native):
+    def __init__(self, native: _core.Document) -> None:
         self._native = native
 
     @classmethod
-    def create(cls, *, edition="java", version="latest", data: MinecraftData | None = None):
+    def create(
+        cls, *, edition: str = "java", version: str = "latest", data: MinecraftData | None = None
+    ) -> Schematic:
         return cls(_core.Document(edition, version, _source(data)))
 
     @classmethod
     def load(
         cls,
-        path,
+        path: _Path,
         *,
-        format=None,
+        format: str | None = None,
         data: MinecraftData | None = None,
         version: str | None = None,
-        origin=None,
+        origin: Position | None = None,
         palette: Mapping[str, Block] | None = None,
-    ):
+    ) -> Schematic:
         path = Path(path)
         return cls.from_bytes(
             path.read_bytes(),
@@ -234,9 +250,9 @@ class Schematic:
         format: str,
         data: MinecraftData | None = None,
         version: str | None = None,
-        origin=None,
+        origin: Position | None = None,
         palette: Mapping[str, Block] | None = None,
-    ):
+    ) -> Schematic:
         states = {}
         for symbol, state in (palette or {}).items():
             if not isinstance(state, Block):
@@ -246,10 +262,17 @@ class Schematic:
             _core.Document.from_bytes(content, format, _source(data), version, origin, states)
         )
 
-    def to_bytes(self, *, format: str, allow_loss=False, flatten=False) -> bytes:
+    def to_bytes(self, *, format: str, allow_loss: bool = False, flatten: bool = False) -> bytes:
         return self._native.to_bytes(format, allow_loss, flatten)
 
-    def save(self, path, *, format=None, allow_loss=False, flatten=False):
+    def save(
+        self,
+        path: _Path,
+        *,
+        format: str | None = None,
+        allow_loss: bool = False,
+        flatten: bool = False,
+    ) -> None:
         path = Path(path)
         data = self.to_bytes(
             format=format or ("blueprint" if path.suffix == ".wiki" else path.suffix.lstrip(".")),
@@ -258,11 +281,17 @@ class Schematic:
         )
         path.write_bytes(data)
 
-    def region(self, name="main") -> Region:
+    def region(self, name: str = "main") -> Region:
         return Region(self._native.region(name))
 
     def export_glb(
-        self, path, *, region: str | None = None, x=None, y=None, z=None
+        self,
+        path: _Path,
+        *,
+        region: str | None = None,
+        x: AxisRange = None,
+        y: AxisRange = None,
+        z: AxisRange = None,
     ) -> tuple[str, ...]:
         """Export textured geometry; return diagnostics for visual approximations.
 
@@ -276,11 +305,11 @@ class Schematic:
 
     def export_blueprint(
         self,
-        path,
+        path: _Path,
         *,
         name: str = "Blueprint",
         region: str | None = None,
-        y=None,
+        y: AxisRange = None,
         rotation: int = 0,
         sprites: Mapping[str, str] | None = None,
     ) -> tuple[str, ...]:
@@ -294,16 +323,16 @@ class Schematic:
 
     def export_sprites(
         self,
-        path,
+        path: _Path,
         *,
-        view="top",
-        cell_size=32,
-        grid=False,
-        entities=True,
+        view: str = "top",
+        cell_size: int = 32,
+        grid: bool = False,
+        entities: bool = True,
         region: str | None = None,
-        x=None,
-        y=None,
-        z=None,
+        x: AxisRange = None,
+        y: AxisRange = None,
+        z: AxisRange = None,
         sprites: Mapping[str, str] | None = None,
     ) -> tuple[str, ...]:
         if type(cell_size) is not int or not 1 <= cell_size <= 128:
@@ -320,15 +349,15 @@ class Schematic:
 
     def export_png(
         self,
-        path,
+        path: _Path,
         *,
-        size=(1024, 1024),
-        view="isometric",
-        grid=False,
+        size: tuple[int, int] | list[int] = (1024, 1024),
+        view: str = "isometric",
+        grid: bool = False,
         region: str | None = None,
-        x=None,
-        y=None,
-        z=None,
+        x: AxisRange = None,
+        y: AxisRange = None,
+        z: AxisRange = None,
     ) -> tuple[str, ...]:
         """Render an automatically framed PNG with a transparent background.
 
@@ -356,7 +385,7 @@ class Schematic:
         Path(path).write_bytes(content)
         return tuple(diagnostics)
 
-    def add_region(self, name: str, *, origin=(0, 0, 0)) -> Region:
+    def add_region(self, name: str, *, origin: Position = (0, 0, 0)) -> Region:
         return Region(self._native.add_region(name, origin))
 
     @property
@@ -385,7 +414,7 @@ class Schematic:
         return self._native.metadata()
 
     @metadata.setter
-    def metadata(self, snbt: str):
+    def metadata(self, snbt: str) -> None:
         self._native.set_metadata(snbt)
 
     @property
@@ -401,13 +430,13 @@ class Schematic:
         errors, warnings, unknown = self._native.validate()
         return Report(errors=tuple(errors), warnings=tuple(warnings), unknown=tuple(unknown))
 
-    def check_export(self, *, format: str, flatten=False) -> Report:
+    def check_export(self, *, format: str, flatten: bool = False) -> Report:
         errors, losses = self._native.check_export(format, flatten)
         return Report(tuple(errors), tuple(losses))
 
 
 class Region:
-    def __init__(self, native):
+    def __init__(self, native: _core.Region) -> None:
         self._native = native
 
     @property
@@ -416,12 +445,12 @@ class Region:
 
     @property
     def origin(self) -> Position:
-        return tuple(self._native.origin())
+        return _position(self._native.origin())
 
     def get(self, at: Position) -> Block:
         return Block._from_native(self._native.get(at))
 
-    def set(self, at: Position, content: Block | Fragment):
+    def set(self, at: Position, content: Block | Fragment) -> None:
         if isinstance(content, Fragment):
             self._native.set_fragment(at, content._native)
         elif isinstance(content, Block):
@@ -429,10 +458,10 @@ class Region:
         else:
             raise TypeError("set() expects a Block or Fragment")
 
-    def set_many(self, placements: Iterable[tuple[Position, Block]]):
-        indices = {}
-        palette = []
-        cells = []
+    def set_many(self, placements: Iterable[tuple[Position, Block]]) -> None:
+        indices: dict[Block, int] = {}
+        palette: list[tuple[str, dict[str, str]]] = []
+        cells: list[tuple[Position, int]] = []
         for at, value in placements:
             index = indices.get(value)
             if index is None:
@@ -442,13 +471,13 @@ class Region:
             cells.append((at, index))
         self._native.set_many(palette, cells)
 
-    def patch(self, at: Position, **states):
+    def patch(self, at: Position, **states: PropertyValue) -> None:
         self.select(start=at, size=(1, 1, 1)).patch(**states)
 
     def select(self, *, start: Position, size: Position) -> Selection:
         return Selection(self._native.select(start, size))
 
-    def place(self, placement: _Placement, *, at: Position, replace=False):
+    def place(self, placement: _Placement, *, at: Position, replace: bool = False) -> None:
         if not isinstance(placement, _Placement):
             raise TypeError("place() expects a bed, door, sign, or chest helper")
         self._native.place(placement, at, replace)
@@ -465,47 +494,56 @@ class Region:
 class Selection:
     """A selection of cells and entities, updated by its own transforms."""
 
-    def __init__(self, native):
+    def __init__(self, native: _core.Selection) -> None:
         self._native = native
 
     @property
     def bounds(self) -> Bounds:
         return Bounds._from_native(self._native.bounds())
 
-    def select(self, *, block: str | None = None, states: Mapping | None = None):
+    def select(
+        self, *, block: str | None = None, states: Mapping[str, PropertyValue] | None = None
+    ) -> Selection:
         if block is None and not states:
             raise ValueError("Supply a block ID or state filter")
         return Selection(self._native.select(block, _properties(states or {})))
 
-    def fill(self, value: Block):
+    def fill(self, value: Block) -> Selection:
         self._native.fill(value.id, dict(value.states))
         return self
 
-    def replace(self, identifier: str, value: Block):
+    def replace(self, identifier: str, value: Block) -> Selection:
         self.select(block=identifier).fill(value)
         return self
 
-    def patch(self, **states):
+    def patch(self, **states: PropertyValue) -> Selection:
         self._native.patch(_properties(states))
         return self
 
-    def delete(self):
+    def delete(self) -> Selection:
         self._native.delete()
         return self
 
-    def move(self, *, offset: Position, replace=False):
+    def move(self, *, offset: Position, replace: bool = False) -> Selection:
         self._native.move_by(offset, replace)
         return self
 
-    def rotate(self, *, axis="y", steps=1, pivot=None, replace=False):
+    def rotate(
+        self,
+        *,
+        axis: str = "y",
+        steps: int = 1,
+        pivot: FloatPosition | None = None,
+        replace: bool = False,
+    ) -> Selection:
         self._native.rotate(axis, steps, pivot, replace)
         return self
 
-    def flip(self, *, axis: str, center=None, replace=False):
+    def flip(self, *, axis: str, center: float | None = None, replace: bool = False) -> Selection:
         self._native.flip(axis, center, replace)
         return self
 
-    def duplicate(self, *, offset: Position, replace=False):
+    def duplicate(self, *, offset: Position, replace: bool = False) -> Selection:
         return Selection(self._native.duplicate(offset, replace))
 
     def copy(self) -> Fragment:
@@ -538,15 +576,15 @@ class Selection:
 
 
 class Fragment:
-    def __init__(self, native):
+    def __init__(self, native: _core.Fragment) -> None:
         self._native = native
 
     @property
     def size(self) -> Position:
-        return tuple(self._native.size())
+        return _position(self._native.size())
 
 
-def item(identifier: str, *, count=1, components: str | None = None) -> tuple[str, int, str | None]:
+def item(identifier: str, *, count: int = 1, components: str | None = None) -> _Item:
     """Describe an inventory item; optional components use typed SNBT."""
     if isinstance(count, bool) or not isinstance(count, int):
         raise TypeError("Item count must be an integer")
@@ -560,7 +598,7 @@ class _Mob:
     nbt: str | None
 
 
-def mob(identifier: str, *, persistent=True, nbt: str | None = None):
+def mob(identifier: str, *, persistent: bool = True, nbt: str | None = None) -> _Mob:
     if not isinstance(persistent, bool):
         raise TypeError("Mob persistence must be a boolean")
     return _Mob(identifier, persistent, nbt)
@@ -569,42 +607,44 @@ def mob(identifier: str, *, persistent=True, nbt: str | None = None):
 @dataclass(frozen=True)
 class Entity:
     reference: int
-    position: tuple[float, float, float]
+    position: FloatPosition
     nbt: str
 
 
 class Entities:
-    def __init__(self, native):
+    def __init__(self, native: _core.Region) -> None:
         self._native = native
 
-    def add(self, value: _Mob, *, at: tuple[float, float, float]) -> int:
+    def add(self, value: _Mob, *, at: FloatPosition) -> int:
         return self._native.entity_add(value.id, value.persistent, value.nbt, at)
 
     def get(self, reference: int) -> Entity:
         position, snbt = self._native.entity_get(reference)
-        return Entity(reference, tuple(position), snbt)
+        return Entity(reference, (position[0], position[1], position[2]), snbt)
 
-    def update(self, reference: int, *, position=None, nbt=None):
+    def update(
+        self, reference: int, *, position: FloatPosition | None = None, nbt: str | None = None
+    ) -> None:
         """Replace supplied position or full NBT; omitted fields remain unchanged."""
         self._native.entity_update(reference, position, nbt)
 
-    def remove(self, reference: int):
+    def remove(self, reference: int) -> None:
         self._native.entity_remove(reference)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[int]:
         return iter(self._native.entity_list())
 
 
 class BlockEntities:
-    def __init__(self, native):
+    def __init__(self, native: _core.Region) -> None:
         self._native = native
 
     def get(self, at: Position) -> str | None:
         return self._native.block_entity_get(at)
 
-    def set(self, at: Position, nbt: str):
+    def set(self, at: Position, nbt: str) -> None:
         """Set a typed SNBT compound, including its compatible block-entity id."""
         self._native.block_entity_set(at, nbt)
 
-    def remove(self, at: Position):
+    def remove(self, at: Position) -> None:
         self._native.block_entity_remove(at)

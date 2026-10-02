@@ -4,8 +4,7 @@ use schemora::{
     catalog, formats,
     model::{Block, Document},
 };
-use serde::Deserialize;
-use std::{collections::BTreeMap, sync::Arc};
+use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 
 fn error(value: impl ToString) -> JsValue {
@@ -63,8 +62,8 @@ impl WasmData {
         format: &str,
         options: JsValue,
     ) -> Result<WasmDocument, JsValue> {
-        let options: ImportOptions = if options.is_null() || options.is_undefined() {
-            ImportOptions::default()
+        let options: formats::ImportOptions = if options.is_null() || options.is_undefined() {
+            formats::ImportOptions::default()
         } else {
             serde_json::from_str(
                 &js_sys::JSON::stringify(&options)?
@@ -73,25 +72,12 @@ impl WasmData {
             )
             .map_err(error)?
         };
-        let options = formats::blueprint::import::Options {
-            version: options.version,
-            origin: options.origin,
-            palette: options.palette,
-        };
         Ok(WasmDocument {
             document: formats::decode(bytes, format, self.data.clone(), &options)
                 .await
                 .map_err(error)?,
         })
     }
-}
-
-#[derive(Default, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-struct ImportOptions {
-    version: Option<String>,
-    origin: Option<[i32; 3]>,
-    palette: BTreeMap<String, String>,
 }
 
 #[wasm_bindgen(js_name = Schematic)]

@@ -6,7 +6,6 @@ All sprites sourced directly from the [wiki](https://minecraft.wiki/w/Module:Spr
 - `entities.png`: all imported `EntitySprite` files and their file redirects.
 - `schematic.png`: the wiki's schematic sheet with its original layout.
 - `sprites.json`: wiki identifiers, pixel rectangles, and source metadata.
-- 
 
 ## Rebuild
 
@@ -25,5 +24,4 @@ are retained in `files` for the original credits and license declarations.
 
 Conventions are defined by [SpriteFile](https://minecraft.wiki/w/Module:SpriteFile),
 [SpriteGrid](https://minecraft.wiki/w/Module:SpriteGrid), and
-[Schematic/data](https://minecraft.wiki/w/Module:Schematic/data). More details are in
-[the import research](../../docs/minecraft-wiki-sprites.md).
+[Schematic/data](https://minecraft.wiki/w/Module:Schematic/data).

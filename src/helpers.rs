@@ -1,3 +1,4 @@
+use crate::versions::{COLORED_SIGNS, DUAL_SIDED_SIGNS, ITEM_COMPONENTS, NBT_TEXT_COMPONENTS};
 use crate::{Result, catalog, model::*, nbt};
 use fastnbt::Value;
 use std::collections::BTreeMap;
@@ -109,14 +110,14 @@ pub fn recipe(
                 let mut n = Compound::from([
                     ("Slot".into(), Value::Byte(slot)),
                     ("id".into(), nbt::s(catalog::namespace(id))),
-                    if catalog.data_version >= 3837 {
+                    if catalog.data_version >= ITEM_COMPONENTS {
                         ("count".into(), Value::Int(*count))
                     } else {
                         ("Count".into(), Value::Byte(*count as i8))
                     },
                 ]);
                 if let Some(s) = components.as_deref() {
-                    if catalog.data_version < 3837 {
+                    if catalog.data_version < ITEM_COMPONENTS {
                         return Err("Item components require Java 1.20.5+; use raw block-entity NBT for older item tags".into());
                     }
                     n.insert("components".into(), Value::Compound(nbt::from_snbt(s)?));
@@ -163,7 +164,7 @@ pub fn recipe(
             {
                 return Err("Unknown sign text color".into());
             }
-            let id = if catalog.data_version < 1952 {
+            let id = if catalog.data_version < COLORED_SIGNS {
                 if material != "oak" {
                     return Err("This Minecraft version only has oak signs".into());
                 }
@@ -178,14 +179,14 @@ pub fn recipe(
             let mut messages = vec![];
             for i in 0..4 {
                 let text = lines.get(i).map(String::as_str).unwrap_or("");
-                messages.push(if catalog.data_version >= 4325 {
+                messages.push(if catalog.data_version >= NBT_TEXT_COMPONENTS {
                     nbt::c([("text", nbt::s(text))])
                 } else {
                     nbt::s(serde_json::json!({"text":text}).to_string())
                 });
             }
             let mut data = Compound::from([("id".into(), nbt::s("minecraft:sign"))]);
-            if catalog.data_version >= 3463 {
+            if catalog.data_version >= DUAL_SIDED_SIGNS {
                 data.insert(
                     "front_text".into(),
                     nbt::c([
@@ -195,13 +196,13 @@ pub fn recipe(
                     ]),
                 );
             } else {
-                if catalog.data_version < 1952 && color != "black" {
+                if catalog.data_version < COLORED_SIGNS && color != "black" {
                     return Err("Colored sign text requires Java 1.14+".into());
                 }
                 for (i, message) in messages.into_iter().enumerate() {
                     data.insert(format!("Text{}", i + 1), message);
                 }
-                if catalog.data_version >= 1952 {
+                if catalog.data_version >= COLORED_SIGNS {
                     data.insert("Color".into(), nbt::s(color));
                 }
             }

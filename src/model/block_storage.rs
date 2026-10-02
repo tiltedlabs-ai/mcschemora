@@ -76,10 +76,15 @@ impl BlockStorage {
         id
     }
     pub(crate) fn set_id(&mut self, position: Pos, id: u32) {
-        if let Some(old) = self.cells.insert(position, id) {
+        self.replace_id(position, id);
+    }
+    pub(crate) fn replace_id(&mut self, position: Pos, id: u32) -> bool {
+        let old = self.cells.insert(position, id);
+        if let Some(old) = old {
             self.uses[old as usize] -= 1;
         }
         self.uses[id as usize] += 1;
+        old.is_none_or(|old| self.palette[old as usize].name != self.palette[id as usize].name)
     }
     pub fn set(&mut self, position: Pos, block: &Block) {
         let id = self.intern(block);

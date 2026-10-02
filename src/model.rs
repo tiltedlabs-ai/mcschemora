@@ -222,21 +222,45 @@ impl Region {
         self.check_bounds(bounds)?;
         for (p, b, nbt) in edits {
             let b = b.borrow();
-            if let Some(present) = &mut self.present {
-                present.insert(p);
-            }
-            if self.blocks.get(&p).is_none_or(|old| old.name != b.name) {
-                self.block_entities.remove(&p);
-            }
-            if b.name == "minecraft:air" && b.properties.is_empty() {
-                self.blocks.remove(&p);
-                self.block_entities.remove(&p);
-            } else {
-                self.blocks.set(p, b);
-            }
+            let id = self.block_id(b);
+            self.write_cell(p, id);
             if let Some(data) = nbt {
                 self.block_entities.insert(p, data);
             }
+        }
+        self.bounds = bounds;
+        Ok(())
+    }
+    fn block_id(&mut self, block: &Block) -> Option<u32> {
+        if block.name == "minecraft:air" && block.properties.is_empty() {
+            None
+        } else {
+            Some(self.blocks.intern(block))
+        }
+    }
+    fn write_cell(&mut self, position: Pos, id: Option<u32>) {
+        if let Some(present) = &mut self.present {
+            present.insert(position);
+        }
+        if let Some(id) = id {
+            if self.blocks.replace_id(position, id) {
+                self.block_entities.remove(&position);
+            }
+        } else {
+            self.blocks.remove(&position);
+            self.block_entities.remove(&position);
+        }
+    }
+    pub(crate) fn write_indexed(
+        &mut self,
+        palette: &[Block],
+        cells: Vec<(Pos, usize)>,
+    ) -> Result<()> {
+        let bounds = self.expanded(cells.iter().map(|(p, _)| *p))?;
+        self.check_bounds(bounds)?;
+        let ids: Vec<_> = palette.iter().map(|block| self.block_id(block)).collect();
+        for (position, index) in cells {
+            self.write_cell(position, ids[index]);
         }
         self.bounds = bounds;
         Ok(())

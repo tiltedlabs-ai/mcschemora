@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
@@ -56,6 +56,16 @@ class Block:
 
     id: str
     _properties: tuple[tuple[str, str], ...] = ()
+    _hash: int = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self):
+        object.__setattr__(self, "_hash", hash((self.id, self._properties)))
+
+    def __hash__(self):
+        return self._hash
+
+    def __reduce__(self):
+        return type(self), (self.id, self._properties)
 
     @property
     def states(self) -> Mapping[str, str]:

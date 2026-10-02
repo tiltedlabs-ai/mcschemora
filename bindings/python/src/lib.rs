@@ -316,17 +316,8 @@ impl PyRegion {
             .map(|(id, props)| Block::new(&id, props))
             .collect::<schemora::Result<Vec<_>>>()
             .map_err(error)?;
-        let blocks = cells
-            .into_iter()
-            .map(|(p, index)| {
-                palette
-                    .get(index)
-                    .map(|block| (p, block))
-                    .ok_or_else(|| error("Block palette index out of range"))
-            })
-            .collect::<PyResult<Vec<_>>>()?;
         lock(&self.data)?
-            .set_blocks(&self.name, blocks)
+            .set_indexed_blocks(&self.name, &palette, cells)
             .map_err(error)
     }
 

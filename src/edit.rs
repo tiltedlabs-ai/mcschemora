@@ -45,6 +45,30 @@ impl Document {
             .collect::<Result<_>>()?;
         self.region_mut(name)?.write(edits, None)
     }
+    pub fn set_indexed_blocks(
+        &mut self,
+        name: &str,
+        palette: &[Block],
+        cells: Vec<(Pos, usize)>,
+    ) -> Result<()> {
+        if cells.iter().any(|(_, index)| *index >= palette.len()) {
+            return Err("Block palette index out of range".into());
+        }
+        let catalog = self.registry()?;
+        let palette = palette
+            .iter()
+            .enumerate()
+            .map(|(index, block)| {
+                catalog.resolve(block).map_err(|error| {
+                    match cells.iter().find(|(_, id)| *id == index) {
+                        Some((position, _)) => format!("{name} {position:?}: {error}"),
+                        None => format!("{name}: {error}"),
+                    }
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        self.region_mut(name)?.write_indexed(&palette, cells)
+    }
     pub fn fill(&mut self, name: &str, selection: &Selection, block: &Block) -> Result<()> {
         let block = self.registry()?.resolve(block)?;
         self.region_mut(name)?.fill(selection, &block)

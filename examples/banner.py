@@ -186,8 +186,9 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     scene = create_banner()
     scene.save(args.output / "banner.schem")
-    diagnostics = scene.export_png(args.output / "banner.png", size=(3840, 960))
-    print("Saved banner.schem and banner.png")
+    image_path = args.output / "banner.png"
+    diagnostics = scene.export_png(image_path, size=(3840, 960))
+    print(f"Saved banner.schem and banner.png ({image_path.stat().st_size / 1024:.0f} KiB)")
     for diagnostic in diagnostics:
         print(diagnostic)
 

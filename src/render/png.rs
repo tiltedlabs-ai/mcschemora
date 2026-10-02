@@ -6,7 +6,10 @@ mod raster;
 
 use super::{AlphaMode, PreparedScene, View};
 use crate::Result;
-use image::{ImageEncoder, codecs::png::PngEncoder};
+use image::{
+    ImageEncoder,
+    codecs::png::{CompressionType, FilterType, PngEncoder},
+};
 
 /// Output dimensions, camera view, and grid settings for textured PNG rendering.
 #[derive(Clone, Debug)]
@@ -56,7 +59,7 @@ pub fn encode(scene: &PreparedScene, options: &Options) -> Result<Vec<u8>> {
     validate_textures(scene)?;
     let pixels = raster::render(scene, &frame.faces, options.size, frame.grid)?;
     let mut bytes = Vec::new();
-    PngEncoder::new(&mut bytes)
+    PngEncoder::new_with_quality(&mut bytes, CompressionType::Best, FilterType::Adaptive)
         .write_image(
             &pixels,
             options.size[0],

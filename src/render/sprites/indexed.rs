@@ -1,3 +1,4 @@
+use super::SpriteKey;
 use crate::Result;
 use image::RgbaImage;
 use std::collections::{BTreeSet, HashMap};
@@ -6,8 +7,8 @@ pub(super) fn encode(
     dimensions: [u32; 2],
     cell_size: u32,
     grid: bool,
-    draws: &[([u32; 2], usize)],
-    tiles: &HashMap<usize, RgbaImage>,
+    draws: &[([u32; 2], SpriteKey)],
+    tiles: &HashMap<SpriteKey, RgbaImage>,
 ) -> Result<Option<Vec<u8>>> {
     let mut colors = BTreeSet::from([[0, 0, 0, 0]]);
     if grid {

@@ -1,6 +1,7 @@
 //! Flat diagrams using bundled Minecraft Wiki block and entity sprites.
 
 mod indexed;
+mod multipart;
 
 use super::{SceneOptions, View};
 use crate::{
@@ -70,6 +71,22 @@ struct Manifest {
 struct Sprite {
     sheet: usize,
     rect: [u32; 4],
+}
+
+#[derive(Clone, Copy, Default, Eq, Hash, PartialEq)]
+enum Crop {
+    #[default]
+    Whole,
+    Upper,
+    Lower,
+}
+
+#[derive(Clone, Copy, Default, Eq, Hash, PartialEq)]
+struct SpriteKey {
+    id: usize,
+    turns: u8,
+    mirror: bool,
+    crop: Crop,
 }
 
 struct Assets {
@@ -143,14 +160,54 @@ impl Assets {
         })
     }
 
-    fn tile(&self, id: usize, size: u32) -> RgbaImage {
-        let sprite = &self.sprites[id];
+    fn tile(&self, key: SpriteKey, size: u32) -> RgbaImage {
+        let sprite = &self.sprites[key.id];
         let [x, y, width, height] = sprite.rect;
-        let source = image::imageops::crop_imm(&self.sheets[sprite.sheet], x, y, width, height);
+        let mut source =
+            image::imageops::crop_imm(&self.sheets[sprite.sheet], x, y, width, height).to_image();
+        if key.crop != Crop::Whole {
+            let mut min = [width, height];
+            let mut max = [0, 0];
+            for (x, y, pixel) in source.enumerate_pixels() {
+                if pixel[3] > 0 {
+                    min[0] = min[0].min(x);
+                    min[1] = min[1].min(y);
+                    max[0] = max[0].max(x + 1);
+                    max[1] = max[1].max(y + 1);
+                }
+            }
+            if max[0] > min[0] && max[1] > min[1] {
+                let height = max[1] - min[1];
+                let split = height.div_ceil(2);
+                let (y, height) = match key.crop {
+                    Crop::Upper => (min[1], split),
+                    Crop::Lower => (min[1] + height / 2, split),
+                    Crop::Whole => unreachable!(),
+                };
+                source = image::imageops::crop_imm(&source, min[0], y, max[0] - min[0], height)
+                    .to_image();
+            }
+        }
+        source = match key.turns {
+            1 => image::imageops::rotate90(&source),
+            2 => image::imageops::rotate180(&source),
+            3 => image::imageops::rotate270(&source),
+            _ => source,
+        };
+        if key.mirror {
+            image::imageops::flip_horizontal_in_place(&mut source);
+        }
+        let (width, height) = source.dimensions();
         let longest = width.max(height);
-        let w = ((u64::from(width) * u64::from(size)) / u64::from(longest)).max(1) as u32;
-        let h = ((u64::from(height) * u64::from(size)) / u64::from(longest)).max(1) as u32;
-        let scaled = image::imageops::resize(&*source, w, h, image::imageops::FilterType::Nearest);
+        let (w, h) = if key.crop == Crop::Whole {
+            (
+                ((u64::from(width) * u64::from(size)) / u64::from(longest)).max(1) as u32,
+                ((u64::from(height) * u64::from(size)) / u64::from(longest)).max(1) as u32,
+            )
+        } else {
+            (size, size)
+        };
+        let scaled = image::imageops::resize(&source, w, h, image::imageops::FilterType::Nearest);
         let mut tile = RgbaImage::new(size, size);
         image::imageops::replace(
             &mut tile,
@@ -210,16 +267,40 @@ fn resolve_block(
     options: &Options,
     assets: &Assets,
     diagnostics: &mut BTreeSet<String>,
-) -> usize {
+) -> SpriteKey {
     let state = block.text();
     if let Some(name) = options
         .sprites
         .get(&state)
         .or_else(|| options.sprites.get(&block.name))
     {
-        return assets.ids[name];
+        return SpriteKey {
+            id: assets.ids[name],
+            ..SpriteKey::default()
+        };
     }
-    let mut sprite = sprite_ids::resolve(&oriented(block, options.view), display);
+    let oriented = oriented(block, options.view);
+    let mut sprite = sprite_ids::resolve(&oriented, display);
+    let mut key = SpriteKey::default();
+    let mut view_specific = false;
+    if let Some(choice) = multipart::resolve(&oriented, display, options.view) {
+        view_specific = choice.view_specific;
+        if assets.ids.contains_key(&choice.name) {
+            sprite.name = choice.name;
+        } else if choice.crop != Crop::Whole {
+            key.crop = choice.crop;
+            diagnostics.insert(format!(
+                "{state}: no dedicated half sprite; split full door artwork"
+            ));
+        } else {
+            sprite.name = choice.name;
+        }
+        key.turns = choice.turns;
+        key.mirror = choice.mirror;
+        sprite
+            .omitted
+            .retain(|property| !choice.covered.contains(&property.as_str()));
+    }
     let side = !matches!(options.view, View::Top | View::Bottom);
     if side && sprite.name.starts_with("SchematicSprite:") {
         let candidate = if block.name == "minecraft:redstone_wire" {
@@ -252,11 +333,11 @@ fn resolve_block(
             sprite.omitted.join(", ")
         ));
     }
-    if sprite.name.starts_with("BlockSprite:") {
+    if sprite.name.starts_with("BlockSprite:") && !view_specific {
         diagnostics
             .insert("Ordinary block sprites are wiki icons, not view-specific block faces".into());
     }
-    match assets.ids.get(&sprite.name) {
+    key.id = match assets.ids.get(&sprite.name) {
         Some(&index) => index,
         None => {
             diagnostics.insert(format!(
@@ -265,7 +346,8 @@ fn resolve_block(
             ));
             assets.ids["SchematicSprite:???"]
         }
-    }
+    };
+    key
 }
 
 struct Cell<'a> {
@@ -447,10 +529,14 @@ pub fn encode(document: &Schematic, options: &Options) -> Result<Output> {
                     .replace('_', "-")
             )
         });
-        let index = assets.ids.get(&name).copied().unwrap_or_else(|| {
+        let id = assets.ids.get(&name).copied().unwrap_or_else(|| {
             diagnostics.insert(format!("{id}: missing {name}; rendered unknown symbol"));
             assets.ids["SchematicSprite:???"]
         });
+        let index = SpriteKey {
+            id,
+            ..SpriteKey::default()
+        };
         diagnostics.insert("Entity sprites are generic icons; pose, age, variants, and attached data are not represented".into());
         let tile = tiles
             .entry(index)

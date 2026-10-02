@@ -70,7 +70,7 @@ impl StateGeometry {
             meshes[*mesh]
                 .quads
                 .iter()
-                .any(|quad| quad.tint_index.is_some())
+                .any(|quad| quad.tint_index.is_some() && quad.color == [255; 4])
         });
     }
 

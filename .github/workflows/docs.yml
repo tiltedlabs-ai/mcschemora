@@ -1,0 +1,68 @@
+name: Documentation
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: documentation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs-check:
+    name: Documentation freshness
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      UV_LOCKED: "true"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Install Rust and WASM target
+        run: |
+          rustup toolchain install stable --profile minimal --target wasm32-unknown-unknown
+          rustup default stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Read wasm-bindgen version from Cargo.lock
+        id: wasm_bindgen
+        run: |
+          uv run --no-project python - <<'PY' >> "$GITHUB_OUTPUT"
+          import tomllib
+          from pathlib import Path
+
+          lock = tomllib.loads(Path("Cargo.lock").read_text())
+          version = next(p["version"] for p in lock["package"] if p["name"] == "wasm-bindgen")
+          print(f"version={version}")
+          PY
+
+      - name: Install matching wasm-bindgen CLI
+        env:
+          WASM_BINDGEN_VERSION: ${{ steps.wasm_bindgen.outputs.version }}
+        run: cargo install wasm-bindgen-cli --version "$WASM_BINDGEN_VERSION" --locked
+
+      - name: Check generated documentation
+        run: make docs-check

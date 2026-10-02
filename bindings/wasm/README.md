@@ -47,9 +47,9 @@ For ordinary file import, pass `undefined` as the options argument:
 const scene = await data.fromBytes(new Uint8Array(buffer), "litematic", undefined);
 ```
 
-See the generated [WASM API reference](../../docs/reference/wasm-api.md) for methods,
+See the generated [API reference](../../docs/reference/api.md#browser-wasm) for methods,
 arguments, and behavior. The build also produces `pkg/mcschemora.d.ts` for editors
 and TypeScript consumers.
 
-See [file formats](../../docs/reference/formats.md) and
-[catalogs and assets](../../docs/reference/minecraft-data.md) for conversion and data setup.
+See [conversion](../../docs/guides/usage.md#inspect-and-convert) and
+[catalogs and assets](../../docs/reference/minecraft-data.md) for shared workflows.

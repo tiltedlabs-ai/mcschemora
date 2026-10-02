@@ -12,7 +12,18 @@ uv sync --all-packages
 uv run --all-packages python examples/build.py
 ```
 
-To build and install a platform-specific wheel, see [development](../../docs/development.md#build-a-wheel).
+After changing Rust code, run `make rebuild` to refresh the native extension.
+
+## Build a wheel
+
+From the repository root:
+
+```sh
+uv run --all-packages maturin build --release --manifest-path bindings/python/Cargo.toml --out dist
+```
+
+Install the generated wheel from `dist/` with `python -m pip install <wheel-path>`
+in the destination environment.
 
 ## Usage
 
@@ -28,9 +39,6 @@ scene.save("floor.schem")
 
 ## Documentation
 
-- [Getting started](../../docs/guides/getting-started.md).
-- [Runnable examples and outputs](../../examples/README.md).
-- [Python API](../../docs/reference/python-api.md).
-- [Formats and conversion](../../docs/reference/formats.md).
-- [Catalogs, offline use, and asset attribution](../../docs/reference/minecraft-data.md).
-- [Development and rebuilds](../../docs/development.md).
+- [Usage guide](../../docs/guides/usage.md) · [Examples and outputs](../../examples/README.md).
+- [API reference](../../docs/reference/api.md#python) · [Catalogs and offline preparation](../../docs/reference/minecraft-data.md).
+- [Documentation maintenance](../../docs/index.md#updating-documentation).

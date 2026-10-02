@@ -64,9 +64,11 @@ uv run --all-packages python examples/banner.py
 ```
 
 This builds the README's MCSchemora wordmark on a floating island: gold and
-diamond lettering, trees, a stream with wooden bridges, lanterns, a small stone
-tower, and a sheep and pig. The letters follow a diagonal footprint so the
-isometric view keeps the wordmark horizontal. Terrain details use a fixed random seed.
+diamond lettering, oak trees, grass blocks, a stream with wooden bridges,
+lanterns, a 5×5 stone-and-timber tower with a spruce roof, and a sheep and pig.
+A fox, chicken, creeper, wolf, and bee perch on the lettering, with a cat inside
+the “o”. The letters follow a diagonal footprint so the isometric view keeps the
+wordmark horizontal. Terrain details use a fixed random seed.
 
 The script writes an editable `banner.schem` and a transparent 3840×960 `banner.png`.
 Copy the PNG to `docs/assets/banner.png` when updating the README banner.
@@ -107,7 +109,7 @@ Saved workshop.litematic
 
 Conversion exits before writing if the export report has errors or unaccepted
 losses. `--flatten` combines nonoverlapping regions; `--allow-loss` explicitly
-accepts reported omissions. See [format contracts](../docs/reference/formats.md).
+accepts reported omissions. See the [conversion workflow](../docs/guides/usage.md#inspect-and-convert).
 
 ## Render and export a blueprint
 
@@ -128,6 +130,5 @@ workshop produces no visual diagnostics; sprite and blueprint exports report
 omitted state properties and chest inventory data in the script's output. These diagrams are visual
 plans and do not preserve all schematic data.
 
-To put creator outputs elsewhere, use `--output /path/to/directory`. Read
-[getting started](../docs/guides/getting-started.md) or
-[rendering](../docs/guides/rendering.md) for smaller snippets.
+To put creator outputs elsewhere, use `--output /path/to/directory`.
+The [usage guide](../docs/guides/usage.md) contains smaller snippets.

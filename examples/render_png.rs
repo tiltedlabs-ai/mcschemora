@@ -5,7 +5,7 @@ use schemora::{
     Result,
     model::{Block, Document},
     registry::MinecraftData,
-    render::{GeometryAssets, SceneOptions, png},
+    render::{GeometryAssets, SceneOptions, View, png},
 };
 use std::{
     collections::{BTreeMap, HashMap},
@@ -18,13 +18,13 @@ fn benchmark(
     name: &str,
     document: &Document,
     assets: &GeometryAssets,
-    camera: png::Camera,
+    view: View,
 ) -> Result<serde_json::Value> {
     let mut results = Vec::new();
     for size in [512, 1024, 1536, 2048] {
         let options = png::Options {
             size: [size; 2],
-            camera,
+            view,
             grid: false,
         };
         let warm = assets.prepare(document, &SceneOptions::default())?;
@@ -147,20 +147,20 @@ fn main() -> Result<()> {
     std::fs::write(output.join("render.png"), &bytes).map_err(|e| e.to_string())?;
     let top_options = png::Options {
         size: [960, 720],
-        camera: png::Camera::TopDown,
+        view: View::Top,
         grid: false,
     };
     let top = png::encode(&scene, &top_options)?;
     std::fs::write(output.join("render-top-down.png"), &top).map_err(|e| e.to_string())?;
-    for (camera, file) in [
-        (png::Camera::TopDown, "render-top-down-grid.png"),
-        (png::Camera::Isometric, "render-grid.png"),
+    for (view, file) in [
+        (View::Top, "render-top-down-grid.png"),
+        (View::Isometric, "render-grid.png"),
     ] {
         let bytes = png::encode(
             &scene,
             &png::Options {
                 size: [960, 720],
-                camera,
+                view,
                 grid: true,
             },
         )?;
@@ -174,7 +174,7 @@ fn main() -> Result<()> {
             &scene,
             &png::Options {
                 size,
-                camera: png::Camera::TopDown,
+                view: View::Top,
                 grid: false,
             },
         )?;
@@ -194,12 +194,7 @@ fn main() -> Result<()> {
     reversed.instances.reverse();
     assert_eq!(bytes, png::encode(&reversed, &options)?);
     let benchmark_gallery = if std::env::args().any(|arg| arg == "--bench") {
-        Some(benchmark(
-            "gallery",
-            &document,
-            &assets,
-            png::Camera::Isometric,
-        )?)
+        Some(benchmark("gallery", &document, &assets, View::Isometric)?)
     } else {
         None
     };
@@ -212,7 +207,8 @@ fn main() -> Result<()> {
                 &document,
                 &SceneOptions {
                     region: Some("main".into()),
-                    y: None
+                    y: None,
+                    ..SceneOptions::default()
                 }
             )?,
             &options
@@ -223,6 +219,7 @@ fn main() -> Result<()> {
         &SceneOptions {
             region: Some("main".into()),
             y: Some([0, 0]),
+            ..SceneOptions::default()
         },
     )?;
     let bytes = png::encode(&layer, &options)?;
@@ -250,15 +247,15 @@ fn main() -> Result<()> {
             &scene,
             &png::Options {
                 size: [1536; 2],
-                camera: png::Camera::TopDown,
+                view: View::Top,
                 grid: false,
             },
         )?,
     )
     .map_err(|e| e.to_string())?;
     if let Some(gallery) = benchmark_gallery {
-        let top_down = benchmark("mob_farm_top_down", &farm, &assets, png::Camera::TopDown)?;
-        let farm = benchmark("mob_farm", &farm, &assets, png::Camera::Isometric)?;
+        let top_down = benchmark("mob_farm_top_down", &farm, &assets, View::Top)?;
+        let farm = benchmark("mob_farm", &farm, &assets, View::Isometric)?;
         let report = serde_json::json!({
             "repeats":7,"warmups":1,"version":"1.21.1",
             "gallery":gallery,"mob_farm":farm,"mob_farm_top_down":top_down

@@ -7,6 +7,9 @@ mod models;
 pub mod parts;
 pub mod png;
 mod special;
+mod view;
+
+pub use view::View;
 
 use models::Builder;
 
@@ -123,7 +126,9 @@ pub struct PreparedScene {
 #[derive(Clone, Debug, Default)]
 pub struct SceneOptions {
     pub region: Option<String>,
+    pub x: Option<[i32; 2]>,
     pub y: Option<[i32; 2]>,
+    pub z: Option<[i32; 2]>,
 }
 
 #[derive(Debug)]
@@ -218,13 +223,27 @@ impl GeometryAssets {
         if document.edition != "java" {
             return Err("Geometry preparation requires Java Edition visuals".into());
         }
-        if options.y.is_some_and(|y| y[0] > y[1]) {
-            return Err("Y range start exceeds end".into());
+        for (axis, range) in ["X", "Y", "Z"]
+            .into_iter()
+            .zip([options.x, options.y, options.z])
+        {
+            if range.is_some_and(|range| range[0] > range[1]) {
+                return Err(format!("{axis} range start exceeds end"));
+            }
         }
         if let Some(name) = &options.region {
             document.region(name)?;
         }
-        let selected_y = |y: i32| options.y.is_none_or(|range| y >= range[0] && y <= range[1]);
+        let selected = |position: [f64; 3]| {
+            [options.x, options.y, options.z]
+                .into_iter()
+                .zip(position)
+                .all(|(range, value)| {
+                    range.is_none_or(|range| {
+                        value >= f64::from(range[0]) && value < f64::from(range[1]) + 1.
+                    })
+                })
+        };
         let mut cells = BTreeMap::new();
         let mut selected_entities = Vec::new();
         let mut diagnostics = Vec::new();
@@ -246,7 +265,7 @@ impl GeometryAssets {
                         .checked_add(local[i])
                         .ok_or("Geometry coordinate overflow")?;
                 }
-                if !selected_y(position[1]) {
+                if !selected(position.map(f64::from)) {
                     continue;
                 }
                 if cells.insert(position, (name, block)).is_some() {
@@ -254,16 +273,12 @@ impl GeometryAssets {
                 }
             }
             for entity in &region.entities {
-                let y = entity.position[1] + f64::from(region.origin[1]);
-                if options
-                    .y
-                    .is_none_or(|range| y >= f64::from(range[0]) && y < f64::from(range[1]) + 1.)
-                {
-                    let position: [f64; 3] =
-                        std::array::from_fn(|i| entity.position[i] + f64::from(region.origin[i]));
-                    if !position.iter().all(|v| v.is_finite()) {
-                        return Err("Non-finite entity position".into());
-                    }
+                let position: [f64; 3] =
+                    std::array::from_fn(|i| entity.position[i] + f64::from(region.origin[i]));
+                if !position.iter().all(|v| v.is_finite()) {
+                    return Err("Non-finite entity position".into());
+                }
+                if selected(position) {
                     selected_entities.push((name, entity, position));
                 }
             }

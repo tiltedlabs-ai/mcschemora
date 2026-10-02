@@ -1,21 +1,14 @@
 mod grid;
 
-use super::{AlphaMode, PreparedScene, Texture, geometry};
+use super::{AlphaMode, PreparedScene, Texture, View, geometry};
 use crate::Result;
 use image::{ImageEncoder, RgbaImage, codecs::png::PngEncoder};
 use std::sync::LazyLock;
 
-#[derive(Clone, Copy, Debug, Default)]
-pub enum Camera {
-    #[default]
-    Isometric,
-    TopDown,
-}
-
 #[derive(Clone, Debug)]
 pub struct Options {
     pub size: [u32; 2],
-    pub camera: Camera,
+    pub view: View,
     pub grid: bool,
 }
 
@@ -23,7 +16,7 @@ impl Default for Options {
     fn default() -> Self {
         Self {
             size: [1024; 2],
-            camera: Camera::default(),
+            view: View::default(),
             grid: false,
         }
     }
@@ -47,17 +40,6 @@ struct Face {
 
 fn dot(a: [f64; 3], b: [f64; 3]) -> f64 {
     a.into_iter().zip(b).map(|(a, b)| a * b).sum()
-}
-
-fn project(p: [f64; 3], camera: Camera) -> [f64; 3] {
-    if matches!(camera, Camera::TopDown) {
-        return [p[0], p[2], p[1]];
-    }
-    [
-        (p[0] - p[2]) / 2f64.sqrt(),
-        (p[0] - 2. * p[1] + p[2]) / 6f64.sqrt(),
-        (p[0] + p[1] + p[2]) / 3f64.sqrt(),
-    ]
 }
 
 fn edge(a: [f64; 3], b: [f64; 3], p: [f64; 3]) -> f64 {
@@ -298,12 +280,9 @@ pub fn encode(scene: &PreparedScene, options: &Options) -> Result<Vec<u8>> {
                     return Err("Non-finite face normal".into());
                 }
                 let vertices = quad.vertices.map(|v| Vertex {
-                    position: project(
-                        std::array::from_fn(|i| {
-                            dot(rotation[i], v.position.map(f64::from)) + offset[i]
-                        }),
-                        options.camera,
-                    ),
+                    position: options.view.project(std::array::from_fn(|i| {
+                        dot(rotation[i], v.position.map(f64::from)) + offset[i]
+                    })),
                     uv: v.uv,
                 });
                 for vertex in &vertices {
@@ -317,10 +296,7 @@ pub fn encode(scene: &PreparedScene, options: &Options) -> Result<Vec<u8>> {
                         max[axis] = max[axis].max(vertex.position[axis]);
                     }
                 }
-                let facing = match options.camera {
-                    Camera::Isometric => normal.iter().sum::<f64>(),
-                    Camera::TopDown => normal[1],
-                };
+                let facing = options.view.project(normal)[2];
                 if facing <= 1e-8 {
                     continue;
                 }
@@ -387,7 +363,7 @@ pub fn encode(scene: &PreparedScene, options: &Options) -> Result<Vec<u8>> {
         .min(8);
     let band_height = options.size[1].div_ceil(workers as u32).div_ceil(8).max(16) * 8;
     let grid = options.grid.then_some(grid::Grid {
-        camera: options.camera,
+        view: options.view,
         scale,
         anchor,
         offset: std::array::from_fn(|i| {

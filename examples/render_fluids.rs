@@ -68,6 +68,7 @@ fn main() -> Result<()> {
         &SceneOptions {
             region: None,
             y: Some([0, 0]),
+            ..SceneOptions::default()
         },
     )?;
     assert!(

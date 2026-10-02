@@ -1,8 +1,8 @@
-use super::Camera;
+use crate::render::View;
 
 #[derive(Clone, Copy)]
 pub(super) struct Grid {
-    pub camera: Camera,
+    pub view: View,
     pub scale: f64,
     pub offset: [f64; 2],
     pub anchor: [f64; 3],
@@ -14,14 +14,7 @@ impl Grid {
             let x = (p[0] - self.offset[0]) / self.scale;
             let y = (p[1] - self.offset[1]) / self.scale;
             let d = p[2];
-            let p = match self.camera {
-                Camera::TopDown => [x, d, y],
-                Camera::Isometric => [
-                    x / 2f64.sqrt() + y / 6f64.sqrt() + d / 3f64.sqrt(),
-                    -2. * y / 6f64.sqrt() + d / 3f64.sqrt(),
-                    -x / 2f64.sqrt() + y / 6f64.sqrt() + d / 3f64.sqrt(),
-                ],
-            };
+            let p = self.view.unproject([x, y, d]);
             std::array::from_fn::<_, 3, _>(|i| p[i] + self.anchor[i].rem_euclid(1.))
         });
         Lines(std::array::from_fn(|axis| {

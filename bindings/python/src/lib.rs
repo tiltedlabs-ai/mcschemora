@@ -24,17 +24,14 @@ fn state(b: Block) -> State {
 }
 fn render(
     document: &Document,
-    region: Option<String>,
-    y: Option<[i32; 2]>,
+    options: schemora::render::SceneOptions,
     encode: impl FnOnce(&schemora::render::PreparedScene) -> schemora::Result<Vec<u8>>,
 ) -> PyResult<(Vec<u8>, Vec<String>)> {
     let assets = document
         .data
         .geometry_assets(&document.version)
         .map_err(error)?;
-    let scene = assets
-        .prepare(document, &schemora::render::SceneOptions { region, y })
-        .map_err(error)?;
+    let scene = assets.prepare(document, &options).map_err(error)?;
     let bytes = encode(&scene).map_err(error)?;
     let diagnostics = scene
         .diagnostics
@@ -112,10 +109,18 @@ impl PyDocument {
         data: &[u8],
         format: &str,
         source: &PyMinecraftData,
+        version: Option<String>,
+        origin: Option<Pos>,
+        palette: std::collections::BTreeMap<String, String>,
     ) -> PyResult<Self> {
+        let options = formats::blueprint::import::Options {
+            version,
+            origin,
+            palette,
+        };
         Ok(Self {
             data: Arc::new(Mutex::new(
-                py.detach(|| formats::decode(data, format, source.data.clone()))
+                py.detach(|| formats::decode(data, format, source.data.clone(), &options))
                     .map_err(error)?,
             )),
         })
@@ -139,13 +144,13 @@ impl PyDocument {
         &self,
         py: Python<'py>,
         region: Option<String>,
-        y: Option<[i32; 2]>,
+        ranges: [Option<[i32; 2]>; 3],
     ) -> PyResult<(Bound<'py, PyBytes>, Vec<String>)> {
+        let [x, y, z] = ranges;
         let (bytes, diagnostics) = py.detach(|| {
             render(
                 &*lock(&self.data)?,
-                region,
-                y,
+                schemora::render::SceneOptions { region, x, y, z },
                 schemora::render::glb::encode,
             )
         })?;
@@ -155,29 +160,64 @@ impl PyDocument {
         &self,
         py: Python<'py>,
         region: Option<String>,
-        y: Option<[i32; 2]>,
+        ranges: [Option<[i32; 2]>; 3],
         size: [u32; 2],
-        camera: &str,
+        view: &str,
         grid: bool,
     ) -> PyResult<(Bound<'py, PyBytes>, Vec<String>)> {
-        let camera = match camera {
-            "isometric" => schemora::render::png::Camera::Isometric,
-            "top_down" => schemora::render::png::Camera::TopDown,
+        use schemora::render::View;
+        let view = match view {
+            "isometric" => View::Isometric,
+            "top" => View::Top,
+            "bottom" => View::Bottom,
+            "north" => View::North,
+            "south" => View::South,
+            "east" => View::East,
+            "west" => View::West,
             _ => {
-                return Err(pyo3::exceptions::PyValueError::new_err(
-                    "camera must be isometric or top_down",
+                return Err(error(
+                    "view must be isometric, top, bottom, north, south, east, or west",
                 ));
             }
         };
+        let [x, y, z] = ranges;
         let (bytes, diagnostics) = py.detach(|| {
-            render(&*lock(&self.data)?, region, y, |scene| {
-                schemora::render::png::encode(
-                    scene,
-                    &schemora::render::png::Options { size, camera, grid },
-                )
-            })
+            render(
+                &*lock(&self.data)?,
+                schemora::render::SceneOptions { region, x, y, z },
+                |scene| {
+                    schemora::render::png::encode(
+                        scene,
+                        &schemora::render::png::Options { size, view, grid },
+                    )
+                },
+            )
         })?;
         Ok((PyBytes::new(py, &bytes), diagnostics))
+    }
+    fn blueprint(
+        &self,
+        py: Python<'_>,
+        name: String,
+        region: Option<String>,
+        y: Option<[i32; 2]>,
+        rotation: i32,
+        sprites: std::collections::BTreeMap<String, String>,
+    ) -> PyResult<(String, Vec<String>)> {
+        let output = py.detach(|| {
+            formats::blueprint::encode(
+                &*lock(&self.data)?,
+                &formats::blueprint::Options {
+                    name,
+                    region,
+                    y,
+                    rotation,
+                    sprites,
+                },
+            )
+            .map_err(error)
+        })?;
+        Ok((output.text, output.diagnostics))
     }
     fn validate(&self, py: Python<'_>) -> PyResult<(Vec<String>, Vec<String>, Vec<String>)> {
         let report = py.detach(|| -> PyResult<_> { Ok(lock(&self.data)?.validate()) })?;
@@ -199,6 +239,9 @@ impl PyDocument {
     }
     fn regions(&self) -> PyResult<Vec<String>> {
         Ok(lock(&self.data)?.regions.keys().cloned().collect())
+    }
+    fn import_diagnostics(&self) -> PyResult<Vec<String>> {
+        Ok(lock(&self.data)?.import_diagnostics.clone())
     }
     fn info(&self) -> PyResult<(String, String, i32)> {
         let d = lock(&self.data)?;

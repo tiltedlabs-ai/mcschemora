@@ -2,6 +2,7 @@ import argparse
 import ast
 import inspect
 import re
+import textwrap
 from pathlib import Path
 
 import mcschemora
@@ -62,20 +63,40 @@ def docstring(value) -> str:
     if not text:
         raise ValueError(f"Missing public docstring: {value}")
     sections = {"Args:", "Returns:", "Raises:", "Attributes:", "Yields:", "Examples:"}
-    output = []
-    section = None
+    groups = [(None, [])]
     for line in text.splitlines():
         if line in sections:
-            section = line[:-1]
-            output.extend(["", f"**{section}**", ""])
-        elif section in {"Args", "Raises", "Attributes"} and line.startswith("    "):
-            entry = re.match(r"^    (\S+):\s*(.*)$", line)
-            output.append(f"- `{entry[1]}`: {entry[2]}" if entry else "  " + line.strip())
-        elif section == "Examples":
-            output.append(line)
+            groups.append((line[:-1], []))
         else:
-            output.append(line.strip())
-    return re.sub(r"\n{3,}", "\n\n", "\n".join(output).strip())
+            groups[-1][1].append(line)
+    output = []
+    for section, body in groups:
+        if section is None:
+            output.append("\n".join(body).strip())
+        elif section in {"Args", "Raises", "Attributes"}:
+            entries = []
+            for line in body:
+                entry = re.match(r"^    (\S+):\s*(.*)$", line)
+                if entry:
+                    entries.append(f"`{entry[1]}`: {entry[2]}")
+                elif line.strip():
+                    entries[-1] += " " + line.strip()
+            if len(entries) == 1:
+                output.append(f"**{section}:** {entries[0]}")
+            else:
+                output.append(f"**{section}:**\n\n" + "\n".join(f"- {entry}" for entry in entries))
+        elif section == "Examples":
+            output.append(
+                "**Examples:**\n\n```python\n" + textwrap.dedent("\n".join(body)).strip() + "\n```"
+            )
+        else:
+            paragraphs = re.split(r"\n\s*\n", "\n".join(body).strip())
+            output.append(f"**{section}:** " + "\n\n".join(" ".join(p.split()) for p in paragraphs))
+    return "\n\n".join(part for part in output if part)
+
+
+def code(value: str) -> list[str]:
+    return [f"`{value}`", ""] if "\n" not in value else ["```python", value, "```", ""]
 
 
 def source_link(path: Path, line: int) -> str:
@@ -102,16 +123,9 @@ def python_reference() -> str:
         and name not in mcschemora.__all__
     )
     lines = [
-        "# Python API",
-        "",
-        "Generated from public signatures and docstrings by `make docs`. Do not edit this page.",
-        "",
-        "Start with [getting started](../guides/getting-started.md) or the "
-        "[runnable examples](../../examples/README.md).",
+        "## Python",
         "",
         "Arguments after `*` are keyword-only. Types and properties are documented below.",
-        "",
-        "## Contents",
         "",
         *[
             f"- [{name}](#{'' if inspect.isclass(value) else 'function-'}{name.lower()})"
@@ -132,9 +146,9 @@ def python_reference() -> str:
                 NATIVE_SOURCE, NATIVE_SOURCE.read_text()[: match.start()].count("\n") + 1
             )
         heading = name if inspect.isclass(value) else f"Function {name}"
-        lines.extend([f"## {heading}", "", source, ""])
+        lines.extend([f"### {heading}", "", source, ""])
         if not inspect.isclass(value):
-            lines.extend(["```python", name + signature(value, stubs.get(name)), "```", ""])
+            lines.extend(code(name + signature(value, stubs.get(name))))
         lines.extend([docstring(value), ""])
         if not isinstance(node, ast.ClassDef):
             continue
@@ -175,24 +189,18 @@ def python_reference() -> str:
             label = name if member_name == "__init__" else f"{name}.{member_name}"
             lines.extend(
                 [
-                    f"### {name}.{member_name}",
-                    "",
-                    source_link(PYTHON_SOURCE, member_node.lineno),
+                    f"#### {name}.{member_name}",
                     "",
                 ]
             )
             if isinstance(member, property):
                 returns = inspect.signature(member.fget).return_annotation
-                lines.extend(
-                    ["```python", f"{label}: {returns}", "```", "", docstring(member.fget), ""]
-                )
+                lines.extend([*code(f"{label}: {returns}"), docstring(member.fget), ""])
                 if member.fset:
                     lines.extend(["Writable property.", "", docstring(member.fset), ""])
             else:
-                lines.extend(
-                    ["```python", label + signature(member), "```", "", docstring(member), ""]
-                )
-    lines.extend(["## Type aliases", "", "```python"])
+                lines.extend([*code(label + signature(member)), docstring(member), ""])
+    lines.extend(["### Type aliases", "", "```python"])
     for node in tree.body:
         if (
             isinstance(node, ast.AnnAssign)
@@ -221,14 +229,11 @@ def wasm_reference() -> str:
     ).strip()
     return "\n".join(
         [
-            "# WASM API",
-            "",
-            "Generated from wasm-bindgen's TypeScript declarations by `make docs`. Do not edit this page.",
+            "## Browser WASM",
             "",
             "See the [browser quickstart](../../bindings/wasm/README.md) for initialization, "
             "file import, and resource cleanup.",
             "",
-            "The declarations below include the public classes and their source documentation.",
             "The complete declarations, including initialization types, are generated at "
             "`bindings/wasm/pkg/mcschemora.d.ts` during the browser build.",
             "",
@@ -240,11 +245,35 @@ def wasm_reference() -> str:
     )
 
 
+def api_reference() -> str:
+    return "\n".join(
+        [
+            "# API reference",
+            "",
+            "Generated by `make docs` from Python signatures and docstrings and wasm-bindgen declarations. Do not edit this page.",
+            "",
+            "[Python](#python) · [Browser WASM](#browser-wasm) · [Rust](#rust)",
+            "",
+            python_reference(),
+            wasm_reference(),
+            "## Rust",
+            "",
+            "Rust's public types and documentation comments are available in the [source](../../src/lib.rs). "
+            "Build the complete Rust reference locally:",
+            "",
+            "```sh",
+            "cargo doc -p mcschemora --no-deps --open",
+            "```",
+            "",
+        ]
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    pages = {"python-api.md": python_reference(), "wasm-api.md": wasm_reference()}
+    pages = {"api.md": api_reference()}
     stale = []
     for name, content in pages.items():
         path = ROOT / "docs/reference" / name

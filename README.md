@@ -2,7 +2,7 @@
 
 ![Banner built and rendered with MCSchemora](docs/assets/banner.png)
 
-Author, edit, convert, and render Minecraft schematics in Rust with Python, and WASM bindings.
+Author, edit, convert, and render Minecraft schematics in Rust with Python and WASM bindings.
 Supports `.schem`, `.litematic`, `.nbt`, `.snbt`, `.schematic`, `.mcstructure`, and wiki blueprints.
 
 [Reproduce the banner build](examples/README.md#build-the-banner).
@@ -27,21 +27,13 @@ uv run --all-packages python examples/build.py
 uv run --all-packages python examples/render.py
 ```
 
-Example schematic output, rendered with the roof hidden to show the interior:
+Example schematic output:
 
 ![Workshop example output](docs/assets/workshop.png)
 
-Or create a schematic directly:
+Example sprite output:
 
-```python
-from mcschemora import Schematic, block
-
-scene = Schematic.create(version="1.21.1")
-floor = scene.region().select(start=(0, 0, 0), size=(7, 1, 7))
-floor.fill(block("stone_bricks"))
-print(scene.validate())
-scene.save("floor.schem")
-```
+![Sprite example output](docs/assets/workshop-layer.png)
 
 ### Rust
 
@@ -53,12 +45,10 @@ cargo run --example build
 
 ## Documentation
 
-- [Start here](docs/index.md) — setup, workflows, and reference.
-- [Getting started: Python](docs/guides/getting-started.md) · [Rust](docs/guides/getting-started-rust.md).
-- [Runnable examples and outputs](examples/README.md) — build, edit, convert, render.
-- [Python API](docs/reference/python-api.md) · [WASM API](docs/reference/wasm-api.md) · [File formats](docs/reference/formats.md).
-- [Python binding](bindings/python/README.md) · [Browser WASM binding](bindings/wasm/README.md).
-- [Development](docs/development.md).
+- [Quickstarts: Python](bindings/python/README.md) · [Rust](docs/guides/getting-started-rust.md) · [Browser WASM](bindings/wasm/README.md).
+- [Usage guide](docs/guides/usage.md) · [Examples and output gallery](examples/README.md).
+- [API reference](docs/reference/api.md) · [Catalogs and assets](docs/reference/minecraft-data.md).
+- [Documentation index and maintenance](docs/index.md).
 
 ## License
 

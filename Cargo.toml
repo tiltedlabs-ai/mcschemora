@@ -3,7 +3,7 @@ name = "mcschemora"
 version = "0.1.0"
 edition = "2024"
 description = "Minecraft schematic authoring and conversion"
-license = "MIT AND MPL-2.0"
+license = "MIT"
 include = ["/data/wiki-sprites/**", "/data/entity-models/**", "/data/block-models/**", "/src/**/*.rs", "/src/catalog/storage/native/SOURCE.md", "/examples/*.rs", "/Cargo.toml", "/README.md", "/LICENSE"]
 
 [lib]

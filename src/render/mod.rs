@@ -230,6 +230,28 @@ fn read(path: &Path) -> Result<Value> {
 }
 
 impl GeometryAssets {
+    fn vegetation_color(&self, texture: &str) -> Option<[u8; 4]> {
+        let colormap = match texture {
+            "minecraft:block/grass_block_top" | "minecraft:block/grass_block_side_overlay" => {
+                "minecraft:colormap/grass"
+            }
+            "minecraft:block/oak_leaves"
+            | "minecraft:block/jungle_leaves"
+            | "minecraft:block/acacia_leaves"
+            | "minecraft:block/dark_oak_leaves"
+            | "minecraft:block/mangrove_leaves"
+            | "minecraft:block/vine" => "minecraft:colormap/foliage",
+            _ => return None,
+        };
+        let texture = &self.textures[*self.texture_ids.get(colormap)?];
+        let atlas = &self.atlas_images[texture.atlas];
+        let x = (texture.uv[0] * atlas.width() as f32).round() as u32
+            + ((texture.size[0] - 1) as f32 * 0.2).round() as u32;
+        let y = (texture.uv[1] * atlas.height() as f32).round() as u32
+            + ((texture.size[1] - 1) as f32 * 0.68).round() as u32;
+        Some(atlas.get_pixel(x, y).0)
+    }
+
     /// Loads a prepared visual bundle directory and validates its atlases and textures.
     pub fn load(path: &Path) -> Result<Self> {
         let manifest = read(&path.join("manifest.json"))?;

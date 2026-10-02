@@ -90,7 +90,12 @@ pub(super) fn bake(assets: &GeometryAssets, application: &Application) -> Result
             {
                 opaque_faces += 1;
             }
-            if let Some(quad) = bake_face(&element, direction, face, application, texture)? {
+            if let Some(mut quad) = bake_face(&element, direction, face, application, texture)? {
+                if quad.tint_index == Some(0)
+                    && let Some(color) = assets.vegetation_color(&face.texture)
+                {
+                    quad.color = color;
+                }
                 quads.push(quad);
             }
         }

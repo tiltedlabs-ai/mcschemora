@@ -33,7 +33,7 @@ def create_banner():
         inset = max(0, 5 - min(x + 11, width + 12 - x))
         edge = rng.randrange(3)
         for depth in range(-7 + inset + edge, 16 - inset - edge):
-            put(x, 0, depth, "moss_block")
+            put(x, 0, depth, "grass_block")
             put(x, -1, depth, "dirt")
             if -4 + inset < depth < 12 - inset:
                 put(x, -2, depth, rng.choice(("stone", "andesite", "mossy_cobblestone")))
@@ -56,6 +56,13 @@ def create_banner():
         put(x, 1, 4, "waxed_oxidized_cut_copper")
 
     cursor = 0
+    perched_mobs = {
+        "M": (0, "fox", 45),
+        "C": (2, "chicken", 225),
+        "S": (2, "creeper", 45),
+        "m": (1, "wolf", 45),
+        "a": (2, "bee", 225),
+    }
     for index, character in enumerate(text):
         for row, pixels in enumerate(GLYPHS[character]):
             for column, pixel in enumerate(pixels):
@@ -69,6 +76,21 @@ def create_banner():
                     put(x, y, 2, face)
                     for depth in (0, 1):
                         put(x, y, depth, "orange_concrete" if index < 2 else "dark_prismarine")
+        if character in perched_mobs:
+            column, identifier, yaw = perched_mobs[character]
+            top_row = next(
+                row for row, pixels in enumerate(GLYPHS[character]) if pixels[column] == "1"
+            )
+            x = cursor + column
+            region.entities.add(
+                mob(identifier, nbt=f"{{Rotation:[{yaw}.0f,0.0f]}}"),
+                at=(x + 0.5, 10.0 - top_row, 1.5 - x),
+            )
+        if character == "o":
+            region.entities.add(
+                mob("cat", nbt="{Rotation:[225.0f,0.0f]}"),
+                at=(cursor + 2.0, 4.0, -float(cursor)),
+            )
         cursor += len(GLYPHS[character][0]) + 1
 
     for x in range(5, width, 12):
@@ -86,31 +108,69 @@ def create_banner():
     for tree_x, tree_depth in ((-7, 1), (-5, -4), (width + 10, 7)):
         for y in range(1, 6):
             put(tree_x, y, tree_depth, "oak_log", axis="y")
-        for y, radius in ((5, 2), (6, 2), (7, 1)):
+        for y, radius in ((3, 2), (4, 2), (5, 1), (6, 1)):
             for x in range(tree_x - radius, tree_x + radius + 1):
-                for depth in range(tree_depth - radius, tree_depth + radius + 1):
-                    if abs(x - tree_x) + abs(depth - tree_depth) <= radius * 2 - 1:
-                        if not (x == tree_x and depth == tree_depth and y == 5):
-                            put(x, y, depth, "azalea_leaves", persistent=True)
+                for z_offset in range(-radius, radius + 1):
+                    corner = abs(x - tree_x) == radius and abs(z_offset) == radius
+                    if corner and (y == 6 or rng.randrange(2) == 0):
+                        continue
+                    if x == tree_x and z_offset == 0 and y <= 5:
+                        continue
+                    depth = tree_depth + x - tree_x + z_offset
+                    put(x, y, depth, "oak_leaves", persistent=True)
 
     tower_x = width + 6
-    for x in range(tower_x - 2, tower_x + 3):
-        for depth in range(-3, 2):
-            for y in range(1, 9):
-                if x in (tower_x - 2, tower_x + 2) or depth in (-3, 1) or y == 8:
-                    put(x, y, depth, "stone_bricks")
-            if x % 2 == 1 or depth % 2 == 1:
-                put(x, 9, depth, "stone_brick_wall")
+
+    def tower_put(x, y, z, material, **states):
+        put(tower_x + x, y, -1 + x + z, material, **states)
+
+    for x in range(-2, 3):
+        for z in range(-2, 3):
+            tower_put(x, 1, z, "cobblestone")
+            tower_put(x, 5, z, "spruce_planks")
+            tower_put(x, 8, z, "spruce_planks")
+            if abs(x) == 2 or abs(z) == 2:
+                for y in range(1, 8):
+                    if abs(x) == 2 and abs(z) == 2 and y >= 3:
+                        tower_put(x, y, z, "stripped_spruce_log", axis="y")
+                    elif y <= 2:
+                        material = "mossy_cobblestone" if (x + z + y) % 3 == 0 else "cobblestone"
+                        tower_put(x, y, z, material)
+                    else:
+                        tower_put(x, y, z, "stone_bricks")
+
     for y in (4, 5):
-        put(tower_x, y, 1, "light_blue_stained_glass")
-    for x in (tower_x - 2, tower_x + 2):
-        put(x, 6, 2, "red_wool")
-        put(x, 7, 2, "red_wool")
-    put(tower_x, 9, -1, "lantern")
+        for side in (-2, 2):
+            tower_put(side, y, 0, "light_blue_stained_glass")
+        for x in (-1, 1):
+            tower_put(x, y, 2, "light_blue_stained_glass")
+    for y, half in ((1, "lower"), (2, "upper")):
+        tower_put(0, y, 2, "spruce_door", facing="south", half=half, hinge="left")
+    tower_put(0, 1, 3, "stone_brick_slab", type="bottom")
+    tower_put(0, 6, 3, "spruce_planks")
+    tower_put(0, 5, 3, "lantern", hanging=True)
+
+    for z in range(-2, 3):
+        for x in (-2, -1, 1, 2):
+            tower_put(
+                x,
+                11 - abs(x),
+                z,
+                "spruce_stairs",
+                facing="east" if x < 0 else "west",
+                half="bottom",
+                shape="straight",
+            )
+        tower_put(0, 11, z, "spruce_slab", type="bottom")
+    for z in (-2, 2):
+        tower_put(0, 9, z, "spruce_planks")
+        tower_put(0, 10, z, "spruce_planks")
+    tower_put(0, 12, 0, "spruce_fence", east=True)
+    tower_put(1, 12, 0, "red_wool")
 
     for x in range(-8, width + 11, 4):
         for depth in (-5, 13):
-            if cells.get((x, 0, depth - x)) == block("moss_block"):
+            if cells.get((x, 0, depth - x)) == block("grass_block"):
                 put(x, 1, depth, rng.choice(("poppy", "dandelion", "flowering_azalea")))
 
     region.set_many(cells.items())

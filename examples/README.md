@@ -63,14 +63,6 @@ dependency setup and examples of loading and rendering.
 uv run --all-packages python examples/banner.py
 ```
 
-This builds the README's MCSchemora wordmark on a floating island: gold and
-diamond lettering, trees, a stream with wooden bridges, lanterns, a small stone
-tower, and a sheep and pig. The letters follow a diagonal footprint so the
-isometric view keeps the wordmark horizontal. Terrain details use a fixed random seed.
-
-The script writes an editable `banner.schem` and a transparent 3840×960 `banner.png`.
-Copy the PNG to `docs/assets/banner.png` when updating the README banner.
-
 ![MCSchemora island banner](../docs/assets/banner.png)
 
 ## Copy, rotate, and restyle
@@ -107,7 +99,7 @@ Saved workshop.litematic
 
 Conversion exits before writing if the export report has errors or unaccepted
 losses. `--flatten` combines nonoverlapping regions; `--allow-loss` explicitly
-accepts reported omissions. See [format contracts](../docs/reference/formats.md).
+accepts reported omissions. See the [conversion workflow](../docs/guides/usage.md#inspect-and-convert).
 
 ## Render and export a blueprint
 
@@ -123,11 +115,4 @@ Sprite diagram of local/world Y=1:
 
 ![Workshop sprite layer](../docs/assets/workshop-layer.png)
 
-The script also writes `workshop.glb` and `workshop.wiki`. Rendering the textured
-workshop produces no visual diagnostics; sprite and blueprint exports report
-omitted state properties and chest inventory data in the script's output. These diagrams are visual
-plans and do not preserve all schematic data.
-
-To put creator outputs elsewhere, use `--output /path/to/directory`. Read
-[getting started](../docs/guides/getting-started.md) or
-[rendering](../docs/guides/rendering.md) for smaller snippets.
+See [usage guide](../docs/guides/usage.md) for more details.

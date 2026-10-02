@@ -109,13 +109,15 @@ accepts reported omissions. See the [conversion workflow](../docs/guides/usage.m
 uv run --all-packages python examples/render.py
 ```
 
+Textured cutaway, with the roof excluded from this preview:
+
 <p align="center">
-  Textured cutaway, with the roof excluded from this preview:<br>
   <img src="../docs/assets/workshop.png" alt="Workshop cutaway">
 </p>
 
+Sprite diagram of local/world Y=1:
+
 <p align="center">
-  Sprite diagram of local/world Y=1:<br>
   <img src="../docs/assets/workshop-layer.png" alt="Workshop sprite layer">
 </p>
 

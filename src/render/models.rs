@@ -69,37 +69,70 @@ pub(super) struct StateGeometry {
     pub(super) name: String,
     pub(super) parts: Vec<Vec<(usize, u32)>>,
     pub(super) messages: Vec<String>,
+    pub(super) tinted: bool,
+    pub(super) fully_cullable: bool,
 }
 
 impl StateGeometry {
-    pub(super) fn draws(&self, position: Pos, meshes: &[Mesh]) -> Vec<Draw> {
-        self.parts
-            .iter()
-            .enumerate()
-            .map(|(part, choices)| {
-                let mesh = if let [(mesh, _)] = choices.as_slice() {
-                    *mesh
-                } else {
-                    let total: u64 = choices.iter().map(|(_, weight)| u64::from(*weight)).sum();
-                    let mut pick = choice_hash(position, &self.name, part) % total;
-                    choices
-                        .iter()
-                        .find_map(|(mesh, weight)| {
-                            if pick < u64::from(*weight) {
-                                Some(*mesh)
-                            } else {
-                                pick -= u64::from(*weight);
-                                None
-                            }
-                        })
-                        .unwrap()
-                };
-                Draw {
-                    mesh,
-                    quads: (0..meshes[mesh].quads.len()).collect(),
-                }
+    pub(super) fn selected_meshes(&self, position: Pos) -> impl Iterator<Item = usize> + '_ {
+        self.parts.iter().enumerate().map(move |(part, choices)| {
+            if let [(mesh, _)] = choices.as_slice() {
+                *mesh
+            } else {
+                let total: u64 = choices.iter().map(|(_, weight)| u64::from(*weight)).sum();
+                let mut pick = choice_hash(position, &self.name, part) % total;
+                choices
+                    .iter()
+                    .find_map(|(mesh, weight)| {
+                        if pick < u64::from(*weight) {
+                            Some(*mesh)
+                        } else {
+                            pick -= u64::from(*weight);
+                            None
+                        }
+                    })
+                    .unwrap()
+            }
+        })
+    }
+
+    pub(super) fn refresh_metadata(&mut self, meshes: &[Mesh]) {
+        self.fully_cullable = self.parts.iter().flatten().all(|(mesh, _)| {
+            meshes[*mesh].quads.iter().all(|quad| {
+                quad.cull_face.is_some_and(|direction| {
+                    direction.iter().map(|&v| i64::from(v).abs()).sum::<i64>() == 1
+                })
             })
-            .collect()
+        });
+        self.tinted = self.parts.iter().flatten().any(|(mesh, _)| {
+            meshes[*mesh]
+                .quads
+                .iter()
+                .any(|quad| quad.tint_index.is_some())
+        });
+    }
+
+    pub(super) fn draws<'a>(
+        &'a self,
+        position: Pos,
+        meshes: &'a [Mesh],
+        occlusion: &'a super::occlusion::Occlusion,
+    ) -> impl Iterator<Item = Draw> + 'a {
+        self.selected_meshes(position).map(move |mesh| Draw {
+            mesh,
+            quads: meshes[mesh]
+                .quads
+                .iter()
+                .enumerate()
+                .filter(|(_, quad)| {
+                    !quad
+                        .cull_face
+                        .and_then(|direction| super::geometry::offset(position, direction))
+                        .is_some_and(|neighbor| occlusion.contains(&neighbor))
+                })
+                .map(|(index, _)| index)
+                .collect(),
+        })
     }
 }
 
@@ -208,11 +241,15 @@ impl Builder<'_> {
                 )
             }
         };
-        let state = Arc::new(StateGeometry {
+        let mut state = StateGeometry {
             name: block.text(),
             parts,
             messages,
-        });
+            tinted: false,
+            fully_cullable: false,
+        };
+        state.refresh_metadata(&self.meshes);
+        let state = Arc::new(state);
         self.states.insert(block.clone(), state.clone());
         state
     }

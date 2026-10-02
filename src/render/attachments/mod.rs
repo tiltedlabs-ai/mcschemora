@@ -172,7 +172,7 @@ pub(super) fn decorate(
 
 fn item(
     builder: &mut Builder<'_>,
-    registry: &crate::registry::Registry,
+    registry: &crate::catalog::Registry,
     data: &Compound,
 ) -> Result<Mesh> {
     let id = string(data.get("id")).unwrap_or("minecraft:air");
@@ -227,7 +227,7 @@ pub(super) fn contents(
     builder: &mut Builder<'_>,
     block: &Block,
     data: Option<&Compound>,
-    registry: &crate::registry::Registry,
+    registry: &crate::catalog::Registry,
 ) -> Result<Mesh> {
     let mut mesh = Mesh {
         quads: Vec::new(),

@@ -1,9 +1,11 @@
 mod attachments;
+mod cells;
 mod entities;
 mod fluids;
 mod geometry;
 pub mod glb;
 mod models;
+mod occlusion;
 pub mod parts;
 pub mod png;
 mod special;
@@ -13,6 +15,7 @@ mod view;
 pub use view::View;
 
 use models::Builder;
+use occlusion::Occlusion;
 
 use crate::{
     Result,
@@ -21,7 +24,7 @@ use crate::{
 use serde::Serialize;
 use serde_json::Value;
 use std::{
-    collections::{BTreeMap, BTreeSet, HashSet},
+    collections::{BTreeMap, BTreeSet},
     fs,
     path::{Path, PathBuf},
 };
@@ -182,7 +185,7 @@ impl GeometryAssets {
             .ok_or("Missing visual atlases")?
         {
             let file = atlas["file"].as_str().ok_or("Missing atlas filename")?;
-            crate::mc_data::safe_path(file)?;
+            crate::catalog::source::safe_path(file)?;
             let file = path.join(file);
             images.push(
                 image::open(&file)
@@ -250,34 +253,10 @@ impl GeometryAssets {
             return Err("Geometry preparation requires Java Edition visuals".into());
         }
         options.validate(document)?;
-        let mut cells = BTreeMap::new();
+        let cells = cells::Cells::new(document, options)?;
         let mut selected_entities = Vec::new();
         let mut diagnostics = Vec::new();
-        for (name, region) in &document.regions {
-            if options
-                .region
-                .as_ref()
-                .is_some_and(|selected| selected != name)
-            {
-                continue;
-            }
-            for (local, block) in region.blocks.iter() {
-                if block.is_air() {
-                    continue;
-                }
-                let mut position = [0; 3];
-                for i in 0..3 {
-                    position[i] = region.origin[i]
-                        .checked_add(local[i])
-                        .ok_or("Geometry coordinate overflow")?;
-                }
-                if !options.contains(position.map(f64::from)) {
-                    continue;
-                }
-                if cells.insert(position, (name, block)).is_some() {
-                    return Err(format!("Selected regions overlap at {position:?}"));
-                }
-            }
+        for &(name, region) in &cells.regions {
             for entity in &region.entities {
                 let position: [f64; 3] =
                     std::array::from_fn(|i| entity.position[i] + f64::from(region.origin[i]));
@@ -296,12 +275,22 @@ impl GeometryAssets {
             states: BTreeMap::new(),
         };
         let mut instances = Vec::new();
+        let mut states: Vec<Vec<Option<std::sync::Arc<models::StateGeometry>>>> = cells
+            .regions
+            .iter()
+            .map(|(_, region)| vec![None; region.blocks.palette_len()])
+            .collect();
+        let mut decorated = BTreeMap::new();
+        let mut occlusion = Occlusion::new(cells.entries.iter().map(|cell| cell.position));
         let mut tinted = BTreeSet::new();
         let mut attached: BTreeMap<
             (crate::model::Block, String),
             std::sync::Arc<models::StateGeometry>,
         > = BTreeMap::new();
-        for (position, (region, block)) in &cells {
+        for cell in &cells.entries {
+            let position = &cell.position;
+            let block = cells.block(cell);
+            let (region, source) = cells.regions[cell.region];
             if matches!(
                 block.name.as_str(),
                 "minecraft:barrier" | "minecraft:light" | "minecraft:structure_void"
@@ -311,15 +300,16 @@ impl GeometryAssets {
             if fluids::is_fluid(block) {
                 continue;
             }
-            let mut state = builder.state(block);
-            let source = &document.regions[*region];
+            let mut state = states[cell.region][cell.palette as usize]
+                .get_or_insert_with(|| builder.state(block))
+                .clone();
             let local = std::array::from_fn(|i| position[i] - source.origin[i]);
             let data = source.block_entities.get(&local);
             if (data.is_some() && attachments::supported(block))
                 || block.name == "minecraft:spawner"
             {
                 let key = (
-                    (*block).clone(),
+                    block.clone(),
                     data.map(fastsnbt::to_string)
                         .transpose()
                         .map_err(|e| e.to_string())?
@@ -355,19 +345,15 @@ impl GeometryAssets {
                         Err(message) => modified.messages.push(message),
                         _ => (),
                     }
+                    modified.refresh_metadata(&builder.meshes);
                     attached.insert(key, state.clone());
                 }
+                decorated.insert(*position, state.clone());
             }
             let text = &state.name;
-            if state.parts.iter().flatten().any(|(mesh, _)| {
-                builder.meshes[*mesh]
-                    .quads
-                    .iter()
-                    .any(|quad| quad.tint_index.is_some())
-            }) && tinted.insert(*block)
-            {
+            if state.tinted && tinted.insert(block) {
                 diagnostics.push(Diagnostic {
-                    region: (*region).clone(),
+                    region: region.clone(),
                     position: *position,
                     block: text.clone(),
                     message: "Tint indices are preserved; tint colors are not evaluated".into(),
@@ -375,44 +361,65 @@ impl GeometryAssets {
             }
             for message in &state.messages {
                 diagnostics.push(Diagnostic {
-                    region: (*region).clone(),
+                    region: region.clone(),
                     position: *position,
                     block: text.clone(),
                     message: message.clone(),
                 });
             }
-            let mut draws = state.draws(*position, &builder.meshes);
-            if matches!(
+            if state
+                .selected_meshes(*position)
+                .any(|mesh| builder.meshes[mesh].occludes)
+            {
+                occlusion.insert(*position);
+            }
+        }
+        for cell in &cells.entries {
+            let position = cell.position;
+            let Some(state) = decorated
+                .get(&position)
+                .or(states[cell.region][cell.palette as usize].as_ref())
+            else {
+                continue;
+            };
+            if state.fully_cullable && occlusion.encloses(position) {
+                continue;
+            }
+            let block = cells.block(cell);
+            let display = matches!(
                 block.name.as_str(),
                 "minecraft:spawner" | "minecraft:trial_spawner"
-            ) && draws.len() > 1
+            ) && state.parts.len() > 1;
+            let mut draws = Vec::new();
+            for (part, draw) in state
+                .draws(position, &builder.meshes, &occlusion)
+                .enumerate()
             {
+                if draw.quads.is_empty() {
+                    continue;
+                }
+                if display && part == state.parts.len() - 1 {
+                    instances.push(Instance {
+                        is_entity: true,
+                        position: position.map(f64::from),
+                        rotation: [0., 0., 0., 1.],
+                        name: format!("{} display", state.name),
+                        draws: vec![draw],
+                    });
+                } else {
+                    draws.push(draw);
+                }
+            }
+            if !draws.is_empty() {
                 instances.push(Instance {
-                    is_entity: true,
+                    is_entity: false,
                     position: position.map(f64::from),
                     rotation: [0., 0., 0., 1.],
-                    name: format!("{text} display"),
-                    draws: vec![draws.pop().unwrap()],
+                    name: state.name.clone(),
+                    draws,
                 });
             }
-            instances.push(Instance {
-                is_entity: false,
-                position: position.map(f64::from),
-                rotation: [0., 0., 0., 1.],
-                name: text.clone(),
-                draws,
-            });
         }
-        let occlusion: HashSet<Pos> = instances
-            .iter()
-            .filter(|instance| {
-                instance
-                    .draws
-                    .iter()
-                    .any(|draw| builder.meshes[draw.mesh].occludes)
-            })
-            .map(|instance| instance.position.map(|v| v as i32))
-            .collect();
         fluids::append(
             self,
             &cells,
@@ -420,20 +427,6 @@ impl GeometryAssets {
             &mut builder.meshes,
             &mut instances,
         )?;
-        for instance in &mut instances {
-            for draw in &mut instance.draws {
-                draw.quads.retain(|&index| {
-                    let quad = &builder.meshes[draw.mesh].quads[index];
-                    let Some(direction) = quad.cull_face else {
-                        return true;
-                    };
-                    !geometry::offset(instance.position.map(|v| v as i32), direction)
-                        .is_some_and(|neighbor| occlusion.contains(&neighbor))
-                });
-            }
-            instance.draws.retain(|draw| !draw.quads.is_empty());
-        }
-        instances.retain(|instance| !instance.draws.is_empty());
         let mut entity_meshes: BTreeMap<String, Result<usize>> = BTreeMap::new();
         for (region, entity, position) in selected_entities {
             let result = entities::facing(entity).and_then(|rotation| {

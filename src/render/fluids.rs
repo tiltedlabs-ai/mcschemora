@@ -1,10 +1,11 @@
 use super::geometry::{DIRECTIONS, UV_CORNERS, corners, normal, offset};
+use super::occlusion::Occlusion;
 use super::{Draw, GeometryAssets, Instance, Mesh, Quad, Vertex};
 use crate::{
     Result,
     model::{Block, Pos},
 };
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 
 pub(super) fn is_fluid(block: &Block) -> bool {
     matches!(
@@ -38,20 +39,22 @@ fn kind(block: &Block) -> Option<&str> {
 
 pub(super) fn append(
     assets: &GeometryAssets,
-    cells: &BTreeMap<Pos, (&String, &Block)>,
-    occlusion: &HashSet<Pos>,
+    cells: &super::cells::Cells<'_>,
+    occlusion: &Occlusion,
     meshes: &mut Vec<Mesh>,
     instances: &mut Vec<Instance>,
 ) -> Result<()> {
     let mut cache = BTreeMap::new();
-    for (&position, (_, block)) in cells {
+    for cell in &cells.entries {
+        let position = cell.position;
+        let block = cells.block(cell);
         let Some(fluid_kind) = kind(block) else {
             continue;
         };
         let same = |p: Pos| {
             cells
                 .get(&p)
-                .is_some_and(|(_, other)| kind(other) == Some(fluid_kind))
+                .is_some_and(|other| kind(other) == Some(fluid_kind))
         };
         let above = |p| offset(p, [0, 1, 0]).is_some_and(same);
         let heights: [f32; 4] = std::array::from_fn(|corner| {
@@ -69,8 +72,9 @@ pub(super) fn append(
                         if above(p) {
                             return 1.;
                         }
-                        let level = cells[&p]
-                            .1
+                        let level = cells
+                            .get(&p)
+                            .unwrap()
                             .properties
                             .get("level")
                             .and_then(|v| v.parse::<u8>().ok())

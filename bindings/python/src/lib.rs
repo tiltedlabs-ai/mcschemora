@@ -12,7 +12,6 @@ use std::{
 };
 type Shared = Arc<Mutex<Document>>;
 type State = (String, BTreeMap<String, String>);
-type Cell = (Pos, String, BTreeMap<String, String>);
 fn error(e: impl ToString) -> PyErr {
     PyValueError::new_err(e.to_string())
 }
@@ -300,12 +299,21 @@ impl PyRegion {
     fn get(&self, at: Pos) -> PyResult<State> {
         self.with(|r| Ok(state(r.get(at))))
     }
-    fn set_many(&self, cells: Vec<Cell>) -> PyResult<()> {
-        let blocks = cells
+    fn set_many(&self, palette: Vec<State>, cells: Vec<(Pos, usize)>) -> PyResult<()> {
+        let palette = palette
             .into_iter()
-            .map(|(p, id, props)| Block::new(&id, props).map(|b| (p, b)))
+            .map(|(id, props)| Block::new(&id, props))
             .collect::<schemora::Result<Vec<_>>>()
             .map_err(error)?;
+        let blocks = cells
+            .into_iter()
+            .map(|(p, index)| {
+                palette
+                    .get(index)
+                    .map(|block| (p, block))
+                    .ok_or_else(|| error("Block palette index out of range"))
+            })
+            .collect::<PyResult<Vec<_>>>()?;
         lock(&self.data)?
             .set_blocks(&self.name, blocks)
             .map_err(error)

@@ -422,7 +422,17 @@ class Region:
             raise TypeError("set() expects a Block or Fragment")
 
     def set_many(self, placements: Iterable[tuple[Position, Block]]):
-        self._native.set_many([(at, b.id, dict(b.states)) for at, b in placements])
+        indices = {}
+        palette = []
+        cells = []
+        for at, value in placements:
+            index = indices.get(value)
+            if index is None:
+                index = len(palette)
+                indices[value] = index
+                palette.append((value.id, dict(value._properties)))
+            cells.append((at, index))
+        self._native.set_many(palette, cells)
 
     def patch(self, at: Position, **states):
         self.select(start=at, size=(1, 1, 1)).patch(**states)

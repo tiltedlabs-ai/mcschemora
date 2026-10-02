@@ -1,5 +1,5 @@
 use crate::{Result, helpers, model::*, nbt, transform::Transform};
-use std::collections::{BTreeMap, btree_map::Entry};
+use std::{borrow::Borrow, collections::BTreeMap};
 
 pub(crate) fn check_position(p: [f64; 3]) -> Result<()> {
     if p.iter()
@@ -18,24 +18,27 @@ impl Document {
         self.regions.insert(name.into(), Region::new(origin));
         Ok(())
     }
-    pub fn set_blocks(
+    pub fn set_blocks<B: Borrow<Block>>(
         &mut self,
         name: &str,
-        blocks: impl IntoIterator<Item = (Pos, Block)>,
+        blocks: impl IntoIterator<Item = (Pos, B)>,
     ) -> Result<()> {
         let catalog = self.registry()?;
         let mut resolved: BTreeMap<Block, std::sync::Arc<Block>> = BTreeMap::new();
         let edits = blocks
             .into_iter()
             .map(|(p, b)| {
-                let block = match resolved.entry(b) {
-                    Entry::Occupied(entry) => entry.get().clone(),
-                    Entry::Vacant(entry) => {
-                        let block = catalog
-                            .resolve(entry.key())
-                            .map_err(|e| format!("{name} {p:?}: {e}"))?;
-                        entry.insert(std::sync::Arc::new(block)).clone()
-                    }
+                let b = b.borrow();
+                let block = if let Some(block) = resolved.get(b) {
+                    block.clone()
+                } else {
+                    let block = std::sync::Arc::new(
+                        catalog
+                            .resolve(b)
+                            .map_err(|e| format!("{name} {p:?}: {e}"))?,
+                    );
+                    resolved.insert(b.clone(), block.clone());
+                    block
                 };
                 Ok((p, block, None))
             })

@@ -1,6 +1,8 @@
 # MCSchemora
 
-![Banner built and rendered with MCSchemora](docs/assets/banner.png)
+<p align="center">
+  <img src="docs/assets/banner.png" alt="Banner built and rendered with MCSchemora">
+</p>
 
 Author, edit, convert, and render Minecraft schematics in Rust with Python and WASM bindings.
 Supports `.schem`, `.litematic`, `.nbt`, `.snbt`, `.schematic`, `.mcstructure`, and wiki blueprints.
@@ -27,13 +29,15 @@ uv run --all-packages python examples/build.py
 uv run --all-packages python examples/render.py
 ```
 
-Example schematic output:
+<p align="center">
+  Example schematic output:<br>
+  <img src="docs/assets/workshop.png" alt="Workshop example output">
+</p>
 
-![Workshop example output](docs/assets/workshop.png)
-
-Example sprite output:
-
-![Sprite example output](docs/assets/workshop-layer.png)
+<p align="center">
+  Example sprite output:<br>
+  <img src="docs/assets/workshop-layer.png" alt="Sprite example output">
+</p>
 
 ### Rust
 

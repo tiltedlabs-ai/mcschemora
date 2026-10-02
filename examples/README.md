@@ -63,7 +63,9 @@ dependency setup and examples of loading and rendering.
 uv run --all-packages python examples/banner.py
 ```
 
-![MCSchemora island banner](../docs/assets/banner.png)
+<p align="center">
+  <img src="../docs/assets/banner.png" alt="MCSchemora island banner">
+</p>
 
 ## Copy, rotate, and restyle
 
@@ -107,12 +109,14 @@ accepts reported omissions. See the [conversion workflow](../docs/guides/usage.m
 uv run --all-packages python examples/render.py
 ```
 
-Textured cutaway, with the roof excluded from this preview:
+<p align="center">
+  Textured cutaway, with the roof excluded from this preview:<br>
+  <img src="../docs/assets/workshop.png" alt="Workshop cutaway">
+</p>
 
-![Workshop cutaway](../docs/assets/workshop.png)
-
-Sprite diagram of local/world Y=1:
-
-![Workshop sprite layer](../docs/assets/workshop-layer.png)
+<p align="center">
+  Sprite diagram of local/world Y=1:<br>
+  <img src="../docs/assets/workshop-layer.png" alt="Workshop sprite layer">
+</p>
 
 See [usage guide](../docs/guides/usage.md) for more details.

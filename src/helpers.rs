@@ -1,4 +1,4 @@
-use crate::{Result, model::*, nbt, registry};
+use crate::{Result, catalog, model::*, nbt};
 use fastnbt::Value;
 use std::collections::BTreeMap;
 
@@ -28,14 +28,14 @@ pub enum Recipe {
     },
 }
 
-fn make(catalog: &registry::Registry, id: &str, props: Vec<(&str, String)>) -> Result<Block> {
+fn make(catalog: &catalog::Registry, id: &str, props: Vec<(&str, String)>) -> Result<Block> {
     catalog.resolve(&Block::new(
         id,
         props.into_iter().map(|(k, v)| (k.into(), v)).collect(),
     )?)
 }
 pub fn recipe(
-    catalog: &registry::Registry,
+    catalog: &catalog::Registry,
     recipe: &Recipe,
     at: Pos,
 ) -> Result<Vec<(Pos, Block, Option<Compound>)>> {
@@ -108,7 +108,7 @@ pub fn recipe(
                 }
                 let mut n = Compound::from([
                     ("Slot".into(), Value::Byte(slot)),
-                    ("id".into(), nbt::s(registry::namespace(id))),
+                    ("id".into(), nbt::s(catalog::namespace(id))),
                     if catalog.data_version >= 3837 {
                         ("count".into(), Value::Int(*count))
                     } else {
@@ -215,7 +215,7 @@ pub fn compatible(id: &str, b: &Block) -> bool {
 }
 
 pub fn mob(
-    catalog: &registry::Registry,
+    catalog: &catalog::Registry,
     id: &str,
     persistent: bool,
     data: Option<&str>,

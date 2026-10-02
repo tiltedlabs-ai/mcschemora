@@ -1,10 +1,10 @@
+pub mod catalog;
 mod edit;
 pub mod formats;
 pub mod helpers;
-mod mc_data;
 pub mod model;
 pub mod nbt;
-pub mod registry;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod render;
 mod sprite_ids;
 

@@ -1,5 +1,5 @@
 //! Structure file codecs. Lossy conversions require explicit acknowledgement.
-use crate::{Result, model::*, nbt, registry::MinecraftData, transform::Transform};
+use crate::{Result, catalog::MinecraftData, model::*, nbt, transform::Transform};
 use std::{borrow::Cow, collections::BTreeSet};
 
 pub mod blueprint;
@@ -31,7 +31,7 @@ fn valid_format(f: &str) -> Result<()> {
     }
 }
 
-pub fn decode(
+pub async fn decode(
     data: &[u8],
     format: &str,
     source: std::sync::Arc<MinecraftData>,
@@ -42,6 +42,14 @@ pub fn decode(
         return Err("Input exceeds 256 MiB".into());
     }
     if format == "blueprint" {
+        let version = options
+            .version
+            .as_deref()
+            .filter(|v| !v.is_empty() && *v != "latest")
+            .ok_or(
+                "Blueprint import requires an explicit Java version, for example version='1.21.1'",
+            )?;
+        source.load(version).await?;
         return blueprint::import::decode(data, source, options);
     }
     if options.version.is_some() || options.origin.is_some() || !options.palette.is_empty() {
@@ -54,6 +62,12 @@ pub fn decode(
     } else {
         nbt::decode(data, format == "mcstructure")?
     };
+    if format != "mcstructure" {
+        source.initialize().await?;
+    }
+    if format == "schematic" {
+        source.load("1.13").await?;
+    }
     let mut doc = Document::imported(source);
     doc.source_format = Some(format.into());
     match format {
@@ -68,11 +82,11 @@ pub fn decode(
         return Err("File has no regions".into());
     }
     if doc.edition == "java" {
-        if doc.data_version > 0 && doc.data_version < crate::registry::MIN_DATA_VERSION {
+        if doc.data_version > 0 && doc.data_version < crate::catalog::MIN_DATA_VERSION {
             return Err("Files older than Java 1.13 are unsupported".into());
         }
         if doc.data.versions()?.contains(&doc.version) {
-            doc.catalog = Some(doc.data.registry(&doc.version)?);
+            doc.catalog = Some(doc.data.load(&doc.version).await?);
         }
     }
     Ok(doc)

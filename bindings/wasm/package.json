@@ -1,0 +1,16 @@
+{
+  "name": "@schemora/wasm",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./pkg/schemora.d.ts",
+      "import": "./pkg/schemora.js"
+    }
+  },
+  "files": ["pkg"],
+  "scripts": {
+    "build": "cargo build --manifest-path Cargo.toml --target wasm32-unknown-unknown --release && wasm-bindgen ../../target/wasm32-unknown-unknown/release/schemora_wasm.wasm --target web --out-dir pkg --out-name schemora"
+  }
+}

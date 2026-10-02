@@ -1,7 +1,7 @@
 mod block_storage;
 pub use block_storage::BlockStorage;
 
-use crate::{Result, registry};
+use crate::{Result, catalog};
 use fastnbt::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -16,7 +16,7 @@ pub struct Block {
 }
 impl Block {
     pub fn new(name: &str, properties: BTreeMap<String, String>) -> Result<Self> {
-        let name = registry::namespace(name);
+        let name = catalog::namespace(name);
         if !name
             .chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || "_:./-".contains(c))
@@ -244,8 +244,8 @@ impl Region {
 }
 #[derive(Clone, Debug)]
 pub struct Document {
-    pub data: std::sync::Arc<registry::MinecraftData>,
-    pub catalog: Option<std::sync::Arc<registry::Registry>>,
+    pub data: std::sync::Arc<catalog::MinecraftData>,
+    pub catalog: Option<std::sync::Arc<catalog::Registry>>,
     pub edition: String,
     pub version: String,
     pub data_version: i32,
@@ -260,7 +260,7 @@ impl Document {
     pub fn new(
         edition: &str,
         version: &str,
-        data: std::sync::Arc<registry::MinecraftData>,
+        data: std::sync::Arc<catalog::MinecraftData>,
     ) -> Result<Self> {
         if edition != "java" {
             return Err("New authoring currently supports Java Edition".into());
@@ -273,7 +273,7 @@ impl Document {
         doc.regions.insert("main".into(), Region::new([0; 3]));
         Ok(doc)
     }
-    pub(crate) fn imported(data: std::sync::Arc<registry::MinecraftData>) -> Self {
+    pub(crate) fn imported(data: std::sync::Arc<catalog::MinecraftData>) -> Self {
         Self {
             data,
             catalog: None,
@@ -288,7 +288,7 @@ impl Document {
             next_entity: 1,
         }
     }
-    pub fn registry(&self) -> Result<&registry::Registry> {
+    pub fn registry(&self) -> Result<&catalog::Registry> {
         self.catalog.as_deref().ok_or_else(|| {
             format!(
                 "No authoring catalog for {} {}; no catalog is available in the pinned minecraft-data snapshot",
@@ -347,7 +347,7 @@ impl Selection {
         id: Option<&str>,
         props: &BTreeMap<String, String>,
     ) -> Result<Self> {
-        let id = id.map(registry::namespace);
+        let id = id.map(catalog::namespace);
         let cells: BTreeSet<Pos> = self
             .positions()
             .into_iter()

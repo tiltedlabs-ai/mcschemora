@@ -1,8 +1,8 @@
 use super::sprites;
 use crate::{
     Result,
+    catalog::MinecraftData,
     model::{Block, Bounds, Document, Pos, Region},
-    registry::MinecraftData,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},

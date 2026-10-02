@@ -141,17 +141,15 @@ class MinecraftData:
         """Available Java catalogs at or above the 1.13 minimum."""
         return tuple(self._native.versions())
 
-    def fetch(self, version="latest", *, visuals=False) -> str:
-        """Cache a complete catalog and optionally prepare its visual bundle."""
-        return self._native.fetch(version, visuals)
+    def load(self, version="latest") -> str:
+        return self._native.load(version)
 
-    def dataset_path(self, version: str, kind: str) -> Path:
-        """Fetch a raw blocks, items, entities, or blockCollisionShapes dataset."""
-        return Path(self._native.dataset_path(version, kind))
+    def dataset(self, version: str, kind: str):
+        return json.loads(self._native.dataset(version, kind))
 
-    def visuals(self, version="latest") -> Path:
+    def load_visuals(self, version="latest") -> Path:
         """Return the shared Java 1.21.1 visual bundle for rendering any version."""
-        return Path(self._native.visuals(version))
+        return Path(self._native.load_visuals(version))
 
 
 @lru_cache(maxsize=1)

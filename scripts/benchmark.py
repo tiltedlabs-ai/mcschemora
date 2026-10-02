@@ -140,7 +140,8 @@ def main():
         flush=True,
     )
     start = perf_counter()
-    data.fetch(args.version, visuals=True)
+    data.load(args.version)
+    data.load_visuals(args.version)
     warmup = Schematic.create(version=args.version, data=data)
     warmup.region().set((0, 0, 0), block("stone"))
     warmup.region().entities.add(MOBS[0], at=(0.5, 1.0, 0.5))

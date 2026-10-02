@@ -40,6 +40,18 @@ impl BlockStorage {
             .iter()
             .map(|(p, &id)| (p, self.palette[id as usize].as_ref()))
     }
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn indexed_iter(&self) -> impl Iterator<Item = (&Pos, u32)> {
+        self.cells.iter().map(|(position, &id)| (position, id))
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn palette_len(&self) -> usize {
+        self.palette.len()
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn palette_entry(&self, id: u32) -> &Block {
+        &self.palette[id as usize]
+    }
     pub fn values(&self) -> impl Iterator<Item = &Block> {
         self.cells
             .values()

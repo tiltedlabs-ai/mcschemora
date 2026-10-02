@@ -1,4 +1,4 @@
-use crate::{Result, model::*, registry};
+use crate::{Result, catalog, model::*};
 use fastnbt::Value;
 use std::collections::BTreeSet;
 
@@ -149,7 +149,7 @@ impl Transform {
             })
             .collect()
     }
-    pub fn block(&self, b: &Block, catalog: &registry::Registry) -> Result<Block> {
+    pub fn block(&self, b: &Block, catalog: &catalog::Registry) -> Result<Block> {
         if !self.changes_orientation() {
             return Ok(b.clone());
         }

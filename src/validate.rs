@@ -1,8 +1,8 @@
 //! semantic checks on schematics to make sure they're valid
 //!
 use crate::{
+    catalog::Registry,
     model::{Block, Compound, Document, Pos, Region, direction},
-    registry::Registry,
 };
 use fastnbt::Value;
 use serde::Deserialize;

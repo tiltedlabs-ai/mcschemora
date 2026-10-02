@@ -6,7 +6,7 @@ pub(super) struct Imported {
 }
 
 pub(super) fn reverse(
-    catalog: &crate::registry::Registry,
+    catalog: &crate::catalog::Registry,
     requested: &std::collections::BTreeSet<String>,
 ) -> crate::Result<std::collections::BTreeMap<String, Option<Imported>>> {
     let mut result = std::collections::BTreeMap::new();

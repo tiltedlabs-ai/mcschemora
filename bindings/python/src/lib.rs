@@ -1,9 +1,9 @@
 //! PyO3 adapter. Core data and editing rules stay in Rust.
 use pyo3::{exceptions::PyValueError, prelude::*, types::PyBytes};
 use schemora::{
-    formats, helpers,
+    catalog, formats, helpers,
     model::*,
-    nbt, registry,
+    nbt,
     transform::{Transform, transform_selection},
 };
 use std::{
@@ -47,7 +47,7 @@ fn render(
 
 #[pyclass(name = "MinecraftData")]
 struct PyMinecraftData {
-    data: Arc<registry::MinecraftData>,
+    data: Arc<catalog::MinecraftData>,
 }
 #[pymethods]
 impl PyMinecraftData {
@@ -55,30 +55,36 @@ impl PyMinecraftData {
     #[pyo3(signature = (cache_dir=None, offline=false))]
     fn new(cache_dir: Option<std::path::PathBuf>, offline: bool) -> PyResult<Self> {
         Ok(Self {
-            data: Arc::new(registry::MinecraftData::new(cache_dir, offline).map_err(error)?),
+            data: Arc::new(catalog::MinecraftData::new(cache_dir, offline).map_err(error)?),
         })
     }
     fn cache_dir(&self) -> std::path::PathBuf {
         self.data.cache_dir().to_path_buf()
     }
     fn versions(&self, py: Python<'_>) -> PyResult<Vec<String>> {
-        py.detach(|| self.data.versions()).map_err(error)
+        py.detach(|| {
+            pollster::block_on(self.data.initialize())?;
+            self.data.versions()
+        })
+        .map_err(error)
     }
-    fn fetch(&self, py: Python<'_>, version: &str, visuals: bool) -> PyResult<String> {
-        py.detach(|| self.data.fetch(version, visuals))
+    fn load(&self, py: Python<'_>, version: &str) -> PyResult<String> {
+        py.detach(|| pollster::block_on(self.data.load(version)).map(|r| r.version.clone()))
             .map_err(error)
     }
-    fn dataset_path(
-        &self,
-        py: Python<'_>,
-        version: &str,
-        kind: &str,
-    ) -> PyResult<std::path::PathBuf> {
-        py.detach(|| self.data.dataset_path(version, kind))
-            .map_err(error)
+    fn dataset(&self, py: Python<'_>, version: &str, kind: &str) -> PyResult<String> {
+        py.detach(|| {
+            pollster::block_on(self.data.load(version))?;
+            self.data.dataset(version, kind).map(|v| v.to_string())
+        })
+        .map_err(error)
     }
-    fn visuals(&self, py: Python<'_>, version: &str) -> PyResult<std::path::PathBuf> {
-        py.detach(|| self.data.visuals(version)).map_err(error)
+    fn load_visuals(&self, py: Python<'_>, version: &str) -> PyResult<std::path::PathBuf> {
+        py.detach(|| {
+            pollster::block_on(self.data.initialize())?;
+            self.data.load_visuals(version)
+        })
+        .map_err(error)
     }
 }
 
@@ -97,8 +103,11 @@ impl PyDocument {
     ) -> PyResult<Self> {
         Ok(Self {
             data: Arc::new(Mutex::new(
-                py.detach(|| Document::new(edition, version, source.data.clone()))
-                    .map_err(error)?,
+                py.detach(|| {
+                    pollster::block_on(source.data.load(version))?;
+                    Document::new(edition, version, source.data.clone())
+                })
+                .map_err(error)?,
             )),
         })
     }
@@ -119,8 +128,10 @@ impl PyDocument {
         };
         Ok(Self {
             data: Arc::new(Mutex::new(
-                py.detach(|| formats::decode(data, format, source.data.clone(), &options))
-                    .map_err(error)?,
+                py.detach(|| {
+                    pollster::block_on(formats::decode(data, format, source.data.clone(), &options))
+                })
+                .map_err(error)?,
             )),
         })
     }

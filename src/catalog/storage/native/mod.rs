@@ -9,33 +9,17 @@ use sha1::{Digest, Sha1};
 use std::{
     fs::{self, File, OpenOptions},
     io::{Read, Write},
-    path::{Component, Path, PathBuf},
+    path::{Path, PathBuf},
     time::Duration,
 };
 
-// https://github.com/PrismarineJS/minecraft-data/tree/8ffb321c74cffe779acf5c447d08c473c4c291d7
-pub const REVISION: &str = "8ffb321c74cffe779acf5c447d08c473c4c291d7";
-const CATALOG_BASE_URL: &str = "https://raw.githubusercontent.com/PrismarineJS/minecraft-data";
-const JSON_LIMIT: u64 = 32 * 1024 * 1024;
+use crate::catalog::source::{self, JSON_LIMIT, safe_path};
 
 #[derive(Debug)]
 pub(crate) struct Cache {
     pub root: PathBuf,
     pub offline: bool,
     agent: ureq::Agent,
-}
-
-pub(crate) fn safe_path(value: &str) -> Result<&Path> {
-    let path = Path::new(value);
-    if value.is_empty()
-        || value.contains('\\')
-        || path
-            .components()
-            .any(|c| !matches!(c, Component::Normal(_)))
-    {
-        return Err(format!("Invalid data path {value:?}"));
-    }
-    Ok(path)
 }
 
 fn default_root() -> Result<PathBuf> {
@@ -66,17 +50,22 @@ impl Cache {
         })
     }
 
+    pub async fn read(&self, relative: &str) -> Result<Vec<u8>> {
+        let path = self.catalog(relative)?;
+        fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))
+    }
+
     pub fn catalog_path(&self, relative: &str) -> Result<PathBuf> {
         Ok(self
             .root
             .join("minecraft-data")
-            .join(REVISION)
+            .join(source::REVISION)
             .join(safe_path(relative)?))
     }
 
     pub fn catalog(&self, relative: &str) -> Result<PathBuf> {
         let path = self.catalog_path(relative)?;
-        let url = format!("{CATALOG_BASE_URL}/{REVISION}/data/{relative}");
+        let url = source::url(relative)?;
         self.file(&path, &url, None, None, JSON_LIMIT, true)?;
         Ok(path)
     }

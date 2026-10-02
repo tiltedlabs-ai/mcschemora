@@ -215,7 +215,7 @@ impl Cache {
         )
     }
 
-    pub fn visuals(&self, version: &str, family: Option<&str>) -> Result<PathBuf> {
+    pub fn load_visuals(&self, version: &str, family: Option<&str>) -> Result<PathBuf> {
         safe_path(version)?;
         let base = self.root.join("minecraft-assets").join(REVISION);
         let record_path = base.join("resolutions").join(format!("{version}.json"));

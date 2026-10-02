@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "Minecraft schematic authoring and conversion"
 license = "MIT AND MPL-2.0"
-include = ["/data/entity-models/**", "/data/block-models/**", "/src/**/*.rs", "/src/mc_data/SOURCE.md", "/Cargo.toml", "/README.md", "/LICENSE"]
+include = ["/data/wiki-sprites/**", "/data/entity-models/**", "/data/block-models/**", "/src/**/*.rs", "/src/mc_data/SOURCE.md", "/Cargo.toml", "/README.md", "/LICENSE"]
 
 [lib]
 name = "schemora"
@@ -25,4 +25,5 @@ ureq = { version = "2", default-features = false, features = ["tls", "gzip"] }
 fs2 = "0.4"
 tempfile = "3"
 sha1 = "0.10"
+png = "0.18"
 image = { version = "0.25", default-features = false, features = ["png"] }

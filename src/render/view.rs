@@ -10,6 +10,23 @@ pub enum View {
     West,
 }
 
+impl std::str::FromStr for View {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "isometric" => Ok(Self::Isometric),
+            "top" => Ok(Self::Top),
+            "bottom" => Ok(Self::Bottom),
+            "north" => Ok(Self::North),
+            "south" => Ok(Self::South),
+            "east" => Ok(Self::East),
+            "west" => Ok(Self::West),
+            _ => Err("view must be isometric, top, bottom, north, south, east, or west".into()),
+        }
+    }
+}
+
 impl View {
     fn basis(self) -> [[f64; 3]; 3] {
         match self {

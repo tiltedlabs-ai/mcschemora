@@ -165,21 +165,7 @@ impl PyDocument {
         view: &str,
         grid: bool,
     ) -> PyResult<(Bound<'py, PyBytes>, Vec<String>)> {
-        use schemora::render::View;
-        let view = match view {
-            "isometric" => View::Isometric,
-            "top" => View::Top,
-            "bottom" => View::Bottom,
-            "north" => View::North,
-            "south" => View::South,
-            "east" => View::East,
-            "west" => View::West,
-            _ => {
-                return Err(error(
-                    "view must be isometric, top, bottom, north, south, east, or west",
-                ));
-            }
-        };
+        let view = view.parse().map_err(error)?;
         let [x, y, z] = ranges;
         let (bytes, diagnostics) = py.detach(|| {
             render(
@@ -194,6 +180,34 @@ impl PyDocument {
             )
         })?;
         Ok((PyBytes::new(py, &bytes), diagnostics))
+    }
+    fn sprites<'py>(
+        &self,
+        py: Python<'py>,
+        region: Option<String>,
+        ranges: [Option<[i32; 2]>; 3],
+        view: &str,
+        style: (u32, bool, bool),
+        sprites: BTreeMap<String, String>,
+    ) -> PyResult<(Bound<'py, PyBytes>, Vec<String>)> {
+        let view = view.parse().map_err(error)?;
+        let (cell_size, grid, entities) = style;
+        let [x, y, z] = ranges;
+        let output = py.detach(|| {
+            schemora::render::sprites::encode(
+                &*lock(&self.data)?,
+                &schemora::render::sprites::Options {
+                    selection: schemora::render::SceneOptions { region, x, y, z },
+                    view,
+                    cell_size,
+                    grid,
+                    entities,
+                    sprites,
+                },
+            )
+            .map_err(error)
+        })?;
+        Ok((PyBytes::new(py, &output.png), output.diagnostics))
     }
     fn blueprint(
         &self,

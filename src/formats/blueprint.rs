@@ -111,7 +111,10 @@ pub fn encode(document: &Document, options: &Options) -> Result<Output> {
             let position = transform.cell(world)?;
             if !palette.contains_key(block) {
                 let display = transform.block(&catalog.resolve(block)?, catalog)?;
-                let sprite = sprites::resolve(&display, catalog.block_display_name(&display.name)?);
+                let sprite = crate::sprite_ids::resolve(
+                    &display,
+                    catalog.block_display_name(&display.name)?,
+                );
                 let override_name = options
                     .sprites
                     .get(&block.text())

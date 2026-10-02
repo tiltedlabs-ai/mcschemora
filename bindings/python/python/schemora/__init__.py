@@ -284,6 +284,32 @@ class Schematic:
         Path(path).write_text(content, encoding="utf-8")
         return tuple(diagnostics)
 
+    def export_sprites(
+        self,
+        path,
+        *,
+        view="top",
+        cell_size=32,
+        grid=False,
+        entities=True,
+        region: str | None = None,
+        x=None,
+        y=None,
+        z=None,
+        sprites: Mapping[str, str] | None = None,
+    ) -> tuple[str, ...]:
+        if type(cell_size) is not int or not 1 <= cell_size <= 128:
+            raise ValueError("cell_size must be an integer between 1 and 128")
+        content, diagnostics = self._native.sprites(
+            region,
+            [_axis_range(value, axis) for axis, value in zip("xyz", (x, y, z), strict=True)],
+            view,
+            (cell_size, grid, entities),
+            dict(sprites or {}),
+        )
+        Path(path).write_bytes(content)
+        return tuple(diagnostics)
+
     def export_png(
         self,
         path,

@@ -7,6 +7,7 @@ mod models;
 pub mod parts;
 pub mod png;
 mod special;
+pub mod sprites;
 mod view;
 
 pub use view::View;
@@ -131,6 +132,31 @@ pub struct SceneOptions {
     pub z: Option<[i32; 2]>,
 }
 
+impl SceneOptions {
+    pub(crate) fn validate(&self, document: &Document) -> Result<()> {
+        for (axis, range) in ["X", "Y", "Z"].into_iter().zip([self.x, self.y, self.z]) {
+            if range.is_some_and(|range| range[0] > range[1]) {
+                return Err(format!("{axis} range start exceeds end"));
+            }
+        }
+        if let Some(name) = &self.region {
+            document.region(name)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn contains(&self, position: [f64; 3]) -> bool {
+        [self.x, self.y, self.z]
+            .into_iter()
+            .zip(position)
+            .all(|(range, value)| {
+                range.is_none_or(|range| {
+                    value >= f64::from(range[0]) && value < f64::from(range[1]) + 1.
+                })
+            })
+    }
+}
+
 #[derive(Debug)]
 pub struct GeometryAssets {
     atlases: Vec<PathBuf>,
@@ -223,27 +249,7 @@ impl GeometryAssets {
         if document.edition != "java" {
             return Err("Geometry preparation requires Java Edition visuals".into());
         }
-        for (axis, range) in ["X", "Y", "Z"]
-            .into_iter()
-            .zip([options.x, options.y, options.z])
-        {
-            if range.is_some_and(|range| range[0] > range[1]) {
-                return Err(format!("{axis} range start exceeds end"));
-            }
-        }
-        if let Some(name) = &options.region {
-            document.region(name)?;
-        }
-        let selected = |position: [f64; 3]| {
-            [options.x, options.y, options.z]
-                .into_iter()
-                .zip(position)
-                .all(|(range, value)| {
-                    range.is_none_or(|range| {
-                        value >= f64::from(range[0]) && value < f64::from(range[1]) + 1.
-                    })
-                })
-        };
+        options.validate(document)?;
         let mut cells = BTreeMap::new();
         let mut selected_entities = Vec::new();
         let mut diagnostics = Vec::new();
@@ -265,7 +271,7 @@ impl GeometryAssets {
                         .checked_add(local[i])
                         .ok_or("Geometry coordinate overflow")?;
                 }
-                if !selected(position.map(f64::from)) {
+                if !options.contains(position.map(f64::from)) {
                     continue;
                 }
                 if cells.insert(position, (name, block)).is_some() {
@@ -278,7 +284,7 @@ impl GeometryAssets {
                 if !position.iter().all(|v| v.is_finite()) {
                     return Err("Non-finite entity position".into());
                 }
-                if selected(position) {
+                if options.contains(position) {
                     selected_entities.push((name, entity, position));
                 }
             }

@@ -6,6 +6,7 @@ pub mod model;
 pub mod nbt;
 pub mod registry;
 pub mod render;
+mod sprite_ids;
 
 pub type Result<T> = std::result::Result<T, String>;
 pub mod transform;

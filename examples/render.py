@@ -47,6 +47,7 @@ def main():
     cube.region().select(start=(0, 0, 0), size=(2, 2, 2)).fill(block("stone"))
     cube.export_glb(output / "cube.glb")
     cube.export_glb(output / "slice.glb", y=0)
+    cube.export_glb(output / "column.glb", x=0, z=0)
     assert triangles(read_glb(output / "cube.glb")) == 48
     assert triangles(read_glb(output / "slice.glb")) == 32
 
@@ -77,7 +78,9 @@ def main():
     png = (output / "gallery.png").read_bytes()
     assert png[:8] == b"\x89PNG\r\n\x1a\n"
     assert struct.unpack_from(">II", png, 16) == (960, 720)
-    cube.export_png(output / "slice.png", region="main", y=0, camera="top_down")
+    cube.export_png(output / "slice.png", region="main", y=0, view="top")
+    scene.export_png(output / "section-north.png", z=3, view="north", grid=True)
+    scene.export_png(output / "section-east.png", x=(0, 7), view="east", grid=True)
     invalid = output / "invalid.png"
     invalid.unlink(missing_ok=True)
     for options in [
@@ -87,7 +90,7 @@ def main():
         {"y": (2, 1)},
         {"y": 100},
         {"region": "missing"},
-        {"camera": "unknown"},
+        {"view": "unknown"},
     ]:
         try:
             scene.export_png(invalid, **options)

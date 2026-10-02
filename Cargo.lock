@@ -688,6 +688,7 @@ dependencies = [
  "flate2",
  "fs2",
  "image",
+ "png",
  "serde",
  "serde_json",
  "sha1",

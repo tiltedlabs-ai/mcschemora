@@ -253,6 +253,7 @@ pub struct Document {
     pub metadata: Compound,
     pub source_format: Option<String>,
     pub notices: Vec<String>,
+    pub import_diagnostics: Vec<String>,
     pub next_entity: u64,
 }
 impl Document {
@@ -283,6 +284,7 @@ impl Document {
             metadata: Compound::new(),
             source_format: None,
             notices: vec![],
+            import_diagnostics: vec![],
             next_entity: 1,
         }
     }

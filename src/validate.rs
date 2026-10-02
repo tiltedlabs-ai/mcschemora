@@ -504,7 +504,12 @@ impl Check<'_, '_> {
 
 pub fn validate(doc: &Document) -> Report {
     let mut report = Report {
-        warnings: doc.notices.clone(),
+        warnings: doc
+            .notices
+            .iter()
+            .chain(&doc.import_diagnostics)
+            .cloned()
+            .collect(),
         ..Report::default()
     };
     if doc.edition != "java" {

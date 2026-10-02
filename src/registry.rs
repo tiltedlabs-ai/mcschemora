@@ -316,6 +316,7 @@ struct Property {
 #[derive(Debug)]
 struct BlockSchema {
     numeric_id: Value,
+    display_name: String,
     properties: BTreeMap<String, Property>,
     state_order: Vec<String>,
 }
@@ -350,6 +351,10 @@ impl BlockSchema {
         }
         Ok(Self {
             numeric_id: block["id"].clone(),
+            display_name: block["displayName"]
+                .as_str()
+                .ok_or("Missing block display name")?
+                .into(),
             properties,
             state_order: block["states"]
                 .as_array()
@@ -362,6 +367,30 @@ impl BlockSchema {
 }
 
 impl Registry {
+    pub(crate) fn block_names(&self) -> impl Iterator<Item = &str> {
+        self.blocks.keys().map(String::as_str)
+    }
+
+    pub(crate) fn block_states(&self, id: &str) -> Result<Vec<Block>> {
+        let schema = self.schema(id)?;
+        let mut states = vec![Block::parse(id)?];
+        for (key, property) in &schema.properties {
+            let mut expanded = Vec::new();
+            for state in states {
+                for value in &property.values {
+                    let mut state = state.clone();
+                    state.properties.insert(key.clone(), value.clone());
+                    expanded.push(state);
+                }
+            }
+            states = expanded;
+        }
+        Ok(states)
+    }
+
+    pub(crate) fn block_display_name(&self, id: &str) -> Result<&str> {
+        Ok(&self.schema(id)?.display_name)
+    }
     /// Offset and count in the catalog's original state order, not property key order.
     pub(crate) fn state_offset(&self, block: &Block) -> Option<(usize, usize)> {
         let schema = self.schema(&block.name).ok()?;

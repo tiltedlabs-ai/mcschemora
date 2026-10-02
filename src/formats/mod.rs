@@ -2,6 +2,7 @@
 use crate::{Result, model::*, nbt, registry::MinecraftData, transform::Transform};
 use std::{borrow::Cow, collections::BTreeSet};
 
+pub mod blueprint;
 mod common;
 mod litematic;
 mod mcstructure;
@@ -9,7 +10,8 @@ mod schem;
 mod schematic;
 mod structure;
 
-pub const FORMATS: [&str; 6] = [
+pub const FORMATS: [&str; 7] = [
+    "blueprint",
     "schem",
     "litematic",
     "nbt",
@@ -33,10 +35,19 @@ pub fn decode(
     data: &[u8],
     format: &str,
     source: std::sync::Arc<MinecraftData>,
+    options: &blueprint::import::Options,
 ) -> Result<Document> {
     valid_format(format)?;
     if data.len() > nbt::MAX_BYTES {
         return Err("Input exceeds 256 MiB".into());
+    }
+    if format == "blueprint" {
+        return blueprint::import::decode(data, source, options);
+    }
+    if options.version.is_some() || options.origin.is_some() || !options.palette.is_empty() {
+        return Err(
+            "version, origin, and palette import options are only supported for blueprint".into(),
+        );
     }
     let root = if format == "snbt" {
         nbt::from_snbt(std::str::from_utf8(data).map_err(|e| e.to_string())?)?
@@ -99,6 +110,13 @@ fn prepare<'a>(
     }
     if doc.edition == "bedrock" && format != "mcstructure" {
         return Err("Bedrock-to-Java state and entity mapping is not implemented".into());
+    }
+    if format == "blueprint" {
+        let output = blueprint::encode(doc, &blueprint::Options::default())?;
+        let mut losses = output.diagnostics;
+        losses.push("Blueprints store sprite grids, not full block states, world coordinates, region bounds, or metadata".into());
+        losses.extend(doc.notices.iter().cloned());
+        return Ok((None, losses));
     }
     let single = if format == "litematic" {
         None
@@ -273,6 +291,11 @@ pub fn encode(doc: &Document, format: &str, allow_loss: bool, flatten: bool) -> 
             "Export would lose information:\n{}",
             losses.join("\n")
         ));
+    }
+    if format == "blueprint" {
+        return Ok(blueprint::encode(doc, &blueprint::Options::default())?
+            .text
+            .into_bytes());
     }
     let root = if let Some(r) = single {
         match format {

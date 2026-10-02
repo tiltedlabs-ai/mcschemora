@@ -171,18 +171,22 @@ class Registry:
         return json.loads(self._schematic._native.describe(identifier))
 
 
-def _y_range(y):
-    if y is None:
+def _axis_range(value, axis):
+    if value is None:
         return None
-    if type(y) is int:
-        return (y, y)
+    if type(value) is int:
+        value = (value, value)
     if (
-        not isinstance(y, (tuple, list))
-        or len(y) != 2
-        or any(type(value) is not int for value in y)
+        not isinstance(value, (tuple, list))
+        or len(value) != 2
+        or any(type(v) is not int for v in value)
     ):
-        raise ValueError("y must be an integer or an inclusive pair of integers")
-    return y
+        raise ValueError(f"{axis} must be an integer or an inclusive pair of integers")
+    if value[0] > value[1]:
+        raise ValueError(f"{axis} range start exceeds end")
+    if any(not -(2**31) <= v < 2**31 for v in value):
+        raise ValueError(f"{axis} coordinates must fit signed 32-bit integers")
+    return value
 
 
 class Schematic:
@@ -194,15 +198,45 @@ class Schematic:
         return cls(_core.Document(edition, version, _source(data)))
 
     @classmethod
-    def load(cls, path, *, format=None, data: MinecraftData | None = None):
+    def load(
+        cls,
+        path,
+        *,
+        format=None,
+        data: MinecraftData | None = None,
+        version: str | None = None,
+        origin=None,
+        palette: Mapping[str, Block] | None = None,
+    ):
         path = Path(path)
         return cls.from_bytes(
-            path.read_bytes(), format=format or path.suffix.lstrip("."), data=data
+            path.read_bytes(),
+            format=format or ("blueprint" if path.suffix == ".wiki" else path.suffix.lstrip(".")),
+            data=data,
+            version=version,
+            origin=origin,
+            palette=palette,
         )
 
     @classmethod
-    def from_bytes(cls, content: bytes, *, format: str, data: MinecraftData | None = None):
-        return cls(_core.Document.from_bytes(content, format, _source(data)))
+    def from_bytes(
+        cls,
+        content: bytes,
+        *,
+        format: str,
+        data: MinecraftData | None = None,
+        version: str | None = None,
+        origin=None,
+        palette: Mapping[str, Block] | None = None,
+    ):
+        states = {}
+        for symbol, state in (palette or {}).items():
+            if not isinstance(state, Block):
+                raise TypeError("palette values must be Block objects")
+            states[symbol] = str(state)
+        return cls(
+            _core.Document.from_bytes(content, format, _source(data), version, origin, states)
+        )
 
     def to_bytes(self, *, format: str, allow_loss=False, flatten=False) -> bytes:
         return self._native.to_bytes(format, allow_loss, flatten)
@@ -210,20 +244,44 @@ class Schematic:
     def save(self, path, *, format=None, allow_loss=False, flatten=False):
         path = Path(path)
         data = self.to_bytes(
-            format=format or path.suffix.lstrip("."), allow_loss=allow_loss, flatten=flatten
+            format=format or ("blueprint" if path.suffix == ".wiki" else path.suffix.lstrip(".")),
+            allow_loss=allow_loss,
+            flatten=flatten,
         )
         path.write_bytes(data)
 
     def region(self, name="main") -> Region:
         return Region(self._native.region(name))
 
-    def export_glb(self, path, *, region: str | None = None, y=None) -> tuple[str, ...]:
+    def export_glb(
+        self, path, *, region: str | None = None, x=None, y=None, z=None
+    ) -> tuple[str, ...]:
         """Export textured geometry; return diagnostics for visual approximations.
 
-        Select a world Y level with an integer or an inclusive (minimum, maximum) pair.
+        Select world X/Y/Z coordinates with integers or inclusive (minimum, maximum) pairs.
         """
-        content, diagnostics = self._native.glb(region, _y_range(y))
+        content, diagnostics = self._native.glb(
+            region, [_axis_range(value, axis) for axis, value in zip("xyz", (x, y, z), strict=True)]
+        )
         Path(path).write_bytes(content)
+        return tuple(diagnostics)
+
+    def export_blueprint(
+        self,
+        path,
+        *,
+        name: str = "Blueprint",
+        region: str | None = None,
+        y=None,
+        rotation: int = 0,
+        sprites: Mapping[str, str] | None = None,
+    ) -> tuple[str, ...]:
+        if type(rotation) is not int:
+            raise TypeError("rotation must be an integer number of quarter turns")
+        content, diagnostics = self._native.blueprint(
+            name, region, _axis_range(y, "y"), rotation, dict(sprites or {})
+        )
+        Path(path).write_text(content, encoding="utf-8")
         return tuple(diagnostics)
 
     def export_png(
@@ -231,14 +289,18 @@ class Schematic:
         path,
         *,
         size=(1024, 1024),
-        camera="isometric",
+        view="isometric",
         grid=False,
         region: str | None = None,
+        x=None,
         y=None,
+        z=None,
     ) -> tuple[str, ...]:
         """Render an automatically framed PNG with a transparent background.
 
-        Camera is "isometric" or "top_down" (north up, east right).
+        View is isometric, top, bottom, north, south, east, or west.
+        Cardinal names describe the viewer location; side views keep world-up vertical.
+        X/Y/Z selections are world coordinates, either integers or inclusive pairs.
         Grid adds black block lines with white outlines, excluding entities.
         Uses the CPU, nearest-neighbor textures, and simple directional lighting.
         Size is (width, height), with each dimension between 1 and 4096 pixels.
@@ -250,7 +312,13 @@ class Schematic:
             or any(type(v) is not int or not 1 <= v <= 4096 for v in size)
         ):
             raise ValueError("size must be (width, height), each between 1 and 4096")
-        content, diagnostics = self._native.png(region, _y_range(y), size, camera, grid)
+        content, diagnostics = self._native.png(
+            region,
+            [_axis_range(value, axis) for axis, value in zip("xyz", (x, y, z), strict=True)],
+            size,
+            view,
+            grid,
+        )
         Path(path).write_bytes(content)
         return tuple(diagnostics)
 
@@ -260,6 +328,10 @@ class Schematic:
     @property
     def regions(self) -> tuple[str, ...]:
         return tuple(self._native.regions())
+
+    @property
+    def import_diagnostics(self) -> tuple[str, ...]:
+        return tuple(self._native.import_diagnostics())
 
     @property
     def edition(self) -> str:

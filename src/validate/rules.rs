@@ -528,15 +528,29 @@ pub(super) fn check_wall_height(c: &mut Check<'_, '_>, b: &Block) {
     if matches!(prop(b, "north"), "true" | "false") {
         return;
     }
-    let expected = (|| {
+    let cover = c.scene.bottom_cover(add(c.cell.point, UP));
+    let connected = SIDES.map(|(_, d)| connection(c, b, d));
+    for (i, (side, _)) in SIDES.iter().enumerate() {
+        let height = connected[i].and_then(|connected| {
+            if !connected {
+                Some("none")
+            } else {
+                cover.map(|cover| if cover[i] { "tall" } else { "low" })
+            }
+        });
+        c.expect(
+            "wall.height",
+            b,
+            side,
+            height,
+            "wall arms or post disagree with neighboring blocks",
+        );
+    }
+    let post = (|| {
         let above = c.at(UP)?;
-        let cover = c.scene.bottom_cover(add(c.cell.point, UP))?;
-        let mut connected = [false; 4];
-        let mut tall = [false; 4];
-        for (i, (_, d)) in SIDES.iter().enumerate() {
-            connected[i] = connection(c, b, *d)?;
-            tall[i] = connected[i] && cover[i];
-        }
+        let cover = cover?;
+        let connected = [connected[0]?, connected[1]?, connected[2]?, connected[3]?];
+        let tall = std::array::from_fn::<_, 4, _>(|i| connected[i] && cover[i]);
         let asymmetric = connected.iter().all(|v| !v)
             || connected[0] != connected[2]
             || connected[1] != connected[3];
@@ -548,30 +562,13 @@ pub(super) fn check_wall_height(c: &mut Check<'_, '_>, b: &Block) {
         let post = (name(above).ends_with("_wall") && prop(above, "up") == "true")
             || asymmetric
             || (!straight_tall && (forced || cover[4]));
-        Some((connected, tall, post))
+        Some(post)
     })();
-    for (i, (side, _)) in SIDES.iter().enumerate() {
-        c.expect(
-            "wall.height",
-            b,
-            side,
-            expected.map(|(connected, tall, _)| {
-                if !connected[i] {
-                    "none"
-                } else if tall[i] {
-                    "tall"
-                } else {
-                    "low"
-                }
-            }),
-            "wall arms or post disagree with neighboring blocks",
-        );
-    }
     c.expect(
         "wall.height",
         b,
         "up",
-        expected.map(|(_, _, post)| if post { "true" } else { "false" }),
+        post.map(|post| if post { "true" } else { "false" }),
         "wall arms or post disagree with neighboring blocks",
     );
 }
@@ -680,9 +677,12 @@ fn conductor(c: &Check<'_, '_>, d: super::Point) -> Option<bool> {
     Some(true)
 }
 
-fn wire_side(c: &Check<'_, '_>, d: super::Point, open_above: bool) -> Option<&'static str> {
+fn wire_side(c: &Check<'_, '_>, d: super::Point, open_above: Option<bool>) -> Option<&'static str> {
     let neighbor = c.at(d)?;
-    if open_above {
+    if name(neighbor) == "redstone_wire" {
+        return Some("side");
+    }
+    if open_above? {
         let top = name(neighbor).ends_with("_trapdoor")
             || name(neighbor) == "hopper"
             || c.scene.support(add(c.cell.point, d), UP, Support::Full)?;
@@ -712,30 +712,26 @@ fn wire_side(c: &Check<'_, '_>, d: super::Point, open_above: bool) -> Option<&'s
 }
 
 pub(super) fn check_redstone(c: &mut Check<'_, '_>, b: &Block) {
-    let expected = (|| {
-        let open_above = !conductor(c, UP)?;
-        let mut sides = ["none"; 4];
-        for (i, (_, d)) in SIDES.iter().enumerate() {
-            sides[i] = wire_side(c, *d, open_above)?;
-        }
+    let open_above = conductor(c, UP).map(|above| !above);
+    let mut sides = SIDES.map(|(_, d)| wire_side(c, d, open_above));
+    if sides.iter().all(Option::is_some) {
         let dot = SIDES.iter().all(|(side, _)| prop(b, side) == "none");
-        if !(dot && sides.iter().all(|&side| side == "none")) {
-            let north_south = sides[0] != "none" || sides[2] != "none";
-            let east_west = sides[1] != "none" || sides[3] != "none";
+        if !(dot && sides.iter().all(|&side| side == Some("none"))) {
+            let north_south = sides[0] != Some("none") || sides[2] != Some("none");
+            let east_west = sides[1] != Some("none") || sides[3] != Some("none");
             for (i, side) in sides.iter_mut().enumerate() {
-                if *side == "none" && if i % 2 == 0 { !east_west } else { !north_south } {
-                    *side = "side";
+                if *side == Some("none") && if i % 2 == 0 { !east_west } else { !north_south } {
+                    *side = Some("side");
                 }
             }
         }
-        Some(sides)
-    })();
+    }
     for (i, (side, _)) in SIDES.iter().enumerate() {
         c.expect(
             "redstone.connection",
             b,
             side,
-            expected.map(|sides| sides[i]),
+            sides[i],
             "wire connection disagrees with neighboring blocks",
         );
     }

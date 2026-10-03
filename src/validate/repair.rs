@@ -111,7 +111,6 @@ pub fn repair(schematic: &mut Schematic, selected: Option<&[String]>) -> Result<
             let after = check.repaired.unwrap();
             if !diagnostics.unknown.is_empty() {
                 skipped.extend(diagnostics.unknown);
-                continue;
             }
             if &after == block {
                 continue;

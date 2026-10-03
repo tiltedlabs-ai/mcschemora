@@ -334,6 +334,19 @@ impl GeometryAssets {
         }
         options.validate(schematic)?;
         let cells = cells::Cells::new(schematic, options)?;
+        let visual_registry = schematic.data.registry(crate::catalog::VISUAL_VERSION)?;
+        let palettes: Vec<_> = cells
+            .regions
+            .iter()
+            .map(|(_, region)| {
+                crate::convert::palette(
+                    schematic.catalog.clone(),
+                    visual_registry.clone(),
+                    (0..region.blocks.palette_len())
+                        .map(|index| region.blocks.palette_entry(index as u32)),
+                )
+            })
+            .collect();
         let mut selected_entities = Vec::new();
         let mut diagnostics = Vec::new();
         for &(name, region) in &cells.regions {
@@ -369,8 +382,10 @@ impl GeometryAssets {
         > = BTreeMap::new();
         for cell in &cells.entries {
             let position = &cell.position;
-            let block = cells.block(cell);
-            let (region, source) = cells.regions[cell.region];
+            let source_block = cells.block(cell);
+            let rendering = &palettes[cell.region][cell.palette as usize];
+            let block = rendering.as_ref().unwrap_or(source_block);
+            let (region, _) = cells.regions[cell.region];
             if matches!(
                 block.id.as_str(),
                 "minecraft:barrier" | "minecraft:light" | "minecraft:structure_void"
@@ -381,11 +396,15 @@ impl GeometryAssets {
                 continue;
             }
             let mut state = states[cell.region][cell.palette as usize]
-                .get_or_insert_with(|| builder.state(block))
+                .get_or_insert_with(|| match rendering {
+                    Ok(block) => builder.state(block),
+                    Err(message) => builder.missing_state(source_block, message.clone()),
+                })
                 .clone();
-            let local = std::array::from_fn(|i| position[i] - source.origin[i]);
-            let data = source.block_entities.get(&local);
-            if (data.is_some() && attachments::supported(block)) || block.id == "minecraft:spawner"
+            let data = cells.block_entity(cell);
+            if rendering.is_ok()
+                && ((data.is_some() && attachments::supported(block))
+                    || block.id == "minecraft:spawner")
             {
                 let key = (
                     block.clone(),
@@ -412,7 +431,7 @@ impl GeometryAssets {
                             }
                         }
                     }
-                    match attachments::contents(&mut builder, block, data, schematic.registry()?) {
+                    match attachments::contents(&mut builder, block, data, &visual_registry) {
                         Ok(mesh) if !mesh.quads.is_empty() => {
                             if block.id == "minecraft:moving_piston" {
                                 modified.parts.clear();

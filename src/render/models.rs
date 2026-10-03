@@ -164,7 +164,22 @@ impl Builder<'_> {
         if let Some(state) = self.states.get(block) {
             return state.clone();
         }
-        let (parts, messages) = match self.compile_state(block) {
+        let parts = self.compile_state(block);
+        let state = self.build_state(block, parts);
+        self.states.insert(block.clone(), state.clone());
+        state
+    }
+
+    pub(super) fn missing_state(&mut self, block: &Block, message: String) -> Arc<StateGeometry> {
+        self.build_state(block, Err(message))
+    }
+
+    fn build_state(
+        &mut self,
+        block: &Block,
+        parts: Result<Vec<Vec<(usize, u32)>>>,
+    ) -> Arc<StateGeometry> {
+        let (parts, messages) = match parts {
             Ok(parts) => (parts, Vec::new()),
             Err(message) => {
                 let key = ("__placeholder__".into(), 0, 0, false, [255; 4]);
@@ -213,9 +228,7 @@ impl Builder<'_> {
             fully_cullable: false,
         };
         state.refresh_metadata(&self.meshes);
-        let state = Arc::new(state);
-        self.states.insert(block.clone(), state.clone());
-        state
+        Arc::new(state)
     }
 
     fn compile_state(&mut self, block: &Block) -> Result<Vec<Vec<(usize, u32)>>> {

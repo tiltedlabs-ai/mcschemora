@@ -1,7 +1,7 @@
 use super::SceneOptions;
 use crate::{
     Result,
-    model::{Block, Position, Region, Schematic},
+    model::{Block, Compound, Position, Region, Schematic},
 };
 
 pub(super) struct Cell {
@@ -48,18 +48,33 @@ impl<'a> Cells<'a> {
                 }
             }
         }
-        if regions.len() > 1 {
-            entries.sort_unstable_by_key(|cell| cell.position);
-            for pair in entries.windows(2) {
+        let mut cells = Self { regions, entries };
+        if cells.regions.len() > 1 {
+            cells
+                .entries
+                .sort_unstable_by_key(|cell| (cell.position, cell.region));
+            for pair in cells.entries.windows(2) {
                 if pair[0].position == pair[1].position {
+                    let first = cells.block(&pair[0]);
+                    let second = cells.block(&pair[1]);
+                    let conflict = if first != second {
+                        format!("{} versus {}", first.text(), second.text())
+                    } else if cells.block_entity(&pair[0]) != cells.block_entity(&pair[1]) {
+                        "different attached block data".into()
+                    } else {
+                        continue;
+                    };
                     return Err(format!(
-                        "Selected regions overlap at {:?}",
-                        pair[0].position
+                        "Conflicting blocks at {:?} in regions {:?} and {:?}: {conflict}",
+                        pair[0].position,
+                        cells.regions[pair[0].region].0,
+                        cells.regions[pair[1].region].0,
                     ));
                 }
             }
+            cells.entries.dedup_by_key(|cell| cell.position);
         }
-        Ok(Self { regions, entries })
+        Ok(cells)
     }
 
     pub(super) fn block(&self, cell: &Cell) -> &'a Block {
@@ -67,6 +82,12 @@ impl<'a> Cells<'a> {
             .1
             .blocks
             .palette_entry(cell.palette)
+    }
+
+    pub(super) fn block_entity(&self, cell: &Cell) -> Option<&'a Compound> {
+        let region = self.regions[cell.region].1;
+        let local = std::array::from_fn(|i| cell.position[i] - region.origin[i]);
+        region.block_entities.get(&local)
     }
 
     pub(super) fn get(&self, position: &Position) -> Option<&'a Block> {

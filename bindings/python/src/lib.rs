@@ -330,6 +330,12 @@ impl PyRegion {
     fn origin(&self) -> PyResult<Position> {
         self.with(|r| Ok(r.origin))
     }
+    fn to_global(&self, local: Position) -> PyResult<Position> {
+        self.with(|r| r.to_global(local))
+    }
+    fn to_local(&self, global_position: Position) -> PyResult<Position> {
+        self.with(|r| r.to_local(global_position))
+    }
     fn get(&self, at: Position) -> PyResult<State> {
         self.with(|r| Ok(state(r.get(at))))
     }

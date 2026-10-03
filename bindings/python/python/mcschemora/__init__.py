@@ -701,6 +701,28 @@ class Region:
         """The world coordinates corresponding to this region's local (0, 0, 0)."""
         return _position(self._native.origin())
 
+    def to_global(self, local: Position) -> Position:
+        """Converts a region-local position to world coordinates by adding the origin.
+
+        Args:
+            local: Integer coordinates relative to this region's origin.
+
+        Raises:
+            ValueError: If the result exceeds signed 32-bit coordinates.
+        """
+        return _position(self._native.to_global(local))
+
+    def to_local(self, global_position: Position) -> Position:
+        """Converts a world position to region-local coordinates by subtracting the origin.
+
+        Args:
+            global_position: Integer coordinates in the schematic's shared world space.
+
+        Raises:
+            ValueError: If the result exceeds signed 32-bit coordinates.
+        """
+        return _position(self._native.to_local(global_position))
+
     def get(self, at: Position) -> Block:
         """Returns the block at a position in this region.
 

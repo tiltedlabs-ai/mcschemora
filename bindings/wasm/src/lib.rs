@@ -113,6 +113,26 @@ impl WasmSchematic {
         value(self.schematic.regions.iter().map(|(name, r)| serde_json::json!({"name":name,"origin":r.origin,"start":r.bounds.start,"size":r.bounds.size})).collect())
     }
 
+    #[wasm_bindgen(js_name = toGlobal)]
+    pub fn to_global(&self, region: &str, x: i32, y: i32, z: i32) -> Result<Vec<i32>, JsValue> {
+        self.schematic
+            .region(region)
+            .map_err(error)?
+            .to_global([x, y, z])
+            .map(|position| position.to_vec())
+            .map_err(error)
+    }
+
+    #[wasm_bindgen(js_name = toLocal)]
+    pub fn to_local(&self, region: &str, x: i32, y: i32, z: i32) -> Result<Vec<i32>, JsValue> {
+        self.schematic
+            .region(region)
+            .map_err(error)?
+            .to_local([x, y, z])
+            .map(|position| position.to_vec())
+            .map_err(error)
+    }
+
     /// JavaScript getBlock: returns a full state string at local integer coordinates.
     ///
     /// Absent cells read as air; an unknown region throws an Error.

@@ -234,6 +234,24 @@ impl Region {
             ..Self::default()
         }
     }
+    pub fn to_global(&self, local: Position) -> Result<Position> {
+        let mut global = [0; 3];
+        for i in 0..3 {
+            global[i] = local[i]
+                .checked_add(self.origin[i])
+                .ok_or("Coordinate overflow")?;
+        }
+        Ok(global)
+    }
+    pub fn to_local(&self, global: Position) -> Result<Position> {
+        let mut local = [0; 3];
+        for i in 0..3 {
+            local[i] = global[i]
+                .checked_sub(self.origin[i])
+                .ok_or("Coordinate overflow")?;
+        }
+        Ok(local)
+    }
     /// Returns the block at a local position, or ordinary air for an absent entry.
     pub fn get(&self, p: Position) -> Block {
         self.blocks.get(&p).cloned().unwrap_or_else(Block::air)

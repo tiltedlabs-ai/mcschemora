@@ -456,6 +456,26 @@ The region's stored bounding box in local coordinates.
 
 The world coordinates corresponding to this region's local (0, 0, 0).
 
+#### Region.to_global
+
+`Region.to_global(local: Position) -> Position`
+
+Converts a region-local position to world coordinates by adding the origin.
+
+**Args:** `local`: Integer coordinates relative to this region's origin.
+
+**Raises:** `ValueError`: If the result exceeds signed 32-bit coordinates.
+
+#### Region.to_local
+
+`Region.to_local(global_position: Position) -> Position`
+
+Converts a world position to region-local coordinates by subtracting the origin.
+
+**Args:** `global_position`: Integer coordinates in the schematic's shared world space.
+
+**Raises:** `ValueError`: If the result exceeds signed 32-bit coordinates.
+
 #### Region.get
 
 `Region.get(at: Position) -> Block`
@@ -560,7 +580,7 @@ The manager for NBT attached to this region's blocks.
 
 ### Selection
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L822)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L844)
 
 A set of region-local cells and entities that reads current content.
 
@@ -767,7 +787,7 @@ Bounds.size: Position
 
 ### Fragment
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1003)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1025)
 
 An independent copy of selected cells, attached data, and free entities.
 
@@ -843,7 +863,7 @@ Returns a water block with level=0.
 
 ### Function bed
 
-[Source](../../bindings/python/src/lib.rs#L607)
+[Source](../../bindings/python/src/lib.rs#L613)
 
 `bed(*, color: str = 'red', head_toward: str = 'north') -> Placement`
 
@@ -858,7 +878,7 @@ Creates a bed placement anchored at the foot block when placed.
 
 ### Function door
 
-[Source](../../bindings/python/src/lib.rs#L628)
+[Source](../../bindings/python/src/lib.rs#L634)
 
 ```python
 door(
@@ -885,7 +905,7 @@ Creates a door placement anchored at the lower block when placed.
 
 ### Function sign
 
-[Source](../../bindings/python/src/lib.rs#L669)
+[Source](../../bindings/python/src/lib.rs#L675)
 
 ```python
 sign(
@@ -910,7 +930,7 @@ Creates a standing-sign placement with plain text on its front face.
 
 ### Function chest
 
-[Source](../../bindings/python/src/lib.rs#L649)
+[Source](../../bindings/python/src/lib.rs#L655)
 
 ```python
 chest(
@@ -931,7 +951,7 @@ Creates a single-chest placement with optional inventory contents.
 
 ### Function item
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1019)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1041)
 
 `item(identifier: str, *, count: int = 1, components: str | None = None) -> _Item`
 
@@ -947,7 +967,7 @@ Creates an inventory item value for chest().
 
 ### Function mob
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1042)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1064)
 
 `mob(identifier: str, *, persistent: bool = True, nbt: str | None = None) -> _Mob`
 
@@ -981,7 +1001,7 @@ Returns a block schema for this schematic's Minecraft version.
 
 ### Entity
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1060)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1082)
 
 An immutable snapshot of a free entity returned by Entities.get().
 
@@ -999,7 +1019,7 @@ Entity.nbt: str
 
 ### Entities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1074)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1096)
 
 Access to a region's free entities through document-local integer references.
 
@@ -1063,7 +1083,7 @@ Iterates a snapshot of this region's entity references.
 
 ### BlockEntities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1133)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1155)
 
 Access to typed NBT attached to blocks at region-local cell coordinates.
 
@@ -1176,6 +1196,8 @@ export class Schematic {
      * Blocking errors and unaccepted losses throw an Error.
      */
     toBytes(format: string, allow_loss: boolean, flatten: boolean): Uint8Array;
+    toGlobal(region: string, x: number, y: number, z: number): Int32Array;
+    toLocal(region: string, x: number, y: number, z: number): Int32Array;
     /**
      * Returns errors, warnings, and unknown arrays without changing the schematic.
      */

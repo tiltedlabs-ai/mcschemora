@@ -26,7 +26,7 @@ def create_reef(diameter=64, periods=2.5, thickness=0.35):
     if not 0 < thickness < 1:
         raise ValueError("Thickness must be between 0 and 1, exclusive.")
 
-    scene = Schematic.create(version="1.21.1")
+    schematic = Schematic.create(version="1.21.1")
     palette = tuple(block(f"{color}_concrete") for color in COLORS)
     foundation = block("polished_blackstone")
     dark = block("black_concrete")
@@ -67,8 +67,8 @@ def create_reef(diameter=64, periods=2.5, thickness=0.35):
                         material = dark if y_squared <= interior_remaining else palette[index]
                         yield (x, y - bottom + 3, z), material
 
-    scene.region().set_many(placements())
-    return scene
+    schematic.region().set_many(placements())
+    return schematic
 
 
 def main():
@@ -79,13 +79,13 @@ def main():
     parser.add_argument("--thickness", type=float, default=0.35)
     args = parser.parse_args()
     try:
-        scene = create_reef(args.diameter, args.periods, args.thickness)
+        schematic = create_reef(args.diameter, args.periods, args.thickness)
     except ValueError as error:
         parser.error(str(error))
     args.output.mkdir(parents=True, exist_ok=True)
-    scene.save(args.output / "reef.schem")
+    schematic.save(args.output / "reef.schem")
     image_path = args.output / "reef.png"
-    diagnostics = scene.export_png(image_path, size=(1600, 1600))
+    diagnostics = schematic.export_png(image_path, size=(1600, 1600))
     print(f"Saved reef.schem and reef.png ({image_path.stat().st_size / 1024:.0f} KiB)")
     for diagnostic in diagnostics:
         print(diagnostic)

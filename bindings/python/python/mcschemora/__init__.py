@@ -1,7 +1,7 @@
 """Minecraft schematic authoring, editing, conversion, and rendering.
 
 Create or load a Schematic, then edit its regions and selections. Region
-operations use local coordinates; rendering filters use world coordinates.
+operations use local coordinates; rendering filters use schematic-global coordinates.
 """
 
 from __future__ import annotations
@@ -72,12 +72,13 @@ def _properties(values: Mapping[str, PropertyValue]) -> dict[str, str]:
 
 @dataclass(frozen=True)
 class Block:
-    """An immutable block description, validated against a catalog on placement.
+    """Immutable block description.
 
     Use block() to normalize an identifier and its properties.
 
     Attributes:
         id: Namespaced Minecraft block identifier.
+        properties: Read-only Minecraft property names and values.
     """
 
     id: str
@@ -94,7 +95,7 @@ class Block:
         return type(self), (self.id, self._properties)
 
     @property
-    def states(self) -> Mapping[str, str]:
+    def properties(self) -> Mapping[str, str]:
         """The read-only mapping of Minecraft property names to string values."""
         return MappingProxyType(dict(self._properties))
 
@@ -109,12 +110,12 @@ class Block:
         return cls(name, tuple(sorted(properties.items())))
 
 
-def block(identifier: str, **states: PropertyValue) -> Block:
+def block(identifier: str, **properties: PropertyValue) -> Block:
     """Creates a block description, adding the minecraft namespace if omitted.
 
     Args:
         identifier: Minecraft block identifier.
-        **states: Minecraft properties as strings, integers, or booleans.
+        **properties: Minecraft properties as strings, integers, or booleans.
 
     Returns:
         An immutable Block. Catalog validation occurs when it is placed.
@@ -123,7 +124,7 @@ def block(identifier: str, **states: PropertyValue) -> Block:
         raise TypeError("Block identifier must be a string")
     if ":" not in identifier:
         identifier = "minecraft:" + identifier
-    return Block(identifier, tuple(sorted(_properties(states).items())))
+    return Block(identifier, tuple(sorted(_properties(properties).items())))
 
 
 def water_source() -> Block:
@@ -335,10 +336,10 @@ def _axis_range(value: AxisRange, axis: str) -> tuple[int, int] | None:
 
 
 class Schematic:
-    """A versioned document containing named regions and metadata.
+    """A versioned schematic containing named regions and metadata.
 
-    Obtain a document with create(), load(), or from_bytes(). Its region handles
-    and selections edit the same document.
+    Obtain a schematic with create(), load(), or from_bytes(). Its region handles
+    and selections edit the same schematic.
     """
 
     def __init__(self, native: _core.Schematic) -> None:
@@ -348,7 +349,7 @@ class Schematic:
     def create(
         cls, *, edition: str = "java", version: str = "latest", data: MinecraftData | None = None
     ) -> Schematic:
-        """Creates an empty document with a main region and a loaded catalog.
+        """Creates an empty schematic with a main region and a loaded catalog.
 
         Args:
             edition: Minecraft edition; new authoring currently supports java.
@@ -382,7 +383,7 @@ class Schematic:
                 selecting blueprint.
             data: Catalog provider; None uses the shared default provider.
             version: Explicit Java version for blueprint import only.
-            origin: World origin for blueprint import only.
+            origin: Schematic-global origin for blueprint import only.
             palette: Blueprint symbols mapped to explicit Block descriptions.
 
         Returns:
@@ -420,7 +421,7 @@ class Schematic:
             format: schem, litematic, nbt, snbt, mcstructure, or blueprint.
             data: Catalog provider; None uses the shared default provider.
             version: Explicit Java version required for blueprint import only.
-            origin: World origin for blueprint import only; defaults to (0, 0, 0).
+            origin: Schematic-global origin for blueprint import only; defaults to (0, 0, 0).
             palette: Blueprint symbols mapped to explicit Block descriptions.
 
         Returns:
@@ -429,13 +430,15 @@ class Schematic:
         Raises:
             ValueError: If decoding fails or import options are unsupported.
         """
-        states = {}
+        block_states = {}
         for symbol, state in (palette or {}).items():
             if not isinstance(state, Block):
                 raise TypeError("palette values must be Block objects")
-            states[symbol] = str(state)
+            block_states[symbol] = str(state)
         return cls(
-            _core.Schematic.from_bytes(content, format, _source(data), version, origin, states)
+            _core.Schematic.from_bytes(
+                content, format, _source(data), version, origin, block_states
+            )
         )
 
     def to_bytes(
@@ -446,7 +449,7 @@ class Schematic:
         allow_loss: bool = False,
         flatten: bool = False,
     ) -> bytes:
-        """Encodes the document, requiring explicit acceptance of reported losses.
+        """Encodes the schematic, requiring explicit acceptance of reported losses.
 
         Args:
             format: schem, litematic, nbt, snbt, mcstructure, or blueprint.
@@ -473,7 +476,7 @@ class Schematic:
         allow_loss: bool = False,
         flatten: bool = False,
     ) -> None:
-        """Encodes the document and atomically replaces the destination file.
+        """Encodes the schematic and atomically replaces the destination file.
 
         Args:
             path: Output file path.
@@ -534,9 +537,9 @@ class Schematic:
         Args:
             path: Output file path, replaced if it exists.
             region: Region name; None selects all regions.
-            x: World X coordinate or inclusive (minimum, maximum) pair; None keeps all.
-            y: World Y coordinate or inclusive (minimum, maximum) pair; None keeps all.
-            z: World Z coordinate or inclusive (minimum, maximum) pair; None keeps all.
+            x: Global X coordinate or inclusive (minimum, maximum) pair; None keeps all.
+            y: Global Y coordinate or inclusive (minimum, maximum) pair; None keeps all.
+            z: Global Z coordinate or inclusive (minimum, maximum) pair; None keeps all.
 
         Returns:
             Diagnostics describing visual approximations.
@@ -563,7 +566,7 @@ class Schematic:
             path: Output UTF-8 file path, replaced if it exists.
             name: Blueprint title.
             region: Region name; None selects all regions.
-            y: World Y coordinate or inclusive pair; None keeps all layers.
+            y: Global Y coordinate or inclusive pair; None keeps all layers.
             rotation: Number of quarter turns about Y.
             sprites: Block IDs or full state strings mapped to wiki sprite identifiers.
 
@@ -601,9 +604,9 @@ class Schematic:
             grid: Whether to draw grid lines.
             entities: Whether to include free-entity icons.
             region: Region name; None selects all regions.
-            x: World X coordinate or inclusive pair; None keeps all.
-            y: World Y coordinate or inclusive pair; None keeps all.
-            z: World Z coordinate or inclusive pair; None keeps all.
+            x: Global X coordinate or inclusive pair; None keeps all.
+            y: Global Y coordinate or inclusive pair; None keeps all.
+            z: Global Z coordinate or inclusive pair; None keeps all.
             sprites: Block IDs or full state strings mapped to wiki sprite identifiers.
 
         Returns:
@@ -639,12 +642,12 @@ class Schematic:
             path: Output file path, replaced if it exists.
             size: (width, height), each from 1 through 4096 pixels.
             view: isometric, top, bottom, north, south, east, or west. Cardinal names
-                describe the viewer's location; side views keep world-up vertical.
+                describe the viewer's location; side views keep Y-up vertical.
             grid: Whether to draw outlined block edges; entities are excluded.
             region: Region name; None selects all regions.
-            x: World X coordinate or inclusive pair; None keeps all.
-            y: World Y coordinate or inclusive pair; None keeps all.
-            z: World Z coordinate or inclusive pair; None keeps all.
+            x: Global X coordinate or inclusive pair; None keeps all.
+            y: Global Y coordinate or inclusive pair; None keeps all.
+            z: Global Z coordinate or inclusive pair; None keeps all.
 
         Returns:
             Diagnostics describing visual approximations. Rendering uses the shared
@@ -671,7 +674,7 @@ class Schematic:
 
         Args:
             name: Nonempty, unique region name.
-            origin: Region origin in world coordinates.
+            origin: Region origin in schematic-global coordinates.
 
         Raises:
             ValueError: If the name is empty or already exists.
@@ -680,7 +683,7 @@ class Schematic:
 
     @property
     def regions(self) -> tuple[str, ...]:
-        """The names of the document's regions."""
+        """The names of the schematic's regions."""
         return tuple(self._native.regions())
 
     @property
@@ -690,17 +693,17 @@ class Schematic:
 
     @property
     def edition(self) -> str:
-        """The document's Minecraft edition."""
+        """The schematic's Minecraft edition."""
         return self._native.info()[0]
 
     @property
     def version(self) -> str:
-        """The document's Minecraft version string."""
+        """The schematic's Minecraft version string."""
         return self._native.info()[1]
 
     @property
     def data_version(self) -> int:
-        """The numeric Minecraft data version stored in the document."""
+        """The numeric Minecraft data version stored in the schematic."""
         return self._native.info()[2]
 
     @property
@@ -710,16 +713,16 @@ class Schematic:
 
     @metadata.setter
     def metadata(self, snbt: str) -> None:
-        """Replaces document metadata with a typed SNBT compound."""
+        """Replaces schematic metadata with a typed SNBT compound."""
         self._native.set_metadata(snbt)
 
     @property
     def registry(self) -> Registry:
-        """Block schema access for the document's Minecraft version."""
+        """Block schema access for the schematic's Minecraft version."""
         return Registry(self)
 
     def validate(self) -> Report:
-        """Checks Java game rules without changing the document or simulating ticks.
+        """Checks Java game rules without changing the schematic or simulating ticks.
 
         Returns:
             A Report with structural errors, unstable-state warnings, and unknown
@@ -732,7 +735,7 @@ class Schematic:
         """Repairs neighbor-dependent connections and shapes in place.
 
         Uses the same expected-state calculations as validate(). All supported
-        rules run by default. Neighbor lookups cross regions in world coordinates;
+        rules run by default. Neighbor lookups cross regions in schematic-global coordinates;
         unknown surrounding blocks cause a cell to be skipped. Isolated redstone
         dots remain dots. Power, facing, waterlogging, entities, and attached data
         are preserved. Loading never invokes repair automatically.
@@ -768,7 +771,7 @@ class Schematic:
     def check_export(
         self, *, format: str, version: str | None = None, flatten: bool = False
     ) -> Report:
-        """Checks conversion errors and losses without writing or changing the document.
+        """Checks conversion errors and losses without writing or changing the schematic.
 
         Args:
             format: Target codec name.
@@ -786,7 +789,7 @@ class Region:
     """An editing handle for a named region within a schematic.
 
     Cell coordinates are local to this region. Its origin locates those coordinates
-    in the world. Obtain a handle through Schematic.region() or add_region().
+    in schematic-global coordinates. Obtain a handle through Schematic.region() or add_region().
     """
 
     def __init__(self, native: _core.Region) -> None:
@@ -799,11 +802,11 @@ class Region:
 
     @property
     def origin(self) -> Position:
-        """The world coordinates corresponding to this region's local (0, 0, 0)."""
+        """The schematic-global coordinates corresponding to this region's local (0, 0, 0)."""
         return _position(self._native.origin())
 
     def to_global(self, local: Position) -> Position:
-        """Converts a region-local position to world coordinates by adding the origin.
+        """Converts a region-local position to schematic-global coordinates by adding the origin.
 
         Args:
             local: Integer coordinates relative to this region's origin.
@@ -814,10 +817,10 @@ class Region:
         return _position(self._native.to_global(local))
 
     def to_local(self, global_position: Position) -> Position:
-        """Converts a world position to region-local coordinates by subtracting the origin.
+        """Converts a schematic-global position to region-local coordinates by subtracting the origin.
 
         Args:
-            global_position: Integer coordinates in the schematic's shared world space.
+            global_position: Integer coordinates in the schematic's shared coordinate space.
 
         Raises:
             ValueError: If the result exceeds signed 32-bit coordinates.
@@ -849,7 +852,7 @@ class Region:
         Args:
             at: Local cell coordinates; fragments are anchored at their minimum corner.
             content: Block description or independent Fragment. Fragments require
-                matching editions and versions and preserve unrelated free entities.
+                matching editions and versions and preserve unrelated entities.
         """
         if isinstance(content, Fragment):
             self._native.set_fragment(at, content._native)
@@ -893,14 +896,14 @@ class Region:
         bounds = self.bounds
         self.select(start=bounds.start, size=bounds.size).delete()
 
-    def patch(self, at: Position, **states: PropertyValue) -> None:
+    def patch(self, at: Position, **properties: PropertyValue) -> None:
         """Changes supplied properties of the block at a local cell position.
 
         Args:
             at: Local cell coordinates.
-            **states: Minecraft properties to replace; other properties are preserved.
+            **properties: Minecraft properties to replace; other properties are preserved.
         """
-        self.select(start=at, size=(1, 1, 1)).patch(**states)
+        self.select(start=at, size=(1, 1, 1)).patch(**properties)
 
     def select(self, *, start: Position, size: Position) -> Selection:
         """Returns a box selection that edits this region's current content.
@@ -910,7 +913,7 @@ class Region:
             size: Nonnegative cell counts along X, Y, and Z. Upper bounds are exclusive.
 
         Returns:
-            A Selection including cells and free entities within the box.
+            A Selection including cells and entities within the box.
         """
         return Selection(self._native.select(start, size))
 
@@ -933,7 +936,7 @@ class Region:
 
     @property
     def entities(self) -> Entities:
-        """The manager for free entities in this region."""
+        """The manager for entities in this region."""
         return Entities(self._native)
 
     @property
@@ -946,7 +949,7 @@ class Selection:
     """A set of region-local cells and entities that reads current content.
 
     Filters resolve membership once. Transforms update this selection's coordinates;
-    other selections retain theirs. Block filters exclude free entities.
+    other selections retain theirs. Block filters exclude entities.
     """
 
     def __init__(self, native: _core.Selection) -> None:
@@ -966,27 +969,27 @@ class Selection:
         return self._native.get_all(Block._from_native)
 
     def select(
-        self, *, block: str | None = None, states: Mapping[str, PropertyValue] | None = None
+        self, *, block: str | None = None, properties: Mapping[str, PropertyValue] | None = None
     ) -> Selection:
         """Returns a new selection filtered by current block IDs and properties.
 
         Args:
             block: Minecraft block identifier; None accepts any block ID.
-            states: Required property values; None leaves properties unrestricted.
+            properties: Required property values; None leaves properties unrestricted.
 
         Returns:
-            A selection with fixed cell membership and no free entities.
+            A selection with fixed cell membership and no entities.
 
         Raises:
             ValueError: If neither a block ID nor a property filter is supplied.
         """
-        if block is None and not states:
-            raise ValueError("Supply a block ID or state filter")
-        return Selection(self._native.select(block, _properties(states or {})))
+        if block is None and not properties:
+            raise ValueError("Supply a block ID or property filter")
+        return Selection(self._native.select(block, _properties(properties or {})))
 
     def fill(self, value: Block) -> Selection:
-        """Fills selected cells with a block and returns self; free entities are unchanged."""
-        self._native.fill(value.id, dict(value.states))
+        """Fills selected cells with a block and returns self; entities are unchanged."""
+        self._native.fill(value.id, dict(value.properties))
         return self
 
     def replace(self, identifier: str, value: Block) -> Selection:
@@ -999,13 +1002,13 @@ class Selection:
         self.select(block=identifier).fill(value)
         return self
 
-    def patch(self, **states: PropertyValue) -> Selection:
+    def patch(self, **properties: PropertyValue) -> Selection:
         """Changes supplied properties on selected blocks and returns self.
 
         Args:
-            **states: Properties to replace; other properties and free entities remain.
+            **properties: Properties to replace; other properties and entities remain.
         """
-        self._native.patch(_properties(states))
+        self._native.patch(_properties(properties))
         return self
 
     def delete(self) -> Selection:
@@ -1074,7 +1077,7 @@ class Selection:
 
         Returns:
             The copied selection. The source selection retains its coordinates;
-            copied free entities receive new references.
+            copied entities receive new references.
         """
         return Selection(self._native.duplicate(offset, replace))
 
@@ -1124,7 +1127,7 @@ class Selection:
 
 
 class Fragment:
-    """An independent copy of selected cells, attached data, and free entities.
+    """An independent copy of selected cells, attached data, and entities.
 
     Obtain one through Selection.copy() and paste it with Region.set(). Pasting
     requires matching Minecraft editions and versions.
@@ -1181,7 +1184,7 @@ def mob(identifier: str, *, persistent: bool = True, nbt: str | None = None) -> 
 
 @dataclass(frozen=True)
 class Entity:
-    """An immutable snapshot of a free entity returned by Entities.get().
+    """An immutable snapshot of a entity returned by Entities.get().
 
     Attributes:
         reference: Schematic-local integer used to address the stored entity.
@@ -1195,13 +1198,13 @@ class Entity:
 
 
 class Entities:
-    """Access to a region's free entities through document-local integer references."""
+    """Access to a region's entities through schematic-local integer references."""
 
     def __init__(self, native: _core.Region) -> None:
         self._native = native
 
     def add(self, value: _Mob, *, at: FloatPosition) -> int:
-        """Adds an entity and returns its document-local reference.
+        """Adds an entity and returns its schematic-local reference.
 
         Args:
             value: Entity description returned by mob().
@@ -1234,7 +1237,7 @@ class Entities:
         self._native.entity_update(reference, position, nbt)
 
     def remove(self, reference: int) -> None:
-        """Removes the entity identified by a document-local reference.
+        """Removes the entity identified by a schematic-local reference.
 
         Args:
             reference: Schematic-local reference of an entity in this region.

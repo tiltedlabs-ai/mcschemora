@@ -108,7 +108,7 @@ impl WasmSchematic {
         self.schematic.version.clone()
     }
 
-    /// Returns region descriptions with name, world origin, local start, and size.
+    /// Returns region descriptions with name, schematic-global origin, local start, and size.
     pub fn regions(&self) -> Result<JsValue, JsValue> {
         value(self.schematic.regions.iter().map(|(name, r)| serde_json::json!({"name":name,"origin":r.origin,"start":r.bounds.start,"size":r.bounds.size})).collect())
     }

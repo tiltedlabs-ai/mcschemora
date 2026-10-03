@@ -6,7 +6,7 @@ use crate::{
 use std::collections::BTreeMap;
 
 pub(super) fn block_tag(b: &Block) -> V {
-    let mut c = Compound::from([("Name".into(), s(&b.name))]);
+    let mut c = Compound::from([("Name".into(), s(&b.id))]);
     if !b.properties.is_empty() {
         c.insert(
             "Properties".into(),
@@ -121,7 +121,7 @@ pub(super) fn read_entities(
     root: &Compound,
     key: &str,
     r: &mut Region,
-    doc: &mut Schematic,
+    schematic: &mut Schematic,
     kind: &str,
 ) -> Result<()> {
     if let Some(value) = root.get(key) {
@@ -142,12 +142,12 @@ pub(super) fn read_entities(
             };
             data.remove("Pos");
             r.entities.push(Entity {
-                reference: doc.next_entity,
+                reference: schematic.next_entity,
                 position_float: matches!(e.get("Pos"), Some(V::List(v)) if matches!(v.first(), Some(V::Float(_)))),
                 position: p,
                 data,
             });
-            doc.next_entity += 1;
+            schematic.next_entity += 1;
         }
     }
     Ok(())
@@ -190,9 +190,9 @@ pub(super) fn read_block_entities(
     Ok(())
 }
 
-pub(super) fn version(doc: &mut Schematic, n: i32) -> Result<()> {
-    doc.data_version = n;
-    doc.version = doc
+pub(super) fn version(schematic: &mut Schematic, n: i32) -> Result<()> {
+    schematic.data_version = n;
+    schematic.version = schematic
         .data
         .version_for_data_version(n)?
         .unwrap_or_else(|| format!("data:{n}"));

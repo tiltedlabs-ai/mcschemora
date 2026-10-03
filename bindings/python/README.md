@@ -36,11 +36,11 @@ in the destination environment.
 ```python
 from mcschemora import Schematic, block
 
-scene = Schematic.create(version="1.21.1")
-floor = scene.region().select(start=(0, 0, 0), size=(7, 1, 7))
+schematic = Schematic.create(version="1.21.1")
+floor = schematic.region().select(start=(0, 0, 0), size=(7, 1, 7))
 floor.fill(block("stone_bricks"))
-print(scene.validate())
-scene.save("floor.schem")
+print(schematic.validate())
+schematic.save("floor.schem")
 ```
 
 ## Documentation

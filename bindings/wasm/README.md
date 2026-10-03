@@ -19,16 +19,16 @@ import init, { MinecraftData } from "./pkg/mcschemora.js";
 
 await init();
 const data = new MinecraftData();
-const scene = await data.create("1.21.1");
+const schematic = await data.create("1.21.1");
 try {
-  scene.setBlock("main", 0, 0, 0, "minecraft:stone_bricks");
-  console.log(scene.getBlock("main", 0, 0, 0));
-  console.log(scene.validate().errors);
-  const bytes = await scene.toBytes("schem", false, false);
+  schematic.setBlock("main", 0, 0, 0, "minecraft:stone_bricks");
+  console.log(schematic.getBlock("main", 0, 0, 0));
+  console.log(schematic.validate().errors);
+  const bytes = await schematic.toBytes("schem", false, false);
   const file = new Blob([bytes], { type: "application/octet-stream" });
   console.log(file.size > 0);
 } finally {
-  scene.free();
+  schematic.free();
   data.free();
 }
 ```
@@ -44,7 +44,7 @@ true
 For ordinary file import, pass `undefined` as the options argument:
 
 ```javascript
-const scene = await data.fromBytes(new Uint8Array(buffer), "litematic", undefined);
+const schematic = await data.fromBytes(new Uint8Array(buffer), "litematic", undefined);
 ```
 
 See the generated [API reference](../../docs/reference/api.md#browser-wasm) for methods,

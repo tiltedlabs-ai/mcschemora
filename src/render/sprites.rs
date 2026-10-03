@@ -22,7 +22,7 @@ use std::{
 /// Selection and presentation settings for flat wiki sprite diagrams.
 #[derive(Clone, Debug)]
 pub struct Options {
-    /// Region and inclusive world-coordinate filters.
+    /// Region and inclusive schematic-global coordinate filters.
     pub selection: SceneOptions,
     /// Top, bottom, or cardinal view; isometric is unsupported.
     pub view: View,
@@ -30,7 +30,7 @@ pub struct Options {
     pub cell_size: u32,
     /// Whether to draw cell boundaries.
     pub grid: bool,
-    /// Whether to include free-entity icons.
+    /// Whether to include entity icons.
     pub entities: bool,
     /// Block IDs or full state strings mapped to bundled sprite identifiers.
     pub sprites: BTreeMap<String, String>,
@@ -272,7 +272,7 @@ fn resolve_block(
     if let Some(name) = options
         .sprites
         .get(&state)
-        .or_else(|| options.sprites.get(&block.name))
+        .or_else(|| options.sprites.get(&block.id))
     {
         return SpriteKey {
             id: assets.ids[name],
@@ -303,7 +303,7 @@ fn resolve_block(
     }
     let side = !matches!(options.view, View::Top | View::Bottom);
     if side && sprite.name.starts_with("SchematicSprite:") {
-        let candidate = if block.name == "minecraft:redstone_wire" {
+        let candidate = if block.id == "minecraft:redstone_wire" {
             let lit = block
                 .properties
                 .get("power")
@@ -357,9 +357,9 @@ struct Cell<'a> {
 
 /// Projects selected content into a flat PNG using bundled wiki sprites.
 ///
-/// Does not require downloaded geometry assets or change the document.
-pub fn encode(document: &Schematic, options: &Options) -> Result<Output> {
-    if document.edition != "java" {
+/// Does not require downloaded geometry assets or change the schematic.
+pub fn encode(schematic: &Schematic, options: &Options) -> Result<Output> {
+    if schematic.edition != "java" {
         return Err("Sprite rendering requires Java Edition block states".into());
     }
     if matches!(options.view, View::Isometric) {
@@ -368,7 +368,7 @@ pub fn encode(document: &Schematic, options: &Options) -> Result<Output> {
     if !(1..=128).contains(&options.cell_size) {
         return Err("Sprite cell_size must be between 1 and 128 pixels".into());
     }
-    options.selection.validate(document)?;
+    options.selection.validate(schematic)?;
     static ASSETS: OnceLock<Result<Assets>> = OnceLock::new();
     let assets = ASSETS
         .get_or_init(Assets::load)
@@ -382,9 +382,9 @@ pub fn encode(document: &Schematic, options: &Options) -> Result<Output> {
     let mut cells: HashMap<[i64; 2], Cell<'_>> = HashMap::new();
     let mut entity_cells: BTreeMap<[i64; 2], (f64, &str)> = BTreeMap::new();
     let mut positions = HashSet::new();
-    let overlap_check = options.selection.region.is_none() && document.regions.len() > 1;
+    let overlap_check = options.selection.region.is_none() && schematic.regions.len() > 1;
     let mut attached = 0;
-    for (name, region) in &document.regions {
+    for (name, region) in &schematic.regions {
         if options
             .selection
             .region
@@ -465,7 +465,7 @@ pub fn encode(document: &Schematic, options: &Options) -> Result<Output> {
             "{attached} selected block entities have data not represented by sprites"
         ));
     }
-    let catalog = document.registry()?;
+    let catalog = schematic.registry()?;
     let mut resolved = HashMap::new();
     let mut tiles = HashMap::new();
     let origin = |key: [i64; 2]| {
@@ -483,7 +483,7 @@ pub fn encode(document: &Schematic, options: &Options) -> Result<Output> {
             None => {
                 let index = resolve_block(
                     cell.block,
-                    catalog.block_display_name(&cell.block.name)?,
+                    catalog.block_display_name(&cell.block.id)?,
                     options,
                     assets,
                     &mut diagnostics,

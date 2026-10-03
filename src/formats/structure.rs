@@ -5,9 +5,9 @@ use crate::{
     nbt::{Tag as V, *},
 };
 
-pub(super) fn read_structure(root: &Compound, doc: &mut Schematic) -> Result<()> {
+pub(super) fn read_structure(root: &Compound, schematic: &mut Schematic) -> Result<()> {
     version(
-        doc,
+        schematic,
         root.get("DataVersion")
             .map(number)
             .transpose()?
@@ -43,12 +43,12 @@ pub(super) fn read_structure(root: &Compound, doc: &mut Schematic) -> Result<()>
         }
     }
     r.present = Some(present);
-    read_entities(root, "entities", &mut r, doc, "nbt")?;
-    doc.regions.insert("main".into(), r);
+    read_entities(root, "entities", &mut r, schematic, "nbt")?;
+    schematic.regions.insert("main".into(), r);
     Ok(())
 }
 
-pub(super) fn write_structure(doc: &Schematic, r: &Region) -> Result<Compound> {
+pub(super) fn write_structure(schematic: &Schematic, r: &Region) -> Result<Compound> {
     let (pal, ids) = palette(r);
     let mut blocks = vec![];
     let sparse = r.present.as_ref();
@@ -67,7 +67,7 @@ pub(super) fn write_structure(doc: &Schematic, r: &Region) -> Result<Compound> {
         blocks.push(V::Compound(b));
     }
     Ok(Compound::from([
-        ("DataVersion".into(), V::Int(doc.data_version)),
+        ("DataVersion".into(), V::Int(schematic.data_version)),
         ("size".into(), ints(r.bounds.size)),
         (
             "palette".into(),

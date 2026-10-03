@@ -21,7 +21,7 @@ pub(super) fn check(c: &mut Check<'_, '_>, b: &Block, visited: &mut HashSet<Poin
             // bounds to distinguish air from unknown space during this search.
             if c.scene.state_at(p).is_some_and(|state| {
                 state.valid
-                    && state.block.name == b.name
+                    && state.block.id == b.id
                     && (!nether || prop(&state.block, "axis") == prop(b, "axis"))
             }) && visited.insert(p)
             {

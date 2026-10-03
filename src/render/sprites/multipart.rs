@@ -13,7 +13,7 @@ pub(super) struct Choice {
 pub(super) fn resolve(block: &Block, display: &str, view: View) -> Option<Choice> {
     let prop = |key: &str| block.properties.get(key).map(String::as_str);
     let name = display.to_lowercase().replace([' ', '+'], "-");
-    if block.name.ends_with("_bed") {
+    if block.id.ends_with("_bed") {
         let part = match prop("part")? {
             part @ ("head" | "foot") => part,
             _ => return None,
@@ -46,7 +46,7 @@ pub(super) fn resolve(block: &Block, display: &str, view: View) -> Option<Choice
             crop: Crop::Whole,
             view_specific: true,
         })
-    } else if block.name.ends_with("_door") {
+    } else if block.id.ends_with("_door") {
         let (half, crop) = match prop("half")? {
             "upper" => ("top", Crop::Upper),
             "lower" => ("bottom", Crop::Lower),

@@ -19,8 +19,8 @@ GLYPHS = {
 
 
 def create_banner():
-    scene = Schematic.create(version="1.21.1")
-    region = scene.region()
+    schematic = Schematic.create(version="1.21.1")
+    region = schematic.region()
     rng = random.Random(42)
     cells = {}
     text = "MCSchemora"
@@ -176,7 +176,7 @@ def create_banner():
     region.set_many(cells.items())
     region.entities.add(mob("sheep"), at=(-2.5, 1.0, 15.5))
     region.entities.add(mob("pig"), at=(width + 1.5, 1.0, 11.5 - width))
-    return scene
+    return schematic
 
 
 def main():
@@ -184,10 +184,10 @@ def main():
     parser.add_argument("--output", type=Path, default=Path("examples/output"))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
-    scene = create_banner()
-    scene.save(args.output / "banner.schem")
+    schematic = create_banner()
+    schematic.save(args.output / "banner.schem")
     image_path = args.output / "banner.png"
-    diagnostics = scene.export_png(image_path, size=(3840, 960))
+    diagnostics = schematic.export_png(image_path, size=(3840, 960))
     print(f"Saved banner.schem and banner.png ({image_path.stat().st_size / 1024:.0f} KiB)")
     for diagnostic in diagnostics:
         print(diagnostic)

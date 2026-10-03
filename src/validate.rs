@@ -21,7 +21,7 @@ use std::collections::HashSet;
 pub struct Report {
     /// Structural violations or invalid block and attached-data states.
     pub errors: Vec<String>,
-    /// Unstable states and advisory document notices.
+    /// Unstable states that may not necessarily break the schematic.
     pub warnings: Vec<String>,
     /// Checks requiring unavailable game data or surrounding world blocks.
     pub unknown: Vec<String>,
@@ -43,11 +43,11 @@ fn add(p: Point, d: Point) -> Point {
 fn neg(d: Point) -> Point {
     d.map(|n| -n)
 }
-fn world(origin: Position, p: Position) -> Point {
+fn global_position(origin: Position, p: Position) -> Point {
     std::array::from_fn(|i| i64::from(origin[i]) + i64::from(p[i]))
 }
 fn name(b: &Block) -> &str {
-    b.name.strip_prefix("minecraft:").unwrap_or(&b.name)
+    b.id.strip_prefix("minecraft:").unwrap_or(&b.id)
 }
 fn prop<'a>(b: &'a Block, key: &str) -> &'a str {
     b.properties.get(key).map(String::as_str).unwrap_or("")
@@ -126,21 +126,21 @@ impl Check<'_, '_> {
     }
 }
 
-/// Checks a document without modifying it.
+/// Checks a schematic without modifying it.
 ///
 /// Java catalogs and surrounding blocks determine which rules can be checked. Other editions
 /// and unavailable support data produce unknown results.
-pub fn validate(doc: &Schematic) -> Report {
+pub fn validate(schematic: &Schematic) -> Report {
     let mut report = Report {
-        warnings: doc
+        warnings: schematic
             .notices
             .iter()
-            .chain(&doc.import_diagnostics)
+            .chain(&schematic.import_diagnostics)
             .cloned()
             .collect(),
         ..Report::default()
     };
-    let Some(scene) = prepare(doc, &mut report) else {
+    let Some(scene) = prepare(schematic, &mut report) else {
         return report;
     };
     let mut portals = HashSet::new();
@@ -161,7 +161,7 @@ pub fn validate(doc: &Schematic) -> Report {
             rule(&mut check, b);
         }
         if name(b) == "moving_piston"
-            && !doc.regions[cell.region]
+            && !schematic.regions[cell.region]
                 .block_entities
                 .contains_key(&cell.local)
         {
@@ -175,15 +175,15 @@ pub fn validate(doc: &Schematic) -> Report {
             portals::check(&mut check, b, &mut portals);
         }
     }
-    for (region_name, region) in &doc.regions {
+    for (region_name, region) in &schematic.regions {
         for (&local, data) in &region.block_entities {
             block_entities::check(
                 &scene,
-                world(region.origin, local),
+                global_position(region.origin, local),
                 data,
                 region_name,
                 local,
-                doc,
+                schematic,
                 &mut report,
             );
         }
@@ -191,28 +191,31 @@ pub fn validate(doc: &Schematic) -> Report {
     report
 }
 
-fn prepare<'a>(doc: &'a Schematic, report: &mut Report) -> Option<Scene<'a>> {
-    if doc.edition != "java" {
+fn prepare<'a>(schematic: &'a Schematic, report: &mut Report) -> Option<Scene<'a>> {
+    if schematic.edition != "java" {
         report
             .unknown
             .push("edition: game-rule validation currently requires Java Edition".into());
         return None;
     }
-    let registry = match doc.registry() {
+    let registry = match schematic.registry() {
         Ok(registry) => registry,
         Err(e) => {
             report.unknown.push(e);
             return None;
         }
     };
-    scene::check_region_bounds(doc, report);
+    scene::check_region_bounds(schematic, report);
     if !report.errors.is_empty() {
         return None;
     }
     if registry.validation_shapes.get().is_none() {
-        let shapes = doc.data.collision_shapes(&doc.version).and_then(|value| {
-            serde_json::from_value(value).map_err(|e| format!("Invalid collision shapes: {e}"))
-        });
+        let shapes = schematic
+            .data
+            .collision_shapes(&schematic.version)
+            .and_then(|value| {
+                serde_json::from_value(value).map_err(|e| format!("Invalid collision shapes: {e}"))
+            });
         match shapes {
             Ok(shapes) => {
                 let _ = registry.validation_shapes.set(shapes);
@@ -221,7 +224,7 @@ fn prepare<'a>(doc: &'a Schematic, report: &mut Report) -> Option<Scene<'a>> {
         }
     }
     Some(scene::build_scene(
-        doc,
+        schematic,
         registry,
         registry.validation_shapes.get(),
         report,

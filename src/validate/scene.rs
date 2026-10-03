@@ -1,6 +1,6 @@
 use super::rules::{self, Rule};
 use super::shapes::{Shapes, Support, face_index, face_rectangles, support, wall_cover};
-use super::{DOWN, Point, Report, add, name, world};
+use super::{DOWN, Point, Report, add, global_position, name};
 use crate::{
     catalog::Registry,
     model::{Block, Position, Region, Schematic},
@@ -83,15 +83,15 @@ enum BlockIndex {
 }
 
 impl BlockIndex {
-    fn new(doc: &Schematic, count: usize) -> Self {
-        if doc.regions.len() == 1 {
-            let region = doc.regions.values().next().unwrap();
+    fn new(schematic: &Schematic, count: usize) -> Self {
+        if schematic.regions.len() == 1 {
+            let region = schematic.regions.values().next().unwrap();
             if let Ok(volume) = region.bounds.volume()
                 && volume > 0
                 && volume <= count.saturating_mul(2)
             {
                 return Self::Dense {
-                    start: world(region.origin, region.bounds.start),
+                    start: global_position(region.origin, region.bounds.start),
                     size: region.bounds.size.map(i64::from),
                     states: vec![usize::MAX; volume],
                 };
@@ -202,13 +202,13 @@ fn contains_known(region: &Region, point: Point) -> bool {
             .is_none_or(|cells| cells.contains(&local))
 }
 
-pub(super) fn check_region_bounds(doc: &Schematic, report: &mut Report) {
-    let mut regions: Vec<_> = doc
+pub(super) fn check_region_bounds(schematic: &Schematic, report: &mut Report) {
+    let mut regions: Vec<_> = schematic
         .regions
         .iter()
         .filter(|(_, region)| region.bounds.size.iter().all(|&size| size > 0))
         .map(|(name, region)| {
-            let start = world(region.origin, region.bounds.start);
+            let start = global_position(region.origin, region.bounds.start);
             let end = add(start, region.bounds.size.map(i64::from));
             (name, start, end)
         })
@@ -253,14 +253,14 @@ impl<'a> StatePalette<'a> {
 }
 
 pub(super) fn build_scene<'a>(
-    doc: &'a Schematic,
+    schematic: &'a Schematic,
     registry: &Registry,
     shapes: Option<&Shapes>,
     report: &mut Report,
 ) -> Scene<'a> {
-    let count = doc.regions.values().map(|r| r.blocks.len()).sum();
+    let count = schematic.regions.values().map(|r| r.blocks.len()).sum();
     let mut scene = Scene {
-        regions: doc.regions.values().collect(),
+        regions: schematic.regions.values().collect(),
         last_region: std::cell::Cell::new(None),
         states: Vec::new(),
         cells: Vec::new(),
@@ -269,7 +269,7 @@ pub(super) fn build_scene<'a>(
     };
     let mut palette = StatePalette::default();
     let mut state_ids = Vec::with_capacity(count);
-    for (region_name, region) in &doc.regions {
+    for (region_name, region) in &schematic.regions {
         for (&local, raw) in region.blocks.iter() {
             let state = palette.get_or_insert(raw, || {
                 let resolved = registry.resolve(raw);
@@ -299,7 +299,7 @@ pub(super) fn build_scene<'a>(
             {
                 continue;
             }
-            let point = world(region.origin, local);
+            let point = global_position(region.origin, local);
             scene.cells.push(Cell {
                 region: region_name,
                 local,
@@ -310,14 +310,21 @@ pub(super) fn build_scene<'a>(
     }
     // Only spatial rules and block entities need neighbor lookups. A scene of
     // plain building blocks still has every distinct state checked above.
-    if !scene.cells.is_empty() || doc.regions.values().any(|r| !r.block_entities.is_empty()) {
-        scene.index = BlockIndex::new(doc, count);
+    if !scene.cells.is_empty()
+        || schematic
+            .regions
+            .values()
+            .any(|r| !r.block_entities.is_empty())
+    {
+        scene.index = BlockIndex::new(schematic, count);
         // Preserve the first scan's IDs to avoid hashing every state twice.
         let mut state_ids = state_ids.into_iter();
-        for region in doc.regions.values() {
+        for region in schematic.regions.values() {
             for &local in region.blocks.keys() {
                 let state = state_ids.next().unwrap();
-                scene.index.insert(world(region.origin, local), state);
+                scene
+                    .index
+                    .insert(global_position(region.origin, local), state);
             }
         }
     }

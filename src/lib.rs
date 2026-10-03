@@ -1,7 +1,7 @@
-//! Minecraft schematic documents, editing, codecs, validation, and native rendering.
+//! Minecraft schematics, editing, codecs, validation, and native rendering.
 //!
 //! Load a catalog with catalog::MinecraftData before creating model::Schematic.
-//! Region cells use local coordinates; region origins and render filters use world coordinates.
+//! Region cells use local coordinates; region origins and render filters use schematic-global coordinates.
 
 pub mod catalog;
 mod convert;

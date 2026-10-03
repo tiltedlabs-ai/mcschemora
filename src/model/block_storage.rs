@@ -95,7 +95,7 @@ impl BlockStorage {
             self.uses[old as usize] -= 1;
         }
         self.uses[id as usize] += 1;
-        old.is_none_or(|old| self.palette[old as usize].name != self.palette[id as usize].name)
+        old.is_none_or(|old| self.palette[old as usize].id != self.palette[id as usize].id)
     }
     /// Stores a block at a position, replacing any previous value without validation.
     pub fn set(&mut self, position: Position, block: &Block) {

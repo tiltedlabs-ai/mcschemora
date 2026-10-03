@@ -4,9 +4,9 @@ from pathlib import Path
 from mcschemora import Schematic, bed, block, chest, item
 
 
-def create_scene():
-    scene = Schematic.create(version="1.21.1")
-    region = scene.region()
+def create_schematic():
+    schematic = Schematic.create(version="1.21.1")
+    region = schematic.region()
     region.select(start=(0, 0, 0), size=(7, 1, 7)).fill(block("stone_bricks"))
     for x, z in ((0, 0), (6, 0), (0, 6), (6, 6)):
         region.select(start=(x, 1, z), size=(1, 3, 1)).fill(block("oak_log", axis="y"))
@@ -15,7 +15,7 @@ def create_scene():
     region.place(chest(items={0: item("stone", count=64)}), at=(4, 1, 4))
     region.set((4, 1, 2), block("crafting_table"))
     region.set((4, 1, 1), block("furnace", facing="west"))
-    return scene
+    return schematic
 
 
 def main():
@@ -23,11 +23,11 @@ def main():
     parser.add_argument("--output", type=Path, default=Path("examples/output"))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
-    scene = create_scene()
-    area = scene.region().select(start=(0, 0, 0), size=(7, 5, 7))
+    schematic = create_schematic()
+    area = schematic.region().select(start=(0, 0, 0), size=(7, 5, 7))
     print(area.describe_layer(y=1))
-    print(scene.validate())
-    scene.save(args.output / "workshop.schem")
+    print(schematic.validate())
+    schematic.save(args.output / "workshop.schem")
     print("Saved workshop.schem")
 
 

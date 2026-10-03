@@ -18,7 +18,7 @@ pub struct Options {
     pub size: [u32; 2],
     /// Camera orientation; default is isometric.
     pub view: View,
-    /// Whether to draw outlined block edges, excluding free entities.
+    /// Whether to draw outlined block edges, excluding entities.
     pub grid: bool,
 }
 

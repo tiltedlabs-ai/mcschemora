@@ -57,7 +57,7 @@ fn make(catalog: &catalog::Registry, id: &str, props: Vec<(&str, String)>) -> Re
 }
 /// Resolves and validates a placement into local cells and version-appropriate NBT.
 ///
-/// No document is changed. at is the bed foot, lower door half, or single-block anchor.
+/// No schematic is changed. at is the bed foot, lower door half, or single-block anchor.
 pub fn resolve_placement(
     catalog: &catalog::Registry,
     placement: &Placement,

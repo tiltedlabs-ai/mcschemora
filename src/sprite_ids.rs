@@ -22,7 +22,7 @@ pub(crate) fn resolve(block: &Block, display_name: &str) -> Sprite {
     let powered = if prop("powered") == "true" { "!" } else { "" };
     let facing = direction(prop("facing"), false);
     let mut covered: Vec<&str> = Vec::new();
-    let id = match block.name.as_str() {
+    let id = match block.id.as_str() {
         "minecraft:repeater" => {
             covered.extend(["facing", "delay", "locked", "powered"]);
             let prefix = if prop("locked") == "true" { "lr" } else { "rr" };
@@ -76,7 +76,7 @@ pub(crate) fn resolve(block: &Block, display_name: &str) -> Sprite {
         }
         "minecraft:piston" | "minecraft:sticky_piston" => {
             covered.extend(["facing", "extended"]);
-            let prefix = if block.name == "minecraft:piston" {
+            let prefix = if block.id == "minecraft:piston" {
                 "pi"
             } else {
                 "sp"
@@ -91,13 +91,13 @@ pub(crate) fn resolve(block: &Block, display_name: &str) -> Sprite {
         }
         "minecraft:observer" | "minecraft:dispenser" | "minecraft:dropper" | "minecraft:hopper" => {
             covered.push("facing");
-            let prefix = match block.name.as_str() {
+            let prefix = match block.id.as_str() {
                 "minecraft:observer" => "obs",
                 "minecraft:dispenser" => "Di",
                 "minecraft:dropper" => "Dr",
                 _ => "ho",
             };
-            let facing = direction(prop("facing"), block.name == "minecraft:observer");
+            let facing = direction(prop("facing"), block.id == "minecraft:observer");
             Some(format!("{prefix}-{facing}"))
         }
         "minecraft:redstone_torch" | "minecraft:redstone_wall_torch" => {

@@ -1,4 +1,4 @@
-//! Imports supported Minecraft Wiki layered-blueprint templates into Java documents.
+//! Imports supported Minecraft Wiki layered-blueprint templates into Java schematics.
 
 use super::sprites;
 use crate::{
@@ -112,8 +112,8 @@ pub fn decode(
             ));
         }
     }
-    let mut document = Schematic::new("java", version, source)?;
-    let catalog = document.registry()?;
+    let mut schematic = Schematic::new("java", version, source)?;
+    let catalog = schematic.registry()?;
     let sheet = settings.get("sheet").copied().unwrap_or("BlockSprite");
     let references: BTreeMap<String, String> = used
         .iter()
@@ -180,7 +180,7 @@ pub fn decode(
             }
         }
     }
-    document.regions.insert("main".into(), region);
-    document.import_diagnostics = notices;
-    Ok(document)
+    schematic.regions.insert("main".into(), region);
+    schematic.import_diagnostics = notices;
+    Ok(schematic)
 }

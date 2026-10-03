@@ -12,7 +12,7 @@ mod mcstructure;
 mod schem;
 mod structure;
 
-/// Supported codec names; nbt and snbt refer to Java structure documents.
+/// Supported codec names; nbt and snbt refer to Java structure files.
 pub const FORMATS: [&str; 6] = [
     "blueprint",
     "schem",
@@ -28,7 +28,7 @@ pub const FORMATS: [&str; 6] = [
 pub struct ImportOptions {
     /// Explicit Java version required for blueprints; latest is not accepted.
     pub version: Option<String>,
-    /// Blueprint region origin in world coordinates; None defaults to zero.
+    /// Blueprint region origin in schematic-global coordinates; None defaults to zero.
     pub origin: Option<Position>,
     /// Blueprint symbols mapped to full block-state strings.
     pub palette: BTreeMap<String, String>,
@@ -80,24 +80,26 @@ pub async fn decode(
     if format != "mcstructure" {
         source.initialize().await?;
     }
-    let mut doc = Schematic::imported(source);
+    let mut schematic = Schematic::imported(source);
     match format {
-        "schem" => schem::read_schem(&root, &mut doc)?,
-        "litematic" => litematic::read_litematic(&root, &mut doc)?,
-        "nbt" | "snbt" => structure::read_structure(&root, &mut doc)?,
-        "mcstructure" => mcstructure::read_bedrock(&root, &mut doc)?,
+        "schem" => schem::read_schem(&root, &mut schematic)?,
+        "litematic" => litematic::read_litematic(&root, &mut schematic)?,
+        "nbt" | "snbt" => structure::read_structure(&root, &mut schematic)?,
+        "mcstructure" => mcstructure::read_bedrock(&root, &mut schematic)?,
         _ => unreachable!(),
     }
-    if doc.regions.is_empty() {
+    if schematic.regions.is_empty() {
         return Err("File has no regions".into());
     }
-    if doc.edition == "java" {
-        if doc.data_version > 0 && doc.data_version < crate::versions::MIN_JAVA_DATA_VERSION {
+    if schematic.edition == "java" {
+        if schematic.data_version > 0
+            && schematic.data_version < crate::versions::MIN_JAVA_DATA_VERSION
+        {
             return Err("Files older than Java 1.13 are unsupported".into());
         }
-        if doc.data.versions()?.contains(&doc.version) {
-            doc.catalog = Some(doc.data.load(&doc.version).await?);
+        if schematic.data.versions()?.contains(&schematic.version) {
+            schematic.catalog = Some(schematic.data.load(&schematic.version).await?);
         }
     }
-    Ok(doc)
+    Ok(schematic)
 }

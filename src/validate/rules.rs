@@ -83,9 +83,7 @@ fn check_bed(c: &mut Check<'_, '_>, b: &Block) {
     c.require(
         "bed.pair",
         c.at(d).map(|o| {
-            o.name == b.name
-                && prop(o, "part") == other_part
-                && prop(o, "facing") == prop(b, "facing")
+            o.id == b.id && prop(o, "part") == other_part && prop(o, "facing") == prop(b, "facing")
         }),
         "incomplete bed or mismatched direction",
     );
@@ -101,7 +99,7 @@ fn check_door(c: &mut Check<'_, '_>, b: &Block) {
     c.require(
         "door.pair",
         c.at(if lower { UP } else { DOWN }).map(|o| {
-            o.name == b.name
+            o.id == b.id
                 && prop(o, "half") == if lower { "upper" } else { "lower" }
                 && ["facing", "hinge", "open", "powered"]
                     .iter()
@@ -142,7 +140,7 @@ fn check_tall_plant(c: &mut Check<'_, '_>, b: &Block) {
     c.require(
         "plant.pair",
         c.at(if lower { UP } else { DOWN }).map(|o| {
-            o.name == b.name
+            o.id == b.id
                 && prop(o, "half") == if lower { "upper" } else { "lower" }
                 && prop(o, "age") == prop(b, "age")
         }),
@@ -160,7 +158,7 @@ fn check_chest(c: &mut Check<'_, '_>, b: &Block) {
     c.require(
         "chest.pair",
         c.at(if left { d } else { neg(d) }).map(|o| {
-            o.name == b.name
+            o.id == b.id
                 && prop(o, "facing") == prop(b, "facing")
                 && prop(o, "type") == if left { "right" } else { "left" }
         }),

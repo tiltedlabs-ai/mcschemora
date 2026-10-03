@@ -163,7 +163,7 @@ Schematic.save(
 ) -> None
 ```
 
-Encodes the document and atomically replaces the destination file.
+Encodes the document and replaces the destination file.
 
 **Args:**
 

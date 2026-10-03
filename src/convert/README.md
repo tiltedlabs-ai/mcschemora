@@ -2,7 +2,7 @@
 ## Current coverage
 
 Supported release data versions are 1.20.2, 1.20.3, 1.20.4, 1.20.5, and 1.20.6.
-Routes involving 1.20.2 require documents without entities or block entities.
+Routes involving 1.20.2 require schematics without entities or block entities.
 The main schema migration is 1.20.3/1.20.4 to 1.20.5/1.20.6: legacy item tags become
 components, including nested inventories, equipment, and associated entity changes.
 Unconsumed item tags become `minecraft:custom_data`.

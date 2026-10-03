@@ -38,12 +38,12 @@ fn catalog() -> Result<&'static Catalog> {
 }
 
 pub(super) fn contains(block: &Block) -> bool {
-    catalog().is_ok_and(|c| c.states.contains_key(&block.name))
+    catalog().is_ok_and(|c| c.states.contains_key(&block.id))
 }
 
 pub(super) fn overlay(block: &Block) -> bool {
     matches!(
-        block.name.as_str(),
+        block.id.as_str(),
         "minecraft:bell" | "minecraft:enchanting_table" | "minecraft:lectern"
     )
 }
@@ -51,7 +51,7 @@ pub(super) fn overlay(block: &Block) -> bool {
 pub(super) fn bake(assets: &GeometryAssets, block: &Block) -> Result<Mesh> {
     let catalog = catalog()?;
     let mut quads = Vec::new();
-    for app in &catalog.states[&block.name] {
+    for app in &catalog.states[&block.id] {
         if !super::models::condition(&app.when, block)? {
             continue;
         }

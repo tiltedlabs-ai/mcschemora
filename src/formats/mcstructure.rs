@@ -30,13 +30,13 @@ fn index(p: Position, size: Position) -> usize {
     ((p[0] * size[1] + p[1]) * size[2] + p[2]) as usize
 }
 
-pub(super) fn read_bedrock(root: &Compound, doc: &mut Schematic) -> Result<()> {
+pub(super) fn read_bedrock(root: &Compound, schematic: &mut Schematic) -> Result<()> {
     if number(get(root, "format_version")?)? != 1 {
         return Err("Unsupported mcstructure format version".into());
     }
-    doc.edition = "bedrock".into();
-    doc.version = "imported".into();
-    doc.data_version = 0;
+    schematic.edition = "bedrock".into();
+    schematic.version = "imported".into();
+    schematic.data_version = 0;
     let origin = xyz(get(root, "structure_world_origin")?)?;
     let mut r = Region::new(origin);
     r.bounds = Bounds::new([0; 3], xyz(get(root, "size")?)?)?;
@@ -125,13 +125,13 @@ pub(super) fn read_bedrock(root: &Compound, doc: &mut Schematic) -> Result<()> {
         size: r.bounds.size,
         position_data,
     });
-    read_entities(structure, "entities", &mut r, doc, "bedrock")?;
+    read_entities(structure, "entities", &mut r, schematic, "bedrock")?;
     for e in &mut r.entities {
         for (i, coordinate) in origin.iter().enumerate() {
             e.position[i] -= *coordinate as f64;
         }
     }
-    doc.regions.insert("main".into(), r);
+    schematic.regions.insert("main".into(), r);
     Ok(())
 }
 
@@ -139,10 +139,9 @@ pub(super) fn palette_entry(b: &Block, original: Option<&BedrockData>) -> Result
     if let Some(raw) = original.and_then(|data| data.palette.get(b)) {
         return Ok(V::Compound(raw.clone()));
     }
-    if BEDROCK_SIMPLE.contains(&b.name.trim_start_matches("minecraft:")) && b.properties.is_empty()
-    {
+    if BEDROCK_SIMPLE.contains(&b.id.trim_start_matches("minecraft:")) && b.properties.is_empty() {
         return Ok(c([
-            ("name", s(&b.name)),
+            ("name", s(&b.id)),
             ("states", V::Compound(Compound::new())),
             ("version", V::Int(18153472)),
         ]));
@@ -153,7 +152,7 @@ pub(super) fn palette_entry(b: &Block, original: Option<&BedrockData>) -> Result
     ))
 }
 
-pub(super) fn write_bedrock(doc: &Schematic, r: &Region) -> Result<Compound> {
+pub(super) fn write_bedrock(schematic: &Schematic, r: &Region) -> Result<Compound> {
     let n = r.bounds.volume()?;
     let original = r.retained.bedrock.as_ref();
     let (pal, mut ids) = palette(r);
@@ -205,7 +204,7 @@ pub(super) fn write_bedrock(doc: &Schematic, r: &Region) -> Result<Compound> {
         }
     }
     let origin = std::array::from_fn(|i| r.origin[i] + r.bounds.start[i]);
-    let entity_list = if doc.edition == "bedrock" {
+    let entity_list = if schematic.edition == "bedrock" {
         entities(r, origin.map(|v| -v), "mcstructure")
     } else {
         V::List(vec![])

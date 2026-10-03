@@ -67,34 +67,34 @@ impl Context {
     }
 }
 
-pub(crate) async fn document<'a>(
-    doc: &'a Schematic,
+pub(crate) async fn schematic<'a>(
+    schematic: &'a Schematic,
     version: Option<&str>,
 ) -> Result<Cow<'a, Schematic>> {
     let Some(version) = version else {
-        return Ok(Cow::Borrowed(doc));
+        return Ok(Cow::Borrowed(schematic));
     };
-    if doc.edition != "java" {
-        return Err("A target Minecraft version is supported only for Java documents".into());
+    if schematic.edition != "java" {
+        return Err("A target Minecraft version is supported only for Java schematics".into());
     }
-    if doc.data_version < crate::versions::MIN_JAVA_DATA_VERSION {
+    if schematic.data_version < crate::versions::MIN_JAVA_DATA_VERSION {
         return Err("Version conversion requires a known Java 1.13+ source data version".into());
     }
     if version.is_empty() || version == "latest" {
         return Err("Export requires an explicit target Minecraft version".into());
     }
-    let target = doc.data.load(version).await?;
-    if target.data_version == doc.data_version {
-        return Ok(Cow::Borrowed(doc));
+    let target = schematic.data.load(version).await?;
+    if target.data_version == schematic.data_version {
+        return Ok(Cow::Borrowed(schematic));
     }
     let supported = [3578, 3698, 3700, 3837, 3839];
-    if !supported.contains(&doc.data_version) || !supported.contains(&target.data_version) {
+    if !supported.contains(&schematic.data_version) || !supported.contains(&target.data_version) {
         return Err(format!(
             "Minecraft conversion {} → {} is not implemented; supported versions are 1.20.2–1.20.6, with payload conversion from 1.20.3 onward",
-            doc.version, target.version
+            schematic.version, target.version
         ));
     }
-    if doc.data_version >= crate::versions::ITEM_COMPONENTS
+    if schematic.data_version >= crate::versions::ITEM_COMPONENTS
         && target.data_version < crate::versions::ITEM_COMPONENTS
     {
         return Err(
@@ -103,10 +103,10 @@ pub(crate) async fn document<'a>(
         );
     }
     let context = Context {
-        source: doc.data_version,
+        source: schematic.data_version,
         target,
     };
-    let mut converted = doc.clone();
+    let mut converted = schematic.clone();
     for (name, region) in &mut converted.regions {
         if context.source.min(context.target.data_version) < 3698
             && (!region.entities.is_empty() || !region.block_entities.is_empty())

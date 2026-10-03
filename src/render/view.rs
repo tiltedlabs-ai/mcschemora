@@ -8,13 +8,13 @@ pub enum View {
     Top,
     /// View from below.
     Bottom,
-    /// View from north with world-up vertical.
+    /// View from north with Y-up vertical.
     North,
-    /// View from south with world-up vertical.
+    /// View from south with Y-up vertical.
     South,
-    /// View from east with world-up vertical.
+    /// View from east with Y-up vertical.
     East,
-    /// View from west with world-up vertical.
+    /// View from west with Y-up vertical.
     West,
 }
 

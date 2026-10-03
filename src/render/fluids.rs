@@ -9,14 +9,14 @@ use std::collections::BTreeMap;
 
 pub(super) fn is_fluid(block: &Block) -> bool {
     matches!(
-        block.name.as_str(),
+        block.id.as_str(),
         "minecraft:water" | "minecraft:lava" | "minecraft:bubble_column"
     )
 }
 
 fn kind(block: &Block) -> Option<&str> {
     if matches!(
-        block.name.as_str(),
+        block.id.as_str(),
         "minecraft:bubble_column"
             | "minecraft:kelp"
             | "minecraft:kelp_plant"
@@ -25,7 +25,7 @@ fn kind(block: &Block) -> Option<&str> {
     ) {
         Some("minecraft:water")
     } else if is_fluid(block) {
-        Some(block.name.as_str())
+        Some(block.id.as_str())
     } else if block
         .properties
         .get("waterlogged")

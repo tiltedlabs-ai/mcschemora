@@ -39,7 +39,7 @@ MOBS = tuple(mob(name) for name in ("pig", "cow", "sheep", "chicken", "zombie", 
 READ_STAGES = ("Get loop", "Get all", "Part get loop", "Part get all")
 STAGES = (
     "Prepare inputs",
-    "Author scene",
+    "Author schematic",
     "Validate",
     "Save",
     "Load",
@@ -75,13 +75,13 @@ def prepare(args):
 
 
 def author(args, data, batches, entities):
-    scene = Schematic.create(version=args.version, data=data)
-    region = scene.region()
+    schematic = Schematic.create(version=args.version, data=data)
+    region = schematic.region()
     for batch in batches:
         region.set_many(batch)
     for value, position in entities:
         region.entities.add(value, at=position)
-    return scene
+    return schematic
 
 
 def timed(results, stage, operation):
@@ -104,8 +104,8 @@ def read_loop(region, bounds):
     return result
 
 
-def measure_reads(scene, args, results, index):
-    region = scene.region()
+def measure_reads(schematic, args, results, index):
+    region = schematic.region()
     start = (args.side // 4,) * 3
     size = (max(1, args.side // 2),) * 3
     part = region.select(start=start, size=size)
@@ -155,7 +155,7 @@ def print_table(runs, stages=STAGES):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Benchmark a random solid cube and free entities.")
+    parser = argparse.ArgumentParser(description="Benchmark a random solid cube and entities.")
     parser.add_argument("--side", type=int, default=100, help="Cube side length (default: 100).")
     parser.add_argument(
         "--reads-only", action="store_true", help="Skip validation, I/O, and rendering."
@@ -183,7 +183,7 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     data = MinecraftData(cache_dir=args.cache_dir, offline=args.offline)
     pixels = args.side * args.cell_size
-    schematic = args.output / "scene.litematic"
+    schematic_path = args.output / "schematic.litematic"
     sprite_image = args.output / "sprites.png"
     geometry_image = args.output / "geometry.png"
     print(
@@ -215,27 +215,27 @@ def main():
         print(f"\nRun {index + 1}/{args.runs}", flush=True)
         batches, entities = timed(results, "Prepare inputs", lambda: prepare(args))
         gc.collect()
-        scene = timed(
+        schematic = timed(
             results,
-            "Author scene",
+            "Author schematic",
             lambda batches=batches, entities=entities: author(args, data, batches, entities),
         )
         del batches, entities
         if args.reads_only:
-            measure_reads(scene, args, results, index)
+            measure_reads(schematic, args, results, index)
             runs.append(results)
-            del scene
+            del schematic
             continue
-        report = timed(results, "Validate", scene.validate)
+        report = timed(results, "Validate", schematic.validate)
         print(
             f"  Validation: {len(report.errors)} errors, {len(report.warnings)} warnings, "
             f"{len(report.unknown)} unknown"
         )
         if not report.ok:
-            raise RuntimeError(f"Generated scene failed validation: {report.issues[:5]}")
-        timed(results, "Save", lambda scene=scene: scene.save(schematic))
-        del scene
-        loaded = timed(results, "Load", lambda: Schematic.load(schematic, data=data))
+            raise RuntimeError(f"Generated schematic failed validation: {report.issues[:5]}")
+        timed(results, "Save", lambda schematic=schematic: schematic.save(schematic_path))
+        del schematic
+        loaded = timed(results, "Load", lambda: Schematic.load(schematic_path, data=data))
         measure_reads(loaded, args, results, index)
         sprite_diagnostics = timed(
             results,
@@ -258,9 +258,9 @@ def main():
             != args.side**3
             or len(tuple(region.entities)) != args.entities
         ):
-            raise RuntimeError("Loaded block/entity counts differ from generated scene")
+            raise RuntimeError("Loaded block/entity counts differ from generated schematic")
         print(
-            f"  Round-trip counts OK; file {schematic.stat().st_size / 1024**2:.2f} MiB; "
+            f"  Round-trip counts OK; file {schematic_path.stat().st_size / 1024**2:.2f} MiB; "
             f"render diagnostics: {len(sprite_diagnostics)} sprite, {len(geometry_diagnostics)} 3D"
         )
         for diagnostic in sorted(set(sprite_diagnostics + geometry_diagnostics)):
@@ -268,17 +268,17 @@ def main():
         runs.append(results)
         del loaded, region
     if args.reads_only:
-        print_table(runs, ("Prepare inputs", "Author scene", *READ_STAGES))
+        print_table(runs, ("Prepare inputs", "Author schematic", *READ_STAGES))
         print("Reads include Python dictionary construction; equality checks are untimed.")
         print("Read order alternates between runs; selections cover the central half on each axis.")
         return
     print_table(runs)
-    print(f"\nLatest scene and PNGs: {args.output.resolve()}")
+    print(f"\nLatest schematic and PNGs: {args.output.resolve()}")
     print(
         "Save/load include filesystem I/O with a warm OS cache; no fsync or cold-disk simulation."
     )
     print("Prepare inputs: random sampling and placement lists; excluded from MCSchemora total.")
-    print("Author scene: scene creation, set_many batches of 16,384, and entity additions.")
+    print("Author schematic: schematic creation, set_many batches of 16,384, and entity additions.")
     print("Authoring includes the public Python API conversion and Rust insertion costs.")
 
 

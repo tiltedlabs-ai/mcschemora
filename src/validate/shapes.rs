@@ -10,7 +10,7 @@ enum ShapeIds {
     States(Vec<u32>),
 }
 
-/// https://github.com/PrismarineJS/minecraft-data/blob/master/doc/blockCollisionShapes.md
+/// https://github.com/PrismarineJS/minecraft-data/blob/master/schematic/blockCollisionShapes.md
 #[derive(Debug, Deserialize)]
 pub(crate) struct Shapes {
     blocks: HashMap<String, ShapeIds>,

@@ -7,15 +7,15 @@ use crate::{
 };
 use fastnbt::LongArray;
 
-pub(super) fn read_litematic(root: &Compound, doc: &mut Schematic) -> Result<()> {
+pub(super) fn read_litematic(root: &Compound, schematic: &mut Schematic) -> Result<()> {
     let v = number(get(root, "Version")?)?;
     if !(4..=7).contains(&v) {
         return Err(format!(
             "Supported Litematica versions are 4 through 7, got {v}"
         ));
     }
-    version(doc, number(get(root, "MinecraftDataVersion")?)?)?;
-    doc.metadata = root
+    version(schematic, number(get(root, "MinecraftDataVersion")?)?)?;
+    schematic.metadata = root
         .get("Metadata")
         .map(compound)
         .transpose()?
@@ -70,7 +70,7 @@ pub(super) fn read_litematic(root: &Compound, doc: &mut Schematic) -> Result<()>
             }
         }
         read_block_entities(c, "TileEntities", &mut r, false)?;
-        read_entities(c, "Entities", &mut r, doc, "litematic")?;
+        read_entities(c, "Entities", &mut r, schematic, "litematic")?;
         let mut ticks = Compound::new();
         for k in ["PendingBlockTicks", "PendingFluidTicks"] {
             if let Some(v) = c.get(k)
@@ -80,17 +80,17 @@ pub(super) fn read_litematic(root: &Compound, doc: &mut Schematic) -> Result<()>
             }
         }
         r.retained.spatial = ticks;
-        doc.regions.insert(name.clone(), r);
+        schematic.regions.insert(name.clone(), r);
     }
     Ok(())
 }
 
-pub(super) fn write_litematic(doc: &Schematic) -> Result<Compound> {
+pub(super) fn write_litematic(schematic: &Schematic) -> Result<Compound> {
     let mut regions = Compound::new();
     let mut volume = 0i64;
     let mut count = 0i64;
     let mut ends = vec![];
-    for (name, r) in &doc.regions {
+    for (name, r) in &schematic.regions {
         let n = r.bounds.volume()?;
         let (pal, ids) = palette(r);
         let bits = (usize::BITS - (pal.len() - 1).leading_zeros()).max(2) as usize;
@@ -144,7 +144,7 @@ pub(super) fn write_litematic(doc: &Schematic) -> Result<Compound> {
         count += r.blocks.values().filter(|b| !b.is_air()).count() as i64;
         regions.insert(name.clone(), V::Compound(reg));
     }
-    let mut metadata = doc.metadata.clone();
+    let mut metadata = schematic.metadata.clone();
     for (k, v) in [
         ("Name", s("MCSchemora build")),
         ("Author", s("")),
@@ -154,7 +154,7 @@ pub(super) fn write_litematic(doc: &Schematic) -> Result<Compound> {
     ] {
         metadata.entry(k.into()).or_insert(v);
     }
-    metadata.insert("RegionCount".into(), V::Int(doc.regions.len() as i32));
+    metadata.insert("RegionCount".into(), V::Int(schematic.regions.len() as i32));
     metadata.insert(
         "TotalVolume".into(),
         V::Int(i32::try_from(volume).map_err(|_| "Litematica volume too large")?),
@@ -170,14 +170,17 @@ pub(super) fn write_litematic(doc: &Schematic) -> Result<Compound> {
     Ok(Compound::from([
         (
             "Version".into(),
-            V::Int(if doc.data_version >= ITEM_COMPONENTS {
+            V::Int(if schematic.data_version >= ITEM_COMPONENTS {
                 7
             } else {
                 6
             }),
         ),
         ("SubVersion".into(), V::Int(1)),
-        ("MinecraftDataVersion".into(), V::Int(doc.data_version)),
+        (
+            "MinecraftDataVersion".into(),
+            V::Int(schematic.data_version),
+        ),
         ("Metadata".into(), V::Compound(metadata)),
         ("Regions".into(), V::Compound(regions)),
     ]))

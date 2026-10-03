@@ -62,8 +62,8 @@ impl Buffer {
     }
 }
 
-fn container(document: &Value, mut binary: Vec<u8>) -> Result<Vec<u8>> {
-    let mut json = serde_json::to_vec(document).map_err(|e| e.to_string())?;
+fn container(schematic: &Value, mut binary: Vec<u8>) -> Result<Vec<u8>> {
+    let mut json = serde_json::to_vec(schematic).map_err(|e| e.to_string())?;
     while !json.len().is_multiple_of(4) {
         json.push(b' ');
     }
@@ -211,7 +211,7 @@ pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
     if nodes.is_empty() {
         return Err("Selected scene has no visible geometry to export".into());
     }
-    let document = json!({
+    let schematic = json!({
         "asset": {"version": "2.0", "generator": concat!("mcschemora/", env!("CARGO_PKG_VERSION"))},
         "scene": 0, "scenes": [{"nodes": (0..nodes.len()).collect::<Vec<_>>()}],
         "nodes": nodes, "meshes": meshes, "materials": materials, "textures": textures,
@@ -219,5 +219,5 @@ pub fn encode(scene: &PreparedScene) -> Result<Vec<u8>> {
         "buffers": [{"byteLength": buffer.bytes.len()}], "bufferViews": buffer.views, "accessors": buffer.accessors,
         "extras": {"diagnostics": scene.diagnostics}
     });
-    container(&document, buffer.bytes)
+    container(&schematic, buffer.bytes)
 }

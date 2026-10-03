@@ -1,4 +1,4 @@
-//! Catalog-checked document edits and operations on attached entity data.
+//! Catalog-checked schematic edits and operations on attached entity data.
 
 use crate::{Result, helpers, model::*, nbt, transform::Transform};
 use std::{borrow::Borrow, collections::BTreeMap};
@@ -13,7 +13,7 @@ pub(crate) fn check_position(p: [f64; 3]) -> Result<()> {
 }
 
 impl Schematic {
-    /// Adds an empty region at a world origin; its name must be nonempty and unique.
+    /// Adds an empty region at a schematic-global origin; its name must be nonempty and unique.
     pub fn add_region(&mut self, name: &str, origin: Position) -> Result<()> {
         if name.is_empty() || self.regions.contains_key(name) {
             return Err("Region name must be nonempty and unique".into());
@@ -76,7 +76,7 @@ impl Schematic {
             .collect::<Result<Vec<_>>>()?;
         self.region_mut(name)?.write_indexed(&palette, cells)
     }
-    /// Fills selected cells with a resolved block without changing free entities.
+    /// Fills selected cells with a resolved block without changing entities.
     pub fn fill(&mut self, name: &str, selection: &Selection, block: &Block) -> Result<()> {
         let block = self.registry()?.resolve(block)?;
         self.region_mut(name)?.fill(selection, &block)
@@ -99,7 +99,7 @@ impl Schematic {
             .collect();
         self.set_blocks(name, blocks)
     }
-    /// Clears selected blocks, attached data, and selected free entities.
+    /// Clears selected blocks, attached data, and selected entities.
     pub fn delete(&mut self, name: &str, selection: &Selection) -> Result<()> {
         if self.edition == "bedrock" {
             return Err("Bedrock layered editing is not implemented".into());
@@ -196,7 +196,7 @@ impl Region {
         let air = block == &Block::air();
         self.block_entities.retain(|p, _| {
             !selection.contains(*p)
-                || (!air && self.blocks.get(p).is_some_and(|old| old.name == block.name))
+                || (!air && self.blocks.get(p).is_some_and(|old| old.id == block.id))
         });
         if let Some(present) = &mut self.present {
             present.extend(fill_positions(selection));
@@ -243,7 +243,7 @@ impl Region {
             .position(|e| e.reference == reference)
             .ok_or_else(|| "Unknown entity reference".into())
     }
-    /// Borrows an entity by its document-local reference within this region.
+    /// Borrows an entity by its schematic-local reference within this region.
     pub fn entity(&self, reference: u64) -> Result<&Entity> {
         Ok(&self.entities[self.entity_index(reference)?])
     }
@@ -293,7 +293,7 @@ impl Region {
         if !helpers::compatible(id, &self.get(at)) {
             return Err(format!(
                 "Block entity {id} is not supported for {} at {at:?}",
-                self.get(at).name
+                self.get(at).id
             ));
         }
         self.block_entities.insert(at, data);

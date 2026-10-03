@@ -5,6 +5,7 @@ from pathlib import Path
 
 from mcschemora import Schematic, block
 
+
 # inspired by shan shui https://shan-shui-inf.lingdong.works/
 def make_noise(seed):
     permutation = list(range(256))
@@ -41,21 +42,21 @@ def make_noise(seed):
 
 
 def create_scroll(seed=42):
-    scene = Schematic.create(version="1.21.1")
+    schematic = Schematic.create(version="1.21.1")
     noise = make_noise(seed)
     rng = random.Random(seed)
     cells = {}
     surfaces = {}
     materials = {}
 
-    def material(name, **states):
-        key = (name, tuple(states.items()))
+    def material(name, **properties):
+        key = (name, tuple(properties.items()))
         if key not in materials:
-            materials[key] = block(name, **states)
+            materials[key] = block(name, **properties)
         return materials[key]
 
-    def put(x, y, depth, name, **states):
-        cells[(x, y, depth - x)] = material(name, **states)
+    def put(x, y, depth, name, **properties):
+        cells[(x, y, depth - x)] = material(name, **properties)
 
     for x in range(-10, 203):
         taper = sqrt(max(0, 1 - ((x - 96) / 108) ** 2))
@@ -242,8 +243,8 @@ def create_scroll(seed=42):
             for dd in range(-1, 2):
                 put(cx + dx, level, cd + dd, "moss_block")
 
-    scene.region().set_many(cells.items())
-    return scene
+    schematic.region().set_many(cells.items())
+    return schematic
 
 
 def main():
@@ -254,10 +255,10 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
-    scene = create_scroll(args.seed)
-    scene.save(args.output / "jade-scroll.schem")
+    schematic = create_scroll(args.seed)
+    schematic.save(args.output / "jade-scroll.schem")
     image_path = args.output / "jade-scroll.png"
-    diagnostics = scene.export_png(image_path, size=(3840, 1600))
+    diagnostics = schematic.export_png(image_path, size=(3840, 1600))
     print(
         f"Saved jade-scroll.schem and jade-scroll.png ({image_path.stat().st_size / 1024:.0f} KiB)"
     )

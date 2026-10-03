@@ -82,7 +82,7 @@ pub(super) fn check(
     data: &Compound,
     region: &str,
     local: Position,
-    doc: &Schematic,
+    schematic: &Schematic,
     report: &mut Report,
 ) {
     let Some(block) = scene.get(p) else {
@@ -133,10 +133,11 @@ pub(super) fn check(
                 _ => error("invalid inventory slot"),
             }
             match item.get("id") {
-                Some(Value::String(id)) if doc.registry().is_ok_and(|r| r.item(id).is_ok()) => (),
+                Some(Value::String(id))
+                    if schematic.registry().is_ok_and(|r| r.item(id).is_ok()) => {}
                 _ => error("unknown or missing inventory item ID"),
             }
-            let valid_count = if doc.data_version >= ITEM_COMPONENTS {
+            let valid_count = if schematic.data_version >= ITEM_COMPONENTS {
                 item.get("count").is_none()
                     || matches!(item.get("count"),Some(Value::Int(n)) if *n > 0)
             } else {

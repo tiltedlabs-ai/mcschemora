@@ -219,9 +219,9 @@ impl Builder<'_> {
     }
 
     fn compile_state(&mut self, block: &Block) -> Result<Vec<Vec<(usize, u32)>>> {
-        if block.name == "minecraft:moving_piston" {
+        if block.id == "minecraft:moving_piston" {
             let mut head = block.clone();
-            head.name = "minecraft:piston_head".into();
+            head.id = "minecraft:piston_head".into();
             head.properties.insert("short".into(), "false".into());
             return self.compile_state(&head);
         }
@@ -235,8 +235,8 @@ impl Builder<'_> {
         let state = self
             .assets
             .states
-            .get(&block.name)
-            .ok_or_else(|| format!("No blockstate visuals for {}", block.name))?;
+            .get(&block.id)
+            .ok_or_else(|| format!("No blockstate visuals for {}", block.id))?;
         let mut parts = Vec::new();
         if let Some(variants) = state.get("variants") {
             let mut selected = None;
@@ -322,7 +322,7 @@ impl Builder<'_> {
 }
 
 fn state_color(block: &Block) -> Result<[u8; 4]> {
-    if block.name != "minecraft:redstone_wire" {
+    if block.id != "minecraft:redstone_wire" {
         return Ok([255; 4]);
     }
     let power = block

@@ -28,7 +28,7 @@ pollster = "0.4"
 ```
 
 Copy [examples/build.rs](../../examples/build.rs) to your application's `src/main.rs`
-and run `cargo run`. It demonstrates the catalog → document → selection → validation
+and run `cargo run`.
 → encoding flow, including error handling and filesystem I/O.
 
 ## Render a PNG
@@ -36,8 +36,8 @@ and run `cargo run`. It demonstrates the catalog → document → selection → 
 Inside the example's async block, after creating the schematic:
 
 ```rust
-let assets = data.geometry_assets(&scene.version)?;
-let prepared = assets.prepare(&scene, &mcschemora::render::SceneOptions::default())?;
+let assets = data.geometry_assets(&schematic.version)?;
+let prepared = assets.prepare(&schematic, &mcschemora::render::SceneOptions::default())?;
 let png = mcschemora::render::png::encode(&prepared, &mcschemora::render::png::Options::default())?;
 fs::write(output.join("floor.png"), png)?;
 println!("Visual diagnostics: {:?}", prepared.diagnostics);

@@ -18,41 +18,41 @@ pub const MAX_VOLUME: usize = 16_777_216;
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Block {
     /// Namespaced Minecraft identifier.
-    pub name: String,
+    pub id: String,
     /// Minecraft property names mapped to string values.
     pub properties: BTreeMap<String, String>,
 }
 impl Block {
     /// Normalizes and checks an identifier without validating catalog properties.
-    pub fn new(name: &str, properties: BTreeMap<String, String>) -> Result<Self> {
-        let name = catalog::namespace(name);
-        if !name
+    pub fn new(id: &str, properties: BTreeMap<String, String>) -> Result<Self> {
+        let id = catalog::namespace(id);
+        if !id
             .chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || "_:./-".contains(c))
-            || name.split(':').count() != 2
-            || name.split(':').any(str::is_empty)
+            || id.split(':').count() != 2
+            || id.split(':').any(str::is_empty)
         {
-            return Err(format!("Invalid block identifier {name:?}"));
+            return Err(format!("Invalid block identifier {id:?}"));
         }
-        Ok(Self { name, properties })
+        Ok(Self { id, properties })
     }
     /// Creates an ordinary minecraft:air block without properties.
     pub fn air() -> Self {
         Self {
-            name: "minecraft:air".into(),
+            id: "minecraft:air".into(),
             properties: BTreeMap::new(),
         }
     }
     /// Whether the identifier is air, cave_air, or void_air.
     pub fn is_air(&self) -> bool {
         matches!(
-            self.name.as_str(),
+            self.id.as_str(),
             "minecraft:air" | "minecraft:cave_air" | "minecraft:void_air"
         )
     }
     /// Parses identifier[property=value,...], rejecting malformed or duplicate properties.
     pub fn parse(s: &str) -> Result<Self> {
-        let (name, properties) = if let Some((n, tail)) = s.split_once('[') {
+        let (id, properties) = if let Some((n, tail)) = s.split_once('[') {
             let inner = tail.strip_suffix(']').ok_or("Block state is missing ]")?;
             let mut props = BTreeMap::new();
             if !inner.is_empty() {
@@ -67,11 +67,11 @@ impl Block {
         } else {
             (s, BTreeMap::new())
         };
-        Self::new(name, properties)
+        Self::new(id, properties)
     }
     /// Returns the full state string with properties in sorted order.
     pub fn text(&self) -> String {
-        let mut text = self.name.clone();
+        let mut text = self.id.clone();
         if !self.properties.is_empty() {
             let properties = self
                 .properties
@@ -167,7 +167,7 @@ impl Bounds {
         Self::new(min, size)
     }
 }
-/// A free entity with a document-local reference and region-local position.
+/// A entity with a schematic-local reference and region-local position.
 #[derive(Clone, Debug)]
 pub struct Entity {
     /// Schematic-local reference used for entity operations.
@@ -208,10 +208,10 @@ pub struct BedrockData {
     pub position_data: BTreeMap<Position, Compound>,
 }
 
-/// A named document area whose cells and entities use local coordinates.
+/// A named schematic area whose cells and entities use local coordinates.
 #[derive(Clone, Debug, Default)]
 pub struct Region {
-    /// World coordinates corresponding to local [0, 0, 0].
+    /// Schematic-global coordinates corresponding to local [0, 0, 0].
     pub origin: Position,
     /// Stored extent in local cell coordinates.
     pub bounds: Bounds,
@@ -219,7 +219,7 @@ pub struct Region {
     pub blocks: BlockStorage,
     /// Block-entity compounds keyed by local cell coordinates.
     pub block_entities: BTreeMap<Position, Compound>,
-    /// Free entities with local floating-point positions.
+    /// Entities with local floating-point positions.
     pub entities: Vec<Entity>,
     /// Native format data that may restrict resizing or transforms.
     pub retained: RetainedData,
@@ -227,7 +227,7 @@ pub struct Region {
     pub present: Option<BTreeSet<Position>>,
 }
 impl Region {
-    /// Creates an empty region at the given world origin.
+    /// Creates an empty region at the given schematic-global origin.
     pub fn new(origin: Position) -> Self {
         Self {
             origin,
@@ -302,7 +302,7 @@ impl Region {
         Ok(())
     }
     fn block_id(&mut self, block: &Block) -> Option<u32> {
-        if block.name == "minecraft:air" && block.properties.is_empty() {
+        if block.id == "minecraft:air" && block.properties.is_empty() {
             None
         } else {
             Some(self.blocks.intern(block))
@@ -336,7 +336,7 @@ impl Region {
         Ok(())
     }
 }
-/// A versioned Minecraft document containing named regions and metadata.
+/// A versioned Minecraft schematic containing named regions and metadata.
 ///
 /// Use catalog-checked editing methods to preserve block and bounds invariants.
 #[derive(Clone, Debug)]
@@ -347,23 +347,23 @@ pub struct Schematic {
     pub catalog: Option<std::sync::Arc<catalog::Registry>>,
     /// Minecraft edition, such as java or bedrock.
     pub edition: String,
-    /// Minecraft version string associated with the document.
+    /// Minecraft version string associated with the schematic.
     pub version: String,
     /// Numeric Minecraft data version.
     pub data_version: i32,
     /// Regions indexed by their unique names.
     pub regions: BTreeMap<String, Region>,
-    /// Typed document metadata compound.
+    /// Typed schematic metadata compound.
     pub metadata: Compound,
-    /// Notices retained from format decoding and document operations.
+    /// Notices retained from format decoding and schematic operations.
     pub notices: Vec<String>,
     /// Assumptions or omissions reported during import.
     pub import_diagnostics: Vec<String>,
-    /// Next document-local entity reference allocated by editing operations.
+    /// Next schematic-local entity reference allocated by editing operations.
     pub next_entity: u64,
 }
 impl Schematic {
-    /// Creates a Java document with a main region using an already loaded catalog.
+    /// Creates a Java schematic with a main region using an already loaded catalog.
     ///
     /// Call MinecraftData::load first. New Bedrock authoring is unsupported.
     pub fn new(
@@ -375,12 +375,12 @@ impl Schematic {
             return Err("New authoring currently supports Java Edition".into());
         }
         let catalog = data.registry(version)?;
-        let mut doc = Self::imported(data);
-        doc.version = catalog.version.clone();
-        doc.data_version = catalog.data_version;
-        doc.catalog = Some(catalog);
-        doc.regions.insert("main".into(), Region::new([0; 3]));
-        Ok(doc)
+        let mut schematic = Self::imported(data);
+        schematic.version = catalog.version.clone();
+        schematic.data_version = catalog.data_version;
+        schematic.catalog = Some(catalog);
+        schematic.regions.insert("main".into(), Region::new([0; 3]));
+        Ok(schematic)
     }
     pub(crate) fn imported(data: std::sync::Arc<catalog::MinecraftData>) -> Self {
         Self {
@@ -417,7 +417,7 @@ impl Schematic {
             .get_mut(name)
             .ok_or_else(|| format!("Unknown region {name:?}"))
     }
-    /// Checks game rules without changing the document or simulating world ticks.
+    /// Checks game rules without changing the schematic or simulating world ticks.
     pub fn validate(&self) -> crate::validate::Report {
         crate::validate::validate(self)
     }
@@ -426,18 +426,18 @@ impl Schematic {
         crate::validate::repair(self, rules)
     }
 }
-/// Fixed membership of local cells and document-local entity references.
+/// Fixed membership of local cells and schematic-local entity references.
 #[derive(Clone, Debug)]
 pub struct Selection {
     /// Local bounding box for the selected cells.
     pub bounds: Bounds,
     /// Explicit cell membership; None selects every cell in bounds.
     pub cells: Option<BTreeSet<Position>>,
-    /// References of selected free entities.
+    /// References of selected entities.
     pub entities: BTreeSet<u64>,
 }
 impl Selection {
-    /// Selects all cells and the currently enclosed free entities in a local box.
+    /// Selects all cells and the currently enclosed entities in a local box.
     pub fn new(r: &Region, bounds: Bounds) -> Self {
         Self {
             bounds,
@@ -477,7 +477,7 @@ impl Selection {
             .into_iter()
             .filter(|&p| {
                 let b = r.get(p);
-                id.as_ref().is_none_or(|id| id == &b.name)
+                id.as_ref().is_none_or(|id| id == &b.id)
                     && props.iter().all(|(k, v)| b.properties.get(k) == Some(v))
             })
             .collect();
@@ -540,7 +540,7 @@ pub struct Fragment {
     pub size: Position,
     /// Relative cell positions, shared block values, and optional attached NBT.
     pub edits: Vec<(Position, std::sync::Arc<Block>, Option<Compound>)>,
-    /// Copied free entities with positions relative to the fragment origin.
+    /// Copied entities with positions relative to the fragment origin.
     pub entities: Vec<Entity>,
 }
 /// Converts north, south, east, west, up, or down to a unit coordinate vector.

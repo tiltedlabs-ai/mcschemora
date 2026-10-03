@@ -16,8 +16,8 @@ pub(super) struct Cells<'a> {
 }
 
 impl<'a> Cells<'a> {
-    pub(super) fn new(document: &'a Schematic, options: &SceneOptions) -> Result<Self> {
-        let regions: Vec<_> = document
+    pub(super) fn new(schematic: &'a Schematic, options: &SceneOptions) -> Result<Self> {
+        let regions: Vec<_> = schematic
             .regions
             .iter()
             .filter(|(name, _)| {

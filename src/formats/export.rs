@@ -12,16 +12,16 @@ pub struct ExportReport {
 }
 
 pub async fn check_export(
-    doc: &Schematic,
+    schematic: &Schematic,
     format: &str,
     version: Option<&str>,
     flatten: bool,
 ) -> Result<ExportReport> {
     valid_format(format)?;
     Ok(
-        match convert::document(doc, version)
+        match convert::schematic(schematic, version)
             .await
-            .and_then(|doc| prepare(&doc, format, flatten).map(|(_, losses)| losses))
+            .and_then(|schematic| prepare(&schematic, format, flatten).map(|(_, losses)| losses))
         {
             Ok(losses) => ExportReport {
                 errors: vec![],
@@ -36,40 +36,40 @@ pub async fn check_export(
 }
 
 fn prepare<'a>(
-    doc: &'a Schematic,
+    schematic: &'a Schematic,
     format: &str,
     flatten: bool,
 ) -> Result<(Option<Cow<'a, Region>>, Vec<String>)> {
     valid_format(format)?;
-    if doc.regions.is_empty() {
+    if schematic.regions.is_empty() {
         return Err("Schematic has no regions".into());
     }
-    if doc.edition == "bedrock" && format != "mcstructure" {
+    if schematic.edition == "bedrock" && format != "mcstructure" {
         return Err("Bedrock-to-Java state and entity mapping is not implemented".into());
     }
     if format == "blueprint" {
-        let output = blueprint::encode(doc, &blueprint::Options::default())?;
+        let output = blueprint::encode(schematic, &blueprint::Options::default())?;
         let mut losses = output.diagnostics;
-        losses.push("Blueprints store sprite grids, not full block states, world coordinates, region bounds, or metadata".into());
-        losses.extend(doc.notices.iter().cloned());
+        losses.push("Blueprints store sprite grids, not full block states, schematic-global coordinates, region bounds, or metadata".into());
+        losses.extend(schematic.notices.iter().cloned());
         return Ok((None, losses));
     }
     let single = if format == "litematic" {
         None
     } else {
-        Some(single(doc, flatten)?)
+        Some(single(schematic, flatten)?)
     };
     let mut losses = vec![];
-    if doc.regions.len() > 1 && format != "litematic" {
+    if schematic.regions.len() > 1 && format != "litematic" {
         losses
             .push("Destination stores one region; region names and boundaries will be lost".into());
     }
-    if !doc.metadata.is_empty() && matches!(format, "nbt" | "snbt" | "mcstructure") {
-        losses.push("Destination does not retain document metadata".into());
+    if !schematic.metadata.is_empty() && matches!(format, "nbt" | "snbt" | "mcstructure") {
+        losses.push("Destination does not retain schematic metadata".into());
     }
     let regions: Vec<_> = match &single {
         Some(r) => vec![("main", r.as_ref())],
-        None => doc
+        None => schematic
             .regions
             .iter()
             .map(|(name, r)| (name.as_str(), r))
@@ -129,28 +129,28 @@ fn prepare<'a>(
             for b in &blocks {
                 mcstructure::palette_entry(b, original)?;
             }
-            if doc.edition == "bedrock" && original.is_none() {
+            if schematic.edition == "bedrock" && original.is_none() {
                 return Err("Missing retained Bedrock data".into());
             }
         }
         if (!r.entities.is_empty() || !r.block_entities.is_empty())
             && format == "mcstructure"
-            && doc.edition == "java"
+            && schematic.edition == "java"
         {
             losses.push(format!(
                 "Entity NBT cannot be converted to {format} automatically"
             ));
         }
     }
-    losses.extend(doc.notices.iter().cloned());
+    losses.extend(schematic.notices.iter().cloned());
     losses.sort();
     losses.dedup();
     Ok((single, losses))
 }
 
-fn single(doc: &Schematic, flatten: bool) -> Result<Cow<'_, Region>> {
-    if doc.regions.len() == 1 {
-        return Ok(Cow::Borrowed(doc.regions.values().next().unwrap()));
+fn single(schematic: &Schematic, flatten: bool) -> Result<Cow<'_, Region>> {
+    if schematic.regions.len() == 1 {
+        return Ok(Cow::Borrowed(schematic.regions.values().next().unwrap()));
     }
     if !flatten {
         return Err("Multiple regions require flatten=True".into());
@@ -158,7 +158,7 @@ fn single(doc: &Schematic, flatten: bool) -> Result<Cow<'_, Region>> {
     let mut bounds: Vec<Bounds> = vec![];
     let mut ends = vec![];
     let mut volume = 0;
-    for source in doc.regions.values() {
+    for source in schematic.regions.values() {
         if !source.retained.is_empty() {
             return Err("Flattening regions with retained spatial data is not supported".into());
         }
@@ -180,10 +180,10 @@ fn single(doc: &Schematic, flatten: bool) -> Result<Cow<'_, Region>> {
     }
     let mut r = Region::new([0; 3]);
     r.bounds = Bounds::around(ends.into_iter())?;
-    if volume < r.bounds.volume()? || doc.regions.values().any(|r| r.present.is_some()) {
+    if volume < r.bounds.volume()? || schematic.regions.values().any(|r| r.present.is_some()) {
         r.present = Some(BTreeSet::new());
     }
-    for source in doc.regions.values() {
+    for source in schematic.regions.values() {
         let t = Transform::move_by(source.origin);
         for (p, b) in source.blocks.iter() {
             r.blocks.set(t.cell(*p)?, b);
@@ -214,21 +214,21 @@ fn single(doc: &Schematic, flatten: bool) -> Result<Cow<'_, Region>> {
     Ok(Cow::Owned(r))
 }
 
-/// Encodes a document, rejecting blocking errors and unaccepted losses.
+/// Encodes a schematic, rejecting blocking errors and unaccepted losses.
 ///
 /// allow_loss accepts reported omissions. flatten merges regions for single-region formats
 /// and reports boundary loss; overlapping region bounds error.
 pub async fn encode(
-    doc: &Schematic,
+    schematic: &Schematic,
     format: &str,
     version: Option<&str>,
     allow_loss: bool,
     flatten: bool,
 ) -> Result<Vec<u8>> {
     valid_format(format)?;
-    let converted = convert::document(doc, version).await?;
-    let doc = converted.as_ref();
-    let (single, losses) = prepare(doc, format, flatten)?;
+    let converted = convert::schematic(schematic, version).await?;
+    let schematic = converted.as_ref();
+    let (single, losses) = prepare(schematic, format, flatten)?;
     if !allow_loss && !losses.is_empty() {
         return Err(format!(
             "Export would lose information:\n{}",
@@ -236,19 +236,21 @@ pub async fn encode(
         ));
     }
     if format == "blueprint" {
-        return Ok(blueprint::encode(doc, &blueprint::Options::default())?
-            .text
-            .into_bytes());
+        return Ok(
+            blueprint::encode(schematic, &blueprint::Options::default())?
+                .text
+                .into_bytes(),
+        );
     }
     let root = if let Some(r) = single {
         match format {
-            "schem" => schem::write_schem(doc, &r)?,
-            "nbt" | "snbt" => structure::write_structure(doc, &r)?,
-            "mcstructure" => mcstructure::write_bedrock(doc, &r)?,
+            "schem" => schem::write_schem(schematic, &r)?,
+            "nbt" | "snbt" => structure::write_structure(schematic, &r)?,
+            "mcstructure" => mcstructure::write_bedrock(schematic, &r)?,
             _ => unreachable!(),
         }
     } else {
-        litematic::write_litematic(doc)?
+        litematic::write_litematic(schematic)?
     };
     if format == "snbt" {
         return Ok(nbt::to_snbt(&root)?.into_bytes());

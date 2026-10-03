@@ -4,7 +4,7 @@ use crate::{Result, catalog, model::*};
 use fastnbt::Value;
 use std::collections::BTreeSet;
 
-/// A grid transform applied to local cells, block states, and free entities.
+/// A grid transform applied to local cells, block states, and entities.
 #[derive(Clone, Copy)]
 pub struct Transform {
     /// Integer orientation matrix; supported operations use axis-aligned transforms.
@@ -192,7 +192,7 @@ impl Transform {
                         .round() as i32;
                     r.rem_euclid(16).to_string()
                 }
-                "shape" if b.name.ends_with("rail") => {
+                "shape" if b.id.ends_with("rail") => {
                     if let Some(side) = value.strip_prefix("ascending_") {
                         format!("ascending_{}", self.direction(side)?)
                     } else {
@@ -227,7 +227,7 @@ impl Transform {
             properties.insert(key.into(), mapped);
         }
         catalog.resolve(&Block {
-            name: b.name.clone(),
+            id: b.id.clone(),
             properties,
         })
     }
@@ -241,14 +241,14 @@ impl Transform {
 /// allows occupied targets. Selected air clears destinations, and self-overlap is safe
 /// for moves. Retained spatial data or unsupported state and NBT mappings cause errors.
 pub fn transform_selection(
-    doc: &mut Schematic,
+    schematic: &mut Schematic,
     name: &str,
     sel: &Selection,
     t: Transform,
     duplicate: bool,
     replace: bool,
 ) -> Result<Selection> {
-    let r = doc.region(name)?;
+    let r = schematic.region(name)?;
     if !r.retained.is_empty() {
         return Err("Region has retained format data (biomes or ticks); transform requires explicit removal or a supported mapping".into());
     }
@@ -265,7 +265,7 @@ pub fn transform_selection(
             ));
         }
         let b = if t.changes_orientation() {
-            t.block(&r.get(p), doc.registry()?)
+            t.block(&r.get(p), schematic.registry()?)
                 .map_err(|e| format!("{name} {p:?}: {e}"))?
         } else {
             r.get(p)
@@ -288,7 +288,7 @@ pub fn transform_selection(
         }
         edits.push((q, b, data));
     }
-    let mut next = doc.next_entity;
+    let mut next = schematic.next_entity;
     let entities = t.entities(
         r.entities
             .iter()
@@ -309,7 +309,7 @@ pub fn transform_selection(
         },
         entities: entities.iter().map(|e| e.reference).collect(),
     };
-    let r = doc.region_mut(name)?;
+    let r = schematic.region_mut(name)?;
     if !duplicate {
         r.clear(sel);
     }
@@ -318,6 +318,6 @@ pub fn transform_selection(
     }
     r.write(edits, Some(expanded))?;
     r.entities.extend(entities);
-    doc.next_entity = next;
+    schematic.next_entity = next;
     Ok(result)
 }

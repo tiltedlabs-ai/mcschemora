@@ -27,9 +27,9 @@ data.load("1.21.1")
 data.load_visuals("1.21.1")
 
 offline = MinecraftData(cache_dir=data.cache_dir, offline=True)
-scene = Schematic.create(version="1.21.1", data=offline)
-scene.region().set((0, 0, 0), block("stone"))
-scene.export_png("offline.png")
+schematic = Schematic.create(version="1.21.1", data=offline)
+schematic.region().set((0, 0, 0), block("stone"))
+schematic.export_png("offline.png")
 ```
 
 Skip `load_visuals` if only authoring or converting files. Offline cache misses

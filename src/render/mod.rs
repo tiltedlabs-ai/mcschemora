@@ -120,9 +120,9 @@ pub struct Draw {
 /// A block or entity placement referencing shared mesh geometry.
 #[derive(Clone, Debug, Serialize)]
 pub struct Instance {
-    /// Whether this placement represents a free entity.
+    /// Whether this placement represents an entity.
     pub is_entity: bool,
-    /// World position in block units.
+    /// Schematic-global position in block units.
     pub position: [f64; 3],
     /// Unit quaternion [x, y, z, w] applied to mesh-local positions.
     pub rotation: [f32; 4],
@@ -149,7 +149,7 @@ impl Instance {
 pub struct Diagnostic {
     /// Region containing the affected content.
     pub region: String,
-    /// World cell position of the affected content.
+    /// Schematic-global cell position of the affected content.
     pub position: Position,
     /// Block or entity description associated with the message.
     pub block: String,
@@ -169,34 +169,34 @@ pub struct PreparedScene {
     pub textures: Vec<Texture>,
     /// Reusable block and entity meshes.
     pub meshes: Vec<Mesh>,
-    /// World placements and visible mesh faces.
+    /// Schematic-global placements and visible mesh faces.
     pub instances: Vec<Instance>,
     /// Visual limitations detected while preparing the scene.
     pub diagnostics: Vec<Diagnostic>,
 }
 
-/// Region selection and inclusive world-coordinate filters for visual exports.
+/// Region selection and inclusive schematic-global coordinate filters for visual exports.
 #[derive(Clone, Debug, Default)]
 pub struct SceneOptions {
     /// Named region to include; None includes all regions.
     pub region: Option<String>,
-    /// Inclusive world X range; None keeps all X coordinates.
+    /// Inclusive global X range; None keeps all X coordinates.
     pub x: Option<[i32; 2]>,
-    /// Inclusive world Y range; None keeps all Y coordinates.
+    /// Inclusive global Y range; None keeps all Y coordinates.
     pub y: Option<[i32; 2]>,
-    /// Inclusive world Z range; None keeps all Z coordinates.
+    /// Inclusive global Z range; None keeps all Z coordinates.
     pub z: Option<[i32; 2]>,
 }
 
 impl SceneOptions {
-    pub(crate) fn validate(&self, document: &Schematic) -> Result<()> {
+    pub(crate) fn validate(&self, schematic: &Schematic) -> Result<()> {
         for (axis, range) in ["X", "Y", "Z"].into_iter().zip([self.x, self.y, self.z]) {
             if range.is_some_and(|range| range[0] > range[1]) {
                 return Err(format!("{axis} range start exceeds end"));
             }
         }
         if let Some(name) = &self.region {
-            document.region(name)?;
+            schematic.region(name)?;
         }
         Ok(())
     }
@@ -325,15 +325,15 @@ impl GeometryAssets {
         })
     }
 
-    /// Prepares selected world geometry without changing the document.
+    /// Prepares selected schematic-global geometry without changing the schematic.
     ///
     /// Collects diagnostics for unavailable models and visual approximations.
-    pub fn prepare(&self, document: &Schematic, options: &SceneOptions) -> Result<PreparedScene> {
-        if document.edition != "java" {
+    pub fn prepare(&self, schematic: &Schematic, options: &SceneOptions) -> Result<PreparedScene> {
+        if schematic.edition != "java" {
             return Err("Geometry preparation requires Java Edition visuals".into());
         }
-        options.validate(document)?;
-        let cells = cells::Cells::new(document, options)?;
+        options.validate(schematic)?;
+        let cells = cells::Cells::new(schematic, options)?;
         let mut selected_entities = Vec::new();
         let mut diagnostics = Vec::new();
         for &(name, region) in &cells.regions {
@@ -372,7 +372,7 @@ impl GeometryAssets {
             let block = cells.block(cell);
             let (region, source) = cells.regions[cell.region];
             if matches!(
-                block.name.as_str(),
+                block.id.as_str(),
                 "minecraft:barrier" | "minecraft:light" | "minecraft:structure_void"
             ) {
                 continue;
@@ -385,8 +385,7 @@ impl GeometryAssets {
                 .clone();
             let local = std::array::from_fn(|i| position[i] - source.origin[i]);
             let data = source.block_entities.get(&local);
-            if (data.is_some() && attachments::supported(block))
-                || block.name == "minecraft:spawner"
+            if (data.is_some() && attachments::supported(block)) || block.id == "minecraft:spawner"
             {
                 let key = (
                     block.clone(),
@@ -413,9 +412,9 @@ impl GeometryAssets {
                             }
                         }
                     }
-                    match attachments::contents(&mut builder, block, data, document.registry()?) {
+                    match attachments::contents(&mut builder, block, data, schematic.registry()?) {
                         Ok(mesh) if !mesh.quads.is_empty() => {
-                            if block.name == "minecraft:moving_piston" {
+                            if block.id == "minecraft:moving_piston" {
                                 modified.parts.clear();
                             }
                             let index = builder.meshes.len();
@@ -467,7 +466,7 @@ impl GeometryAssets {
             }
             let block = cells.block(cell);
             let display = matches!(
-                block.name.as_str(),
+                block.id.as_str(),
                 "minecraft:spawner" | "minecraft:trial_spawner"
             ) && state.parts.len() > 1;
             let mut draws = Vec::new();

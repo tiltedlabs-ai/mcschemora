@@ -138,7 +138,7 @@ Textured cutaway, with the roof excluded from this preview:
   <img src="../docs/assets/workshop.png" alt="Workshop cutaway">
 </p>
 
-Sprite diagram of local/world Y=1:
+Sprite diagram of local/global Y=1:
 
 <p align="center">
   <img src="../docs/assets/workshop-layer.png" alt="Workshop sprite layer">

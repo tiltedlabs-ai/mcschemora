@@ -32,7 +32,7 @@ fn repair_rule(block: &Block) -> Option<(&'static str, rules::Rule)> {
     }
 }
 
-pub fn repair(doc: &mut Schematic, selected: Option<&[String]>) -> Result<RepairReport> {
+pub fn repair(schematic: &mut Schematic, selected: Option<&[String]>) -> Result<RepairReport> {
     if let Some(selected) = selected {
         for rule in selected {
             if !["redstone", "stairs", "fences", "panes", "walls"].contains(&rule.as_str()) {
@@ -43,7 +43,7 @@ pub fn repair(doc: &mut Schematic, selected: Option<&[String]>) -> Result<Repair
             return Ok(RepairReport::default());
         }
     }
-    if doc
+    if schematic
         .regions
         .values()
         .any(|region| region.blocks.keys().any(|p| !region.bounds.contains(*p)))
@@ -51,7 +51,7 @@ pub fn repair(doc: &mut Schematic, selected: Option<&[String]>) -> Result<Repair
         return Err("Repair requires blocks inside their region bounds".into());
     }
     let mut diagnostics = Report::default();
-    let Some(mut scene) = prepare(doc, &mut diagnostics) else {
+    let Some(mut scene) = prepare(schematic, &mut diagnostics) else {
         if !diagnostics.errors.is_empty() {
             return Err(diagnostics.errors.join("\n"));
         }
@@ -60,7 +60,7 @@ pub fn repair(doc: &mut Schematic, selected: Option<&[String]>) -> Result<Repair
             ..RepairReport::default()
         });
     };
-    let registry = doc.registry()?;
+    let registry = schematic.registry()?;
     let shapes = registry.validation_shapes.get();
     let mut cells: Vec<_> = scene
         .cells
@@ -142,7 +142,7 @@ pub fn repair(doc: &mut Schematic, selected: Option<&[String]>) -> Result<Repair
         skipped,
     };
     for ((region, position), after) in edits {
-        let source = doc.regions.get_mut(&region).unwrap();
+        let source = schematic.regions.get_mut(&region).unwrap();
         let before = source.get(position);
         if before == after {
             continue;

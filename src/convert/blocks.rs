@@ -2,7 +2,7 @@ use super::*;
 
 pub(super) fn state(block: &Block, context: &Context) -> Result<Block> {
     let mut block = block.clone();
-    block.name = context.rename("block", &block.name)?;
+    block.id = context.rename("block", &block.id)?;
     context.target.resolve(&block)
 }
 
@@ -15,7 +15,7 @@ pub(super) fn nbt(data: &mut Compound, context: &Context) -> Result<()> {
         }
     }
     let block = state(&Block::new(&name, properties)?, context)?;
-    data.insert("Name".into(), V::String(block.name));
+    data.insert("Name".into(), V::String(block.id));
     if !block.properties.is_empty() {
         data.insert(
             "Properties".into(),

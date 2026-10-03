@@ -140,7 +140,7 @@ impl Registry {
     }
     /// Offset and count in the catalog's original state order, not property key order.
     pub(crate) fn state_offset(&self, block: &Block) -> Option<(usize, usize)> {
-        let schema = self.schema(&block.name).ok()?;
+        let schema = self.schema(&block.id).ok()?;
         let (mut offset, mut count) = (0usize, 1usize);
         for key in &schema.state_order {
             let property = schema.properties.get(key)?;
@@ -166,12 +166,12 @@ impl Registry {
     }
     /// Validates supplied block properties and fills omitted properties with defaults.
     pub fn resolve(&self, block: &Block) -> Result<Block> {
-        let props = &self.schema(&block.name)?.properties;
+        let props = &self.schema(&block.id)?.properties;
         for (key, value) in &block.properties {
             let property = props.get(key).ok_or_else(|| {
                 format!(
                     "{}: unknown property {key} in Java {}; allowed: {:?}",
-                    block.name,
+                    block.id,
                     self.version,
                     props.keys().collect::<Vec<_>>()
                 )
@@ -179,7 +179,7 @@ impl Registry {
             if !property.values.contains(value) {
                 return Err(format!(
                     "{}: invalid {key}={value}; allowed: {:?}",
-                    block.name, property.values
+                    block.id, property.values
                 ));
             }
         }

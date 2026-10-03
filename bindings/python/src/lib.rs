@@ -24,7 +24,7 @@ fn lock(d: &Shared) -> PyResult<MutexGuard<'_, Schematic>> {
     d.lock().map_err(|_| error("Schematic lock poisoned"))
 }
 fn state(b: Block) -> State {
-    (b.name, b.properties)
+    (b.id, b.properties)
 }
 fn block_snapshot<'a, 'py>(
     py: Python<'py>,
@@ -310,8 +310,8 @@ impl PySchematic {
                 (
                     change.region,
                     change.position,
-                    (change.before.name, change.before.properties),
-                    (change.after.name, change.after.properties),
+                    (change.before.id, change.before.properties),
+                    (change.after.id, change.after.properties),
                 )
             })
             .collect();

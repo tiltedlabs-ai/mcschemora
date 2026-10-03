@@ -13,10 +13,10 @@ use fastnbt::Value;
 use std::collections::BTreeMap;
 
 pub(super) fn supported(block: &Block) -> bool {
-    block.name.ends_with("_sign")
-        || block.name.ends_with("_banner")
+    block.id.ends_with("_sign")
+        || block.id.ends_with("_banner")
         || matches!(
-            block.name.as_str(),
+            block.id.as_str(),
             "minecraft:decorated_pot"
                 | "minecraft:spawner"
                 | "minecraft:trial_spawner"
@@ -94,10 +94,10 @@ pub(super) fn decorate(
     data: &Compound,
     mesh: &mut Mesh,
 ) -> Result<()> {
-    if block.name.ends_with("_sign") {
+    if block.id.ends_with("_sign") {
         signs::bake(assets, block, data, mesh)?;
     }
-    if block.name.ends_with("_banner") {
+    if block.id.ends_with("_banner") {
         let flag: Vec<_> = mesh
             .quads
             .iter()
@@ -128,7 +128,7 @@ pub(super) fn decorate(
             }
         }
     }
-    if block.name == "minecraft:decorated_pot" {
+    if block.id == "minecraft:decorated_pot" {
         let sherds = list(data.get("sherds"));
         for q in &mut mesh.quads {
             if assets.textures[q.texture].name
@@ -235,7 +235,7 @@ pub(super) fn contents(
     };
     let empty = Compound::new();
     let data = data.unwrap_or(&empty);
-    if block.name == "minecraft:moving_piston"
+    if block.id == "minecraft:moving_piston"
         && let Some(state) = compound(data.get("blockState"))
     {
         let id = string(state.get("Name")).unwrap_or("minecraft:air");
@@ -276,7 +276,7 @@ pub(super) fn contents(
         };
         transform(&mut mesh, 1., direction.map(|v| v * displacement), 0.);
     }
-    if block.name == "minecraft:beacon"
+    if block.id == "minecraft:beacon"
         && number(data.get("Levels")) > 0.
         && let Some(&texture) = builder
             .assets
@@ -300,17 +300,16 @@ pub(super) fn contents(
             });
         }
     }
-    if block.name == "minecraft:spawner" || block.name == "minecraft:trial_spawner" {
+    if block.id == "minecraft:spawner" || block.id == "minecraft:trial_spawner" {
         let spawn = compound(data.get("SpawnData")).or_else(|| compound(data.get("spawn_data")));
         let entity = spawn.and_then(|s| compound(s.get("entity")));
-        let id =
-            entity
-                .and_then(|e| string(e.get("id")))
-                .or(if block.name == "minecraft:spawner" {
-                    Some("minecraft:pig")
-                } else {
-                    None
-                });
+        let id = entity
+            .and_then(|e| string(e.get("id")))
+            .or(if block.id == "minecraft:spawner" {
+                Some("minecraft:pig")
+            } else {
+                None
+            });
         if let Some(id) = id {
             let mut mob = super::entities::bake(builder.assets, id)?;
             transform(&mut mob, 0.35, [0.5, 0.2, 0.5], 45.);
@@ -318,7 +317,7 @@ pub(super) fn contents(
         }
     }
     if matches!(
-        block.name.as_str(),
+        block.id.as_str(),
         "minecraft:campfire" | "minecraft:soul_campfire"
     ) {
         for (i, value) in list(data.get("Items")).iter().take(4).enumerate() {
@@ -349,10 +348,10 @@ pub(super) fn contents(
             }
         }
     }
-    let display = if block.name == "minecraft:vault" {
+    let display = if block.id == "minecraft:vault" {
         compound(data.get("shared_data")).and_then(|d| compound(d.get("display_item")))
     } else if matches!(
-        block.name.as_str(),
+        block.id.as_str(),
         "minecraft:suspicious_sand" | "minecraft:suspicious_gravel"
     ) {
         if number(
@@ -379,7 +378,7 @@ pub(super) fn contents(
             [
                 0.325,
                 0.35,
-                if block.name == "minecraft:vault" {
+                if block.id == "minecraft:vault" {
                     0.325
                 } else {
                     0.88

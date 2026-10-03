@@ -7,7 +7,7 @@ use crate::{
 use fastnbt::ByteArray;
 use std::collections::HashMap;
 
-pub(super) fn read_schem(root: &Compound, doc: &mut Schematic) -> Result<()> {
+pub(super) fn read_schem(root: &Compound, schematic: &mut Schematic) -> Result<()> {
     let root = if let Some(v) = root.get("Schematic") {
         compound(v)?
     } else {
@@ -18,13 +18,13 @@ pub(super) fn read_schem(root: &Compound, doc: &mut Schematic) -> Result<()> {
         return Err(format!("Unsupported Sponge version {format}"));
     }
     version(
-        doc,
+        schematic,
         root.get("DataVersion")
             .map(number)
             .transpose()?
             .unwrap_or(0),
     )?;
-    doc.metadata = root
+    schematic.metadata = root
         .get("Metadata")
         .map(compound)
         .transpose()?
@@ -89,7 +89,7 @@ pub(super) fn read_schem(root: &Compound, doc: &mut Schematic) -> Result<()> {
         &mut r,
         true,
     )?;
-    read_entities(root, "Entities", &mut r, doc, "schem")?;
+    read_entities(root, "Entities", &mut r, schematic, "schem")?;
     let mut biomes = Compound::new();
     for k in ["Biomes", "BiomeData", "BiomePalette", "BiomePaletteMax"] {
         if let Some(v) = root.get(k) {
@@ -97,14 +97,14 @@ pub(super) fn read_schem(root: &Compound, doc: &mut Schematic) -> Result<()> {
         }
     }
     if format < 3 && !biomes.is_empty() {
-        doc.notices.push("Older Sponge biome encoding is retained but cannot be converted to v3 without an explicit mapping".into());
+        schematic.notices.push("Older Sponge biome encoding is retained but cannot be converted to v3 without an explicit mapping".into());
     }
     r.retained.spatial = biomes;
-    doc.regions.insert("main".into(), r);
+    schematic.regions.insert("main".into(), r);
     Ok(())
 }
 
-pub(super) fn write_schem(doc: &Schematic, r: &Region) -> Result<Compound> {
+pub(super) fn write_schem(schematic: &Schematic, r: &Region) -> Result<Compound> {
     let (pal, ids) = palette(r);
     let mut data = vec![];
     for p in r.bounds.positions() {
@@ -134,14 +134,14 @@ pub(super) fn write_schem(doc: &Schematic, r: &Region) -> Result<Compound> {
     ]);
     let mut root = Compound::from([
         ("Version".into(), V::Int(3)),
-        ("DataVersion".into(), V::Int(doc.data_version)),
+        ("DataVersion".into(), V::Int(schematic.data_version)),
         ("Width".into(), V::Short(r.bounds.size[0] as i16)),
         ("Height".into(), V::Short(r.bounds.size[1] as i16)),
         ("Length".into(), V::Short(r.bounds.size[2] as i16)),
         ("Offset".into(), int_array(offset)),
         ("Blocks".into(), blocks),
         ("Entities".into(), entities(r, r.bounds.start, "schem")),
-        ("Metadata".into(), V::Compound(doc.metadata.clone())),
+        ("Metadata".into(), V::Compound(schematic.metadata.clone())),
     ]);
     if let Some(b) = r.retained.spatial.get("Biomes") {
         root.insert("Biomes".into(), b.clone());

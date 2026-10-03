@@ -20,7 +20,7 @@ pub struct Options {
     pub name: String,
     /// Named region to export; None includes all regions.
     pub region: Option<String>,
-    /// Inclusive world Y range; None includes all layers containing blocks.
+    /// Inclusive global Y range; None includes all layers containing blocks.
     pub y: Option<[i32; 2]>,
     /// Number of quarter turns about Y.
     pub rotation: i32,
@@ -66,12 +66,12 @@ fn escaped(value: &str) -> String {
         .collect()
 }
 
-/// Exports selected Java blocks as layered wiki markup without modifying the document.
+/// Exports selected Java blocks as layered wiki markup without modifying the schematic.
 ///
 /// Returns diagnostics for visual omissions. Overlapping selected cells and oversized
 /// layers are errors.
-pub fn encode(document: &Schematic, options: &Options) -> Result<Output> {
-    if document.edition != "java" {
+pub fn encode(schematic: &Schematic, options: &Options) -> Result<Output> {
+    if schematic.edition != "java" {
         return Err("Layered blueprints require Java Edition block states".into());
     }
     if options.name.trim().is_empty() || options.name.chars().any(char::is_control) {
@@ -81,7 +81,7 @@ pub fn encode(document: &Schematic, options: &Options) -> Result<Output> {
         return Err("Y range start exceeds end".into());
     }
     if let Some(name) = &options.region {
-        document.region(name)?;
+        schematic.region(name)?;
     }
     for sprite in options.sprites.values() {
         if sprite.trim().is_empty()
@@ -94,7 +94,7 @@ pub fn encode(document: &Schematic, options: &Options) -> Result<Output> {
             );
         }
     }
-    let catalog = document.registry()?;
+    let catalog = schematic.registry()?;
     let transform = Transform::rotate("y", options.rotation, [0.5; 3])?;
     let selected_y = |y: i32| options.y.is_none_or(|range| y >= range[0] && y <= range[1]);
     let mut cells = BTreeMap::<Position, Block>::new();
@@ -102,7 +102,7 @@ pub fn encode(document: &Schematic, options: &Options) -> Result<Output> {
     let mut diagnostics = BTreeSet::new();
     let mut entities = 0;
     let mut attached = 0;
-    for (name, region) in &document.regions {
+    for (name, region) in &schematic.regions {
         if options
             .region
             .as_ref()
@@ -114,26 +114,24 @@ pub fn encode(document: &Schematic, options: &Options) -> Result<Output> {
             if block.is_air() {
                 continue;
             }
-            let mut world = [0; 3];
+            let mut global_position = [0; 3];
             for axis in 0..3 {
-                world[axis] = region.origin[axis]
+                global_position[axis] = region.origin[axis]
                     .checked_add(local[axis])
                     .ok_or("Blueprint coordinate overflow")?;
             }
-            if !selected_y(world[1]) {
+            if !selected_y(global_position[1]) {
                 continue;
             }
-            let position = transform.cell(world)?;
+            let position = transform.cell(global_position)?;
             if !palette.contains_key(block) {
                 let display = transform.block(&catalog.resolve(block)?, catalog)?;
-                let sprite = crate::sprite_ids::resolve(
-                    &display,
-                    catalog.block_display_name(&display.name)?,
-                );
+                let sprite =
+                    crate::sprite_ids::resolve(&display, catalog.block_display_name(&display.id)?);
                 let override_name = options
                     .sprites
                     .get(&block.text())
-                    .or_else(|| options.sprites.get(&block.name));
+                    .or_else(|| options.sprites.get(&block.id));
                 if override_name.is_none() && !sprite.omitted.is_empty() {
                     diagnostics.insert(format!(
                         "{}: sprite does not encode {}",
@@ -145,7 +143,7 @@ pub fn encode(document: &Schematic, options: &Options) -> Result<Output> {
             }
             if cells.insert(position, block.clone()).is_some() {
                 return Err(format!(
-                    "Selected regions overlap at world position {world:?}"
+                    "Selected regions overlap at schematic-global position {global_position:?}"
                 ));
             }
             attached += usize::from(region.block_entities.contains_key(local));
@@ -189,7 +187,7 @@ pub fn encode(document: &Schematic, options: &Options) -> Result<Output> {
     }
     if entities > 0 {
         diagnostics.insert(format!(
-            "{entities} free entities are not represented by block layers"
+            "{entities} entities are not represented by block layers"
         ));
     }
     if attached > 0 {

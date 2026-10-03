@@ -1,6 +1,12 @@
 # MCSchemora for Python
 
-Python bindings for MCSchemora. Requires Python 3.10 or newer.
+Rust-based programmatic tools for editing, converting, and rendering Minecraft schematics.
+
+## Install
+
+```sh
+python -m pip install mcschemora
+```
 
 ## Install from source
 
@@ -19,7 +25,7 @@ After changing Rust code, run `make rebuild` to refresh the native extension.
 From the repository root:
 
 ```sh
-uv run --all-packages maturin build --release --manifest-path bindings/python/Cargo.toml --out dist
+uv run --all-packages maturin build --release --locked --manifest-path bindings/python/Cargo.toml --out dist
 ```
 
 Install the generated wheel from `dist/` with `python -m pip install <wheel-path>`
@@ -39,6 +45,12 @@ scene.save("floor.schem")
 
 ## Documentation
 
-- [Usage guide](../../docs/guides/usage.md) · [Examples and outputs](../../examples/README.md).
-- [API reference](../../docs/reference/api.md#python) · [Catalogs and offline preparation](../../docs/reference/minecraft-data.md).
-- [Documentation maintenance](../../docs/index.md#updating-documentation).
+- [Usage guide](https://github.com/whuang37/schemora/blob/master/docs/guides/usage.md) · [Examples and outputs](https://github.com/whuang37/schemora/blob/master/examples/README.md).
+- [API reference](https://github.com/whuang37/schemora/blob/master/docs/reference/api.md#python) · [Catalogs and offline preparation](https://github.com/whuang37/schemora/blob/master/docs/reference/minecraft-data.md).
+- [Release workflow](https://github.com/whuang37/schemora/blob/master/.github/workflows/python-release.yml).
+
+## Licensing
+
+Project code is MIT licensed. Bundled geometry and sprites have separate terms;
+each installed package includes notices and attribution under `mcschemora/licenses/`.
+MCSchemora is an independent project and is not affiliated with Mojang or Microsoft.

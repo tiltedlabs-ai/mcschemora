@@ -1,0 +1,113 @@
+name: Python distributions
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-distributions-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  wheels:
+    name: Wheel (${{ matrix.platform.name }})
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - name: linux-x86_64
+            runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            manylinux: '2014'
+          - name: linux-aarch64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            manylinux: '2014'
+          - name: macos-x86_64
+            runner: macos-15-intel
+            target: x86_64-apple-darwin
+            manylinux: 'off'
+          - name: macos-aarch64
+            runner: macos-15
+            target: aarch64-apple-darwin
+            manylinux: 'off'
+          - name: windows-x86_64
+            runner: windows-2022
+            target: x86_64-pc-windows-msvc
+            manylinux: 'off'
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1.51.0
+        with:
+          maturin-version: v1.15.0
+          target: ${{ matrix.platform.target }}
+          manylinux: ${{ matrix.platform.manylinux }}
+          args: --release --locked --strip --manifest-path bindings/python/Cargo.toml --out dist --compatibility pypi
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+      - name: Check wheel metadata
+        run: uvx --from 'twine>=6,<7' twine check --strict dist/*.whl
+      - name: Verify installed wheel on Python 3.10 and 3.14
+        run: |
+          release_root="$PWD"
+          wheel_paths=("$release_root"/dist/*.whl)
+          cd "$RUNNER_TEMP"
+          for python_version in 3.10 3.14; do
+            uv run --no-project --python "$python_version" --with "${wheel_paths[0]}" \
+              python "$release_root/scripts/smoke_python_release.py"
+          done
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: python-dist-${{ matrix.platform.name }}
+          path: dist/*.whl
+          if-no-files-found: error
+
+  sdist:
+    name: Source distribution
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+      - name: Build source distribution
+        uses: PyO3/maturin-action@v1.51.0
+        with:
+          maturin-version: v1.15.0
+          command: sdist
+          args: --manifest-path bindings/python/Cargo.toml --out dist
+      - name: Check source metadata
+        run: uvx --from 'twine>=6,<7' twine check --strict dist/*.tar.gz
+      - name: Build and verify from source distribution
+        run: |
+          release_root="$PWD"
+          source_paths=("$release_root"/dist/*.tar.gz)
+          cd "$RUNNER_TEMP"
+          uv run --no-project --python 3.12 --with "${source_paths[0]}" \
+            python "$release_root/scripts/smoke_python_release.py"
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: python-dist-sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error

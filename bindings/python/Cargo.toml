@@ -1,8 +1,11 @@
 [package]
 name = "mcschemora-python"
-version = "0.1.0"
+version.workspace = true
 edition = "2024"
 publish = false
+description = "Python bindings for Minecraft schematic authoring, conversion, and rendering"
+license = "MIT"
+repository = "https://github.com/whuang37/schemora"
 
 [lib]
 name = "_core"
@@ -13,3 +16,6 @@ mcschemora = { path = "../.." }
 pyo3 = { version = "0.27", features = ["extension-module", "abi3-py310"] }
 
 pollster = "0.4"
+
+[build-dependencies]
+serde_json = "1"

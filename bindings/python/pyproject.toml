@@ -4,14 +4,33 @@ build-backend = "maturin"
 
 [project]
 name = "mcschemora"
-version = "0.1.0"
-description = "Minecraft schematic authoring"
+dynamic = ["version"]
+description = "Rust-based programmatic Minecraft schematic authoring, editing, and rendering"
 requires-python = ">=3.10"
 readme = "README.md"
 license = "MIT"
+license-files = []
+keywords = ["minecraft", "schematic", "litematic", "nbt", "rendering"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Repository = "https://github.com/whuang37/schemora"
+Documentation = "https://github.com/whuang37/schemora/blob/master/docs/index.md"
+Issues = "https://github.com/whuang37/schemora/issues"
 
 [tool.maturin]
 python-source = "python"
 module-name = "mcschemora._core"
-include = [{ path = "licenses/**/*", from = "out-dir", to = "mcschemora/" }]
+include = [
+    { path = "licenses/**/*", from = "out-dir", to = "mcschemora/" },
+    { path = "README.md", format = "sdist" },
+]
 exclude = ["**/__pycache__/**", "**/*.pyc", "python/mcschemora/licenses/**/*"]

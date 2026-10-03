@@ -12,6 +12,7 @@ Choose a language quickstart, then use the guide or runnable examples for a work
 | Find an API contract | [Generated reference](reference/api.md) |
 | Select a Minecraft version or work offline | [Catalogs and assets](reference/minecraft-data.md) |
 | Run complete workflows and see their results | [Examples](../examples/README.md) |
+| Build and publish Python distributions | [Release workflow](../.github/workflows/python-release.yml) |
 
 ## Updating documentation
 

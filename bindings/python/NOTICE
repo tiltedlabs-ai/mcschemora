@@ -1,0 +1,25 @@
+MCSchemora code is distributed under the MIT license in licenses/LICENSE.
+
+This distribution also embeds third-party assets with separate terms:
+
+- Special block geometry: Mozilla Public License 2.0. See
+  licenses/block-models/LICENSE and licenses/block-models/SOURCE.md.
+  The corresponding modified source is data/block-models/models.json in
+  this release's source distribution.
+- Entity geometry: Mojang Minecraft asset terms and PrismarineJS's MIT
+  license. Original notices, source revisions, and modifications are in
+  licenses/entity-models/ATTRIBUTION.json. The corresponding source is
+  data/entity-models/entities.json in this release's source distribution.
+- Minecraft Wiki sprites: per-file credits and licensing declarations are
+  retained in licenses/wiki-sprites/ATTRIBUTION.json. These images are not
+  relicensed under the project's MIT license.
+
+LicenseRef-Minecraft-Assets in the package metadata identifies the Minecraft
+asset collection governed by its original notices and per-file terms. It
+does not grant additional rights to Mojang or other third-party content.
+Minecraft's EULA and usage guidelines are available at:
+https://www.minecraft.net/en-us/eula
+https://www.minecraft.net/en-us/usage-guidelines
+
+Runtime catalogs and visual assets are downloaded separately. Their sources
+are documented in licenses/runtime-data/SOURCE.md.

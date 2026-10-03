@@ -1,6 +1,6 @@
 # Minecraft runtime data
 
-Schemora fetches raw JSON files from
+MCSchemora fetches raw JSON files from
 [PrismarineJS/minecraft-data](https://github.com/PrismarineJS/minecraft-data/tree/8ffb321c74cffe779acf5c447d08c473c4c291d7)
 at commit `8ffb321c74cffe779acf5c447d08c473c4c291d7`.
 
@@ -38,7 +38,9 @@ at commit `67c9b138b00a6b67c29ba68dae74c41faef4889d`.
 
 ## Attribution
 
-Entity model definitions are bundled from the PrismarineViewer.
+Entity model definitions combine Mojang geometry and PrismarineViewer
+data. Source revisions, licenses, and local corrections are recorded in
+`data/entity-models/entities.json` under `source`.
 
 - [minecraft-data](https://github.com/PrismarineJS/minecraft-data/blob/8ffb321c74cffe779acf5c447d08c473c4c291d7/README.md).
 - [minecraft-assets](https://github.com/PrismarineJS/minecraft-assets/blob/67c9b138b00a6b67c29ba68dae74c41faef4889d/README.md).

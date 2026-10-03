@@ -10,6 +10,7 @@ import json
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import lru_cache
+from importlib.metadata import version as _package_version
 from os import PathLike
 from pathlib import Path
 from types import MappingProxyType
@@ -37,7 +38,7 @@ __all__ = [
     "item",
     "mob",
 ]
-__version__ = "0.1.0"
+__version__ = _package_version("mcschemora")
 Position: TypeAlias = tuple[int, int, int]
 FloatPosition: TypeAlias = tuple[float, float, float]
 PropertyValue: TypeAlias = str | int | bool

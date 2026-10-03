@@ -637,6 +637,7 @@ class Schematic:
         size: tuple[int, int] | list[int] = (1024, 1024),
         view: str = "isometric",
         grid: bool = False,
+        threads: int = 8,
         region: str | None = None,
         x: AxisRange = None,
         y: AxisRange = None,
@@ -653,6 +654,7 @@ class Schematic:
             view: isometric, top, bottom, north, south, east, or west. Cardinal names
                 describe the viewer's location; side views keep Y-up vertical.
             grid: Whether to draw outlined block edges; entities are excluded.
+            threads: Maximum rasterizer worker threads; a positive integer, default 8.
             region: Region name; None selects all regions.
             x: Global X coordinate or inclusive pair; None keeps all.
             y: Global Y coordinate or inclusive pair; None keeps all.
@@ -671,12 +673,15 @@ class Schematic:
             or any(type(v) is not int or not 1 <= v <= 4096 for v in size)
         ):
             raise ValueError("size must be (width, height), each between 1 and 4096")
+        if type(threads) is not int or threads < 1:
+            raise ValueError("threads must be a positive integer")
         content, diagnostics = self._native.png(
             region,
             [_axis_range(value, axis) for axis, value in zip("xyz", (x, y, z), strict=True)],
             size,
             view,
             grid,
+            threads,
         )
         Path(path).write_bytes(content)
         return tuple(diagnostics)

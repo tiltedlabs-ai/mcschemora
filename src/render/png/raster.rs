@@ -200,10 +200,9 @@ pub(super) fn render(
     faces: &[Face],
     size: [u32; 2],
     grid: Option<grid::Grid>,
+    threads: usize,
 ) -> Result<Vec<u8>> {
-    let workers = std::thread::available_parallelism()
-        .map_or(1, usize::from)
-        .min(8);
+    let workers = threads.min(size[1] as usize);
     let band_height = size[1].div_ceil(workers as u32).div_ceil(8).max(16) * 8;
     let mut bands = vec![Vec::new(); size[1].div_ceil(band_height) as usize];
     for face in faces {

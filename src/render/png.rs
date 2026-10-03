@@ -20,6 +20,7 @@ pub struct Options {
     pub view: View,
     /// Whether to draw outlined block edges, excluding entities.
     pub grid: bool,
+    pub threads: usize,
 }
 
 impl Default for Options {
@@ -28,6 +29,7 @@ impl Default for Options {
             size: [1024; 2],
             view: View::default(),
             grid: false,
+            threads: 8,
         }
     }
 }
@@ -55,9 +57,18 @@ pub fn encode(scene: &PreparedScene, options: &Options) -> Result<Vec<u8>> {
     if options.size.iter().any(|&v| v == 0 || v > 4096) {
         return Err("PNG dimensions must be between 1 and 4096 pixels".into());
     }
+    if options.threads == 0 {
+        return Err("PNG threads must be greater than zero".into());
+    }
     let frame = projection::prepare(scene, options)?;
     validate_textures(scene)?;
-    let pixels = raster::render(scene, &frame.faces, options.size, frame.grid)?;
+    let pixels = raster::render(
+        scene,
+        &frame.faces,
+        options.size,
+        frame.grid,
+        options.threads,
+    )?;
     let mut bytes = Vec::new();
     PngEncoder::new_with_quality(&mut bytes, CompressionType::Best, FilterType::Adaptive)
         .write_image(

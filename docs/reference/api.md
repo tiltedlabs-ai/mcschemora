@@ -289,6 +289,7 @@ Schematic.export_png(
     size: tuple[int, int] | list[int] = (1024, 1024),
     view: str = 'isometric',
     grid: bool = False,
+    threads: int = 8,
     region: str | None = None,
     x: AxisRange = None,
     y: AxisRange = None,
@@ -307,6 +308,7 @@ Palette states are converted once to 1.21.6 for rendering; stored blocks stay un
 - `size`: (width, height), each from 1 through 4096 pixels.
 - `view`: isometric, top, bottom, north, south, east, or west. Cardinal names describe the viewer's location; side views keep Y-up vertical.
 - `grid`: Whether to draw outlined block edges; entities are excluded.
+- `threads`: Maximum rasterizer worker threads; a positive integer, default 8.
 - `region`: Region name; None selects all regions.
 - `x`: Global X coordinate or inclusive pair; None keeps all.
 - `y`: Global Y coordinate or inclusive pair; None keeps all.
@@ -483,7 +485,7 @@ Prepares rendering assets and returns their cache directory.
 
 ### Region
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L801)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L806)
 
 An editing handle for a named region within a schematic.
 
@@ -626,7 +628,7 @@ The manager for NBT attached to this region's blocks.
 
 ### Selection
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L961)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L966)
 
 A set of region-local cells and entities that reads current content.
 
@@ -836,7 +838,7 @@ Bounds.size: Position
 
 ### Fragment
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1142)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1147)
 
 An independent copy of selected cells, attached data, and entities.
 
@@ -954,7 +956,7 @@ Returns a water block with level=0.
 
 ### Function bed
 
-[Source](../../bindings/python/src/lib.rs#L660)
+[Source](../../bindings/python/src/lib.rs#L666)
 
 `bed(*, color: str = 'red', head_toward: str = 'north') -> Placement`
 
@@ -969,7 +971,7 @@ Creates a bed placement anchored at the foot block when placed.
 
 ### Function door
 
-[Source](../../bindings/python/src/lib.rs#L681)
+[Source](../../bindings/python/src/lib.rs#L687)
 
 ```python
 door(
@@ -996,7 +998,7 @@ Creates a door placement anchored at the lower block when placed.
 
 ### Function sign
 
-[Source](../../bindings/python/src/lib.rs#L722)
+[Source](../../bindings/python/src/lib.rs#L728)
 
 ```python
 sign(
@@ -1021,7 +1023,7 @@ Creates a standing-sign placement with plain text on its front face.
 
 ### Function chest
 
-[Source](../../bindings/python/src/lib.rs#L702)
+[Source](../../bindings/python/src/lib.rs#L708)
 
 ```python
 chest(
@@ -1042,7 +1044,7 @@ Creates a single-chest placement with optional inventory contents.
 
 ### Function item
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1158)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1163)
 
 `item(identifier: str, *, count: int = 1, components: str | None = None) -> _Item`
 
@@ -1058,7 +1060,7 @@ Creates an inventory item value for chest().
 
 ### Function mob
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1181)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1186)
 
 `mob(identifier: str, *, persistent: bool = True, nbt: str | None = None) -> _Mob`
 
@@ -1092,7 +1094,7 @@ Returns a block schema for this schematic's Minecraft version.
 
 ### Entity
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1199)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1204)
 
 An immutable snapshot of a entity returned by Entities.get().
 
@@ -1110,7 +1112,7 @@ Entity.nbt: str
 
 ### Entities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1213)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1218)
 
 Access to a region's entities through schematic-local integer references.
 
@@ -1174,7 +1176,7 @@ Iterates a snapshot of this region's entity references.
 
 ### BlockEntities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1272)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1277)
 
 Access to typed NBT attached to blocks at region-local cell coordinates.
 

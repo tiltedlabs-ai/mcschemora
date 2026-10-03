@@ -223,6 +223,7 @@ impl PySchematic {
         size: [u32; 2],
         view: &str,
         grid: bool,
+        threads: usize,
     ) -> PyResult<(Bound<'py, PyBytes>, Vec<String>)> {
         let view = view.parse().map_err(error)?;
         let [x, y, z] = ranges;
@@ -233,7 +234,12 @@ impl PySchematic {
                 |scene| {
                     mcschemora::render::png::encode(
                         scene,
-                        &mcschemora::render::png::Options { size, view, grid },
+                        &mcschemora::render::png::Options {
+                            size,
+                            view,
+                            grid,
+                            threads,
+                        },
                     )
                 },
             )

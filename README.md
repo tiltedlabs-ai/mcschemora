@@ -19,10 +19,13 @@ Ready to go for agent-native authoring.
 
 ## Showcase
 
+Shan Shui style world [code](examples/jade_scroll.py)
 <p align="center">
-  <img src="docs/assets/jade-scroll.png" alt="Shan Shui style scrolls">
+  <img src="docs/assets/jade-scroll.png" alt="Shan Shui style world">
 </p>
 
+
+Gyroid reefs [code](examples/reef.py)
 <p align="center">
   <img src="docs/assets/reef.png" alt="Gyroid reefs">
 </p>

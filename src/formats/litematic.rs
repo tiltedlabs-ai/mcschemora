@@ -3,14 +3,15 @@ use crate::{
     Result,
     model::*,
     nbt::{Tag as V, *},
+    versions::ITEM_COMPONENTS,
 };
 use fastnbt::LongArray;
 
 pub(super) fn read_litematic(root: &Compound, doc: &mut Schematic) -> Result<()> {
     let v = number(get(root, "Version")?)?;
-    if !(4..=6).contains(&v) {
+    if !(4..=7).contains(&v) {
         return Err(format!(
-            "Supported Litematica versions are 4 through 6, got {v}"
+            "Supported Litematica versions are 4 through 7, got {v}"
         ));
     }
     version(doc, number(get(root, "MinecraftDataVersion")?)?)?;
@@ -75,7 +76,7 @@ pub(super) fn read_litematic(root: &Compound, doc: &mut Schematic) -> Result<()>
             if let Some(v) = c.get(k)
                 && !list(v)?.is_empty()
             {
-                ticks.insert(k.into(), v.clone());
+                ticks.insert(k.into(), rebase_ticks(Some(v), [0; 3], start)?);
             }
         }
         r.retained.spatial = ticks;
@@ -104,12 +105,21 @@ pub(super) fn write_litematic(doc: &Schematic) -> Result<Compound> {
                 longs[a + 1] |= val >> (64 - s);
             }
         }
-        let position = std::array::from_fn(|i| r.origin[i] + r.bounds.start[i]);
-        ends.push(position);
-        ends.push(std::array::from_fn(|i| position[i] + r.bounds.size[i] - 1));
+        let size = std::array::from_fn(|i| {
+            if r.bounds.start[i] < 0 && r.bounds.start[i] == 1 - r.bounds.size[i] {
+                -r.bounds.size[i]
+            } else {
+                r.bounds.size[i]
+            }
+        });
+        let entity_start = std::array::from_fn(|i| if size[i] < 0 { 0 } else { r.bounds.start[i] });
+        let position = std::array::from_fn(|i| r.origin[i] + entity_start[i]);
+        let minimum = std::array::from_fn(|i| r.origin[i] + r.bounds.start[i]);
+        ends.push(minimum);
+        ends.push(std::array::from_fn(|i| minimum[i] + r.bounds.size[i] - 1));
         let mut reg = Compound::from([
             ("Position".into(), pos_compound(position)),
-            ("Size".into(), pos_compound(r.bounds.size)),
+            ("Size".into(), pos_compound(size)),
             (
                 "BlockStatePalette".into(),
                 V::List(pal.iter().map(block_tag).collect()),
@@ -124,11 +134,11 @@ pub(super) fn write_litematic(doc: &Schematic) -> Result<Compound> {
                 "TileEntities".into(),
                 block_entities(r, r.bounds.start, false),
             ),
-            ("Entities".into(), entities(r, r.bounds.start, "litematic")),
+            ("Entities".into(), entities(r, entity_start, "litematic")),
         ]);
         for k in ["PendingBlockTicks", "PendingFluidTicks"] {
             let value = r.retained.spatial.get(k);
-            reg.insert(k.into(), rebase_ticks(value, r.bounds.start)?);
+            reg.insert(k.into(), rebase_ticks(value, r.bounds.start, [0; 3])?);
         }
         volume += n as i64;
         count += r.blocks.values().filter(|b| !b.is_air()).count() as i64;
@@ -158,7 +168,14 @@ pub(super) fn write_litematic(doc: &Schematic) -> Result<Compound> {
         pos_compound(Bounds::around(ends.into_iter())?.size),
     );
     Ok(Compound::from([
-        ("Version".into(), V::Int(6)),
+        (
+            "Version".into(),
+            V::Int(if doc.data_version >= ITEM_COMPONENTS {
+                7
+            } else {
+                6
+            }),
+        ),
         ("SubVersion".into(), V::Int(1)),
         ("MinecraftDataVersion".into(), V::Int(doc.data_version)),
         ("Metadata".into(), V::Compound(metadata)),
@@ -166,7 +183,7 @@ pub(super) fn write_litematic(doc: &Schematic) -> Result<Compound> {
     ]))
 }
 
-fn rebase_ticks(value: Option<&V>, start: Position) -> Result<V> {
+fn rebase_ticks(value: Option<&V>, source: Position, target: Position) -> Result<V> {
     let Some(value) = value else {
         return Ok(V::List(vec![]));
     };
@@ -177,7 +194,8 @@ fn rebase_ticks(value: Option<&V>, start: Position) -> Result<V> {
         };
         for (i, key) in ["x", "y", "z"].iter().enumerate() {
             let n = number(get(tick, key)?)?
-                .checked_sub(start[i])
+                .checked_sub(source[i])
+                .and_then(|n| n.checked_add(target[i]))
                 .ok_or("Tick coordinate overflow")?;
             tick.insert((*key).into(), V::Int(n));
         }

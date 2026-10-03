@@ -7,7 +7,7 @@ name = "mcschemora"
 dynamic = ["version"]
 description = "Rust-based programmatic Minecraft schematic authoring, editing, and rendering"
 requires-python = ">=3.10"
-readme = "README.md"
+readme = "../../bindings/python/README.md"
 license = "MIT"
 license-files = []
 keywords = ["minecraft", "schematic", "litematic", "nbt", "rendering"]
@@ -31,6 +31,5 @@ python-source = "python"
 module-name = "mcschemora._core"
 include = [
     { path = "licenses/**/*", from = "out-dir", to = "mcschemora/" },
-    { path = "README.md", format = "sdist" },
 ]
 exclude = ["**/__pycache__/**", "**/*.pyc", "python/mcschemora/licenses/**/*"]

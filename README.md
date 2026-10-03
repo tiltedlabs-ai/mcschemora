@@ -17,6 +17,17 @@ Ready to go for agent-native authoring.
 - Check Java game rules and inspect conversion losses before exporting.
 - Render textured PNGs, GLB models, sprite diagrams, and layered wiki blueprints.
 
+## Showcase
+
+<p align="center">
+  <img src="docs/assets/jade-scroll.png" alt="Shan Shui style scrolls">
+</p>
+
+<p align="center">
+  <img src="docs/assets/reef.png" alt="Gyroid reefs">
+</p>
+
+
 ## Get started
 
 ### Python

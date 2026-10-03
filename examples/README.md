@@ -13,6 +13,8 @@ Generated files go in the ignored `examples/output/` directory.
 | Inspect and convert | [convert.py](convert.py) | Destination file and export report |
 | Render and blueprint | [render.py](render.py) | Textured PNG, sprite PNG, GLB, `.wiki` template, visual diagnostics |
 | Build the README banner | [banner.py](banner.py) | `banner.schem`, `banner.png` |
+| Build procedural rainbow art | [reef.py](reef.py) | `reef.schem`, `reef.png` |
+| Build a jade mountain scroll | [jade_scroll.py](jade_scroll.py) | `jade-scroll.schem`, `jade-scroll.png` |
 
 ## Build and inspect
 
@@ -65,6 +67,27 @@ uv run --all-packages python examples/banner.py
 
 <p align="center">
   <img src="../docs/assets/banner.png" alt="MCSchemora island banner">
+</p>
+
+## Build the gyroid rainbow reef
+
+```sh
+uv run --all-packages python examples/reef.py
+```
+
+
+<p align="center">
+  <img src="../docs/assets/reef.png" alt="Procedural rainbow gyroid reef on a dark plinth" width="720">
+</p>
+
+## Build the jade mountain scroll
+
+```sh
+uv run --all-packages python examples/jade_scroll.py
+```
+
+<p align="center">
+  <img src="../docs/assets/jade-scroll.png" alt="Jade mountain scroll with floating islands, waterfalls, and a pavilion over water">
 </p>
 
 ## Copy, rotate, and restyle

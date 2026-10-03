@@ -355,8 +355,6 @@ pub struct Schematic {
     pub regions: BTreeMap<String, Region>,
     /// Typed document metadata compound.
     pub metadata: Compound,
-    /// Original import codec, if the document was decoded from a file.
-    pub source_format: Option<String>,
     /// Notices retained from format decoding and document operations.
     pub notices: Vec<String>,
     /// Assumptions or omissions reported during import.
@@ -393,7 +391,6 @@ impl Schematic {
             data_version: 0,
             regions: BTreeMap::new(),
             metadata: Compound::new(),
-            source_format: None,
             notices: vec![],
             import_diagnostics: vec![],
             next_entity: 1,

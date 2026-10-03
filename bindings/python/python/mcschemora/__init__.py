@@ -379,7 +379,7 @@ class Schematic:
 
         Args:
             content: Encoded schematic, or UTF-8 text for snbt and blueprint.
-            format: schem, litematic, nbt, snbt, schematic, mcstructure, or blueprint.
+            format: schem, litematic, nbt, snbt, mcstructure, or blueprint.
             data: Catalog provider; None uses the shared default provider.
             version: Explicit Java version required for blueprint import only.
             origin: World origin for blueprint import only; defaults to (0, 0, 0).
@@ -404,7 +404,7 @@ class Schematic:
         """Encodes the document, requiring explicit acceptance of reported losses.
 
         Args:
-            format: schem, litematic, nbt, snbt, schematic, mcstructure, or blueprint.
+            format: schem, litematic, nbt, snbt, mcstructure, or blueprint.
             allow_loss: Whether to accept omissions reported by check_export().
                 Blocking errors still prevent export.
             flatten: Whether to merge regions for a single-region format. Overlapping

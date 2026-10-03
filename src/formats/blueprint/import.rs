@@ -181,7 +181,6 @@ pub fn decode(
         }
     }
     document.regions.insert("main".into(), region);
-    document.source_format = Some("blueprint".into());
     document.import_diagnostics = notices;
     Ok(document)
 }

@@ -24,7 +24,6 @@ pub struct Registry {
     blocks: BTreeMap<String, BlockSchema>,
     items: BTreeSet<String>,
     mobs: BTreeSet<String>,
-    legacy_reverse: BTreeMap<Block, (u16, u8)>,
     pub(crate) validation_shapes: std::sync::OnceLock<crate::validate::Shapes>,
 }
 
@@ -210,14 +209,6 @@ impl Registry {
             Err(format!("Unknown living mob {id} in Java {}", self.version))
         }
     }
-
-    /// Returns the classic numeric block ID and metadata, or errors if unmapped.
-    pub fn legacy_pair(&self, block: &Block) -> Result<(u16, u8)> {
-        self.legacy_reverse
-            .get(block)
-            .copied()
-            .ok_or_else(|| format!("No legacy mapping for {}", block.text()))
-    }
 }
 
 fn is_mob(entry: &Value) -> bool {
@@ -241,7 +232,6 @@ impl Registry {
         blocks: Value,
         items: Value,
         entities: Value,
-        legacy: &BTreeMap<String, String>,
     ) -> Result<Self> {
         let blocks = index(blocks)?
             .into_iter()
@@ -253,32 +243,13 @@ impl Registry {
             .filter(|(_, entry)| is_mob(entry))
             .map(|(name, _)| name)
             .collect();
-        let mut catalog = Registry {
-            version: version.clone(),
+        Ok(Registry {
+            version,
             data_version,
             blocks,
             items,
             mobs,
-            legacy_reverse: BTreeMap::new(),
             validation_shapes: std::sync::OnceLock::new(),
-        };
-        for (key, value) in legacy {
-            let (id, meta) = key
-                .split_once(':')
-                .ok_or_else(|| format!("Invalid legacy mapping key {key}"))?;
-            let pair = (
-                id.parse::<u16>().map_err(|_| "Invalid legacy block ID")?,
-                meta.parse::<u8>()
-                    .map_err(|_| "Invalid legacy block metadata")?,
-            );
-            let raw = Block::parse(value)?;
-            let block = catalog.resolve(&raw).unwrap_or(raw);
-            catalog
-                .legacy_reverse
-                .entry(block)
-                .and_modify(|old| *old = (*old).min(pair))
-                .or_insert(pair);
-        }
-        Ok(catalog)
+        })
     }
 }

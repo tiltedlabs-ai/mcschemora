@@ -11,17 +11,15 @@ mod common;
 mod litematic;
 mod mcstructure;
 mod schem;
-mod schematic;
 mod structure;
 
 /// Supported codec names; nbt and snbt refer to Java structure documents.
-pub const FORMATS: [&str; 7] = [
+pub const FORMATS: [&str; 6] = [
     "blueprint",
     "schem",
     "litematic",
     "nbt",
     "snbt",
-    "schematic",
     "mcstructure",
 ];
 
@@ -83,16 +81,11 @@ pub async fn decode(
     if format != "mcstructure" {
         source.initialize().await?;
     }
-    if format == "schematic" {
-        source.load("1.13").await?;
-    }
     let mut doc = Schematic::imported(source);
-    doc.source_format = Some(format.into());
     match format {
         "schem" => schem::read_schem(&root, &mut doc)?,
         "litematic" => litematic::read_litematic(&root, &mut doc)?,
         "nbt" | "snbt" => structure::read_structure(&root, &mut doc)?,
-        "schematic" => schematic::read_legacy(&root, &mut doc)?,
         "mcstructure" => mcstructure::read_bedrock(&root, &mut doc)?,
         _ => unreachable!(),
     }
@@ -162,7 +155,7 @@ fn prepare<'a>(
         losses
             .push("Destination stores one region; region names and boundaries will be lost".into());
     }
-    if !doc.metadata.is_empty() && matches!(format, "nbt" | "snbt" | "schematic" | "mcstructure") {
+    if !doc.metadata.is_empty() && matches!(format, "nbt" | "snbt" | "mcstructure") {
         losses.push("Destination does not retain document metadata".into());
     }
     let regions: Vec<_> = match &single {
@@ -178,7 +171,6 @@ fn prepare<'a>(
         let volume = r.bounds.volume()?;
         let limit = match format {
             "schem" => 65535,
-            "schematic" => 32767,
             _ => i32::MAX,
         };
         if volume == 0 || r.bounds.size.iter().any(|&v| v > limit) {
@@ -217,18 +209,13 @@ fn prepare<'a>(
                 "{name}: Java structure files do not retain the placement origin"
             ));
         }
-        let blocks: BTreeSet<_> = r
-            .blocks
-            .states()
-            .chain(std::iter::once(&Block::air()))
-            .cloned()
-            .collect();
-        if format == "schematic" {
-            for b in &blocks {
-                doc.registry()?.legacy_pair(b)?;
-            }
-        }
         if format == "mcstructure" {
+            let blocks: BTreeSet<_> = r
+                .blocks
+                .states()
+                .chain(std::iter::once(&Block::air()))
+                .cloned()
+                .collect();
             let original = r.retained.bedrock.as_ref();
             for b in &blocks {
                 mcstructure::palette_entry(b, original)?;
@@ -238,8 +225,8 @@ fn prepare<'a>(
             }
         }
         if (!r.entities.is_empty() || !r.block_entities.is_empty())
-            && ((format == "schematic" && doc.source_format.as_deref() != Some("schematic"))
-                || (format == "mcstructure" && doc.edition == "java"))
+            && format == "mcstructure"
+            && doc.edition == "java"
         {
             losses.push(format!(
                 "Entity NBT cannot be converted to {format} automatically"
@@ -339,7 +326,6 @@ pub fn encode(doc: &Schematic, format: &str, allow_loss: bool, flatten: bool) ->
         match format {
             "schem" => schem::write_schem(doc, &r)?,
             "nbt" | "snbt" => structure::write_structure(doc, &r)?,
-            "schematic" => schematic::write_legacy(doc, &r)?,
             "mcstructure" => mcstructure::write_bedrock(doc, &r)?,
             _ => unreachable!(),
         }

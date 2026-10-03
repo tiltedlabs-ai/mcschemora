@@ -28,7 +28,6 @@ struct Loaded {
 pub struct MinecraftData {
     cache: storage::Cache,
     metadata: OnceLock<source::Metadata>,
-    legacy: OnceLock<BTreeMap<String, String>>,
     catalogs: Mutex<BTreeMap<String, Loaded>>,
     #[cfg(not(target_arch = "wasm32"))]
     geometry: Mutex<Option<Arc<crate::render::GeometryAssets>>>,
@@ -42,7 +41,6 @@ impl MinecraftData {
         Ok(Self {
             cache: storage::Cache::new(cache_dir, offline)?,
             metadata: OnceLock::new(),
-            legacy: OnceLock::new(),
             catalogs: Mutex::new(BTreeMap::new()),
             #[cfg(not(target_arch = "wasm32"))]
             geometry: Mutex::new(None),
@@ -93,12 +91,6 @@ impl MinecraftData {
         {
             return Ok(loaded.registry.clone());
         }
-        if self.legacy.get().is_none() {
-            let value = self.read("pc/common/legacy.json").await?;
-            let legacy = serde_json::from_value(value["blocks"].clone())
-                .map_err(|e| format!("Invalid legacy mappings: {e}"))?;
-            let _ = self.legacy.set(legacy);
-        }
         let mut datasets = BTreeMap::new();
         for kind in source::KINDS {
             datasets.insert(
@@ -112,7 +104,6 @@ impl MinecraftData {
             datasets["blocks"].clone(),
             datasets["items"].clone(),
             datasets["entities"].clone(),
-            self.legacy()?,
         )?);
         self.catalogs
             .lock()
@@ -152,12 +143,6 @@ impl MinecraftData {
 
     pub(crate) fn collision_shapes(&self, version: &str) -> Result<Value> {
         self.dataset(version, "blockCollisionShapes")
-    }
-
-    pub(crate) fn legacy(&self) -> Result<&BTreeMap<String, String>> {
-        self.legacy
-            .get()
-            .ok_or_else(|| "Legacy mappings are not loaded".into())
     }
 
     /// Returns the native filesystem cache directory.

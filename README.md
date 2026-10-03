@@ -5,7 +5,7 @@
 </p>
 
 Author, edit, convert, and render Minecraft schematics in Rust with Python and WASM bindings.
-Supports `.schem`, `.litematic`, `.nbt`, `.snbt`, `.schematic`, `.mcstructure`, and wiki blueprints.
+Supports `.schem`, `.litematic`, `.nbt`, `.snbt`, `.mcstructure`, and wiki blueprints.
 Ready to go for agent-native authoring.
 
 [Reproduce the banner build](examples/README.md#build-the-banner).

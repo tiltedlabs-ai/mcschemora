@@ -162,7 +162,7 @@ pub(super) fn read_block_entities(
     if let Some(v) = root.get(key) {
         for v in list(v)? {
             let c = compound(v)?;
-            let (p, mut data) = if wrapped {
+            let (mut p, mut data) = if wrapped {
                 let mut data = if let Some(v) = c.get("Data") {
                     compound(v)?.clone()
                 } else {
@@ -175,6 +175,11 @@ pub(super) fn read_block_entities(
             };
             for k in ["Pos", "Id", "x", "y", "z"] {
                 data.remove(k);
+            }
+            for (i, coordinate) in p.iter_mut().enumerate() {
+                *coordinate = coordinate
+                    .checked_add(r.bounds.start[i])
+                    .ok_or("Block entity coordinate overflow")?;
             }
             if !r.bounds.contains(p) {
                 return Err(format!("Block entity at {p:?} is outside bounds"));

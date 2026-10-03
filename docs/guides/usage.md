@@ -6,44 +6,90 @@ Method arguments and behavior are defined in the generated [API reference](../re
 
 ## Build and edit
 
+All regions have their own relative coordinate system.
+
 ```python
-from mcschemora import Schematic, bed, block, chest, item, mob
+from mcschemora import Schematic, bed, block, chest, door, item, mob, sign
 
+# Create a Java schematic and get its default region.
 scene = Schematic.create(version="1.21.1")
-region = scene.region()
-region.select(start=(0, 0, 0), size=(7, 1, 7)).fill(block("stone_bricks"))
-region.place(bed(color="red", head_toward="north"), at=(2, 1, 4))
-region.place(chest(items={0: item("stone", count=64)}), at=(5, 1, 4))
+region = scene.region("main")
 
+# Fill a seven-by-seven floor, then place a block with explicit states.
+region.select(start=(0, 0, 0), size=(7, 1, 7)).fill(block("stone_bricks"))
+region.set((4, 1, 1), block("furnace", facing="west"))
+```
+
+```python
+# Bulk write blocks
+region.set_many({
+    (4, 1, 2): block("crafting_table"),
+    (0, 1, 0): block("oak_log", axis="y"),
+})
+
+region.set_many([
+    ((6, 1, 0), block("stone")),
+    ((6, 1, 0), block("oak_log", axis="y")),
+])
+
+region.set_many(((x, 1, 6), block("oak_planks")) for x in range(7))
+```
+
+```python
+# place special blocks
+region.place(bed(color="red", head_toward="north"), at=(2, 1, 4))
+region.place(door(material="oak", facing="north"), at=(3, 1, 0))
+region.place(chest(items={0: item("stone", count=64)}), at=(5, 1, 4))
+region.place(sign(["Workshop", "Tools inside"]), at=(0, 1, 3))
+
+# inspect block properties
+furnace = region.get((4, 1, 1))
+print(furnace.id, dict(furnace.states))
+print(scene.registry.describe("furnace"))
+
+# inspect region properties
+print(region.bounds, region.origin)
+print(scene.edition, scene.version, scene.metadata, scene.regions)
+```
+
+
+```python
+# Duplicate the selected structure, rotate it, then mirror and move the copy.
 area = region.select(start=(0, 0, 0), size=(7, 3, 7))
 copy = area.duplicate(offset=(10, 0, 0))
-copy.rotate(steps=1)
-copy.select(block="stone_bricks").fill(block("mossy_stone_bricks"))
-print(copy.describe_layer(y=1))
-print(scene.validate())
-scene.save("workshops.schem")
-```
+copy.rotate(axis="y", steps=1)
+copy.flip(axis="x")
+copy.move(offset=(0, 0, 10))
 
-Use a block for a cell, a placement helper for a structure such as a bed, and a
-selection for bulk editing. Inspect version-specific states with
-`scene.registry.describe("lever")`. See [Region](../reference/api.md#region),
-[Selection](../reference/api.md#selection), and [helpers](../reference/api.md#function-bed).
-
-To transfer content between regions, copy a selection to a fragment:
-
-```python
+# Copy a fragment into another region, anchored at its local (0, 0, 0).
 tower = scene.add_region("tower", origin=(40, 0, 0))
 tower.set((0, 0, 0), area.copy())
-```
+print(scene.region("tower").get((0, 0, 0)).id)
 
-[Entity managers](../reference/api.md#entities) handle mobs and
-[block-entity managers](../reference/api.md#blockentities) handle attached typed SNBT:
+# The region origin converts local coordinates to world coordinates.
+local = (2, 1, 4)
+world = tower.to_global(local)
+print(world)  # (42, 1, 4).
+print(tower.to_local(world))  # (2, 1, 4).
+```
 
 ```python
-villager = region.entities.add(mob("villager"), at=(4.5, 1.0, 4.5))
-region.entities.update(villager, position=(4.5, 1.0, 2.5))
-print(region.block_entities.get((5, 1, 4)))
+# Check game rules, then save a litematic that keeps the named regions.
+print(scene.validate())
+scene.save("workshops.litematic")
+
+# Review the losses from merging regions, then accept them for this schem export.
+print(scene.check_export(format="schem", flatten=True))
+scene.save("workshops.schem", flatten=True, allow_loss=True)
+
+# Reopen the file and inspect the blocks from disk.
+reopened = Schematic.load("workshops.schem")
+print(reopened.region().get_all())
 ```
+
+See [Region](../reference/api.md#region), [Selection](../reference/api.md#selection),
+[helpers](../reference/api.md#function-bed), [entities](../reference/api.md#entities),
+and [block entities](../reference/api.md#blockentities) for the full signatures.
 
 ## Inspect and convert
 
@@ -55,12 +101,9 @@ if not report.errors and not report.losses:
     loaded.save("workshops.litematic")
 ```
 
-Inspect the report before accepting any losses. Replace unsupported content when
-errors block conversion; `allow_loss=True` only accepts reported omissions.
-For multiple regions, evaluate `flatten=True` when the destination needs one region.
-The [conversion script](../../examples/convert.py) exposes these choices as CLI options.
+Use `flatten=True` to merge all regions into one.
 See [check_export](../reference/api.md#schematiccheck_export) and
-[save](../reference/api.md#schematicsave) for the contract.
+[save](../reference/api.md#schematicsave) for more information.
 
 ## Render and crop
 
@@ -71,10 +114,6 @@ scene.export_glb("build.glb")
 print(diagnostics)
 ```
 
-Use PNG for an image and GLB for a model. Cropping can reveal interiors or isolate
-layers; render filters use world coordinates, including region origins.
-First use prepares visual assets; see [offline preparation](../reference/minecraft-data.md#cache-and-offline-use).
-
 ## Sprite diagrams and wiki blueprints
 
 ```python
@@ -82,11 +121,10 @@ print(scene.export_sprites("sprites.png", view="top", y=1, grid=True))
 print(scene.export_blueprint("build.wiki", name="Workshops", y=(0, 2)))
 ```
 
-Sprite diagrams use bundled wiki icons. Blueprints are visual plans, so inspect
-diagnostics for omitted schematic data. See the [rendered example outputs](../../examples/README.md#render-and-export-a-blueprint).
+Sprite diagrams use wiki icons to render wiki-style blueprints. See the [rendered example outputs](../../examples/README.md#render-and-export-a-blueprint).
 
-Import a supported wiki template with a fixed Java version and explicit blocks for
-ambiguous palette symbols:
+
+Importing a wiki blueprint
 
 ```python
 template = "{{layered blueprint|A=BlockSprite:stone|B=BlockSprite:chest|----Floor|A|----Chest|B}}"
@@ -99,5 +137,4 @@ imported = Schematic.from_bytes(
 print(imported.import_diagnostics)
 ```
 
-Choose symbols from the input file. Blueprint imports infer some defaults and do not
-provide a lossless schematic round trip; see [from_bytes](../reference/api.md#schematicfrom_bytes).
+Choose symbols from the input file. Blueprint imports infer some defaults due to limitations in blueprint format. See [from_bytes](../reference/api.md#schematicfrom_bytes).

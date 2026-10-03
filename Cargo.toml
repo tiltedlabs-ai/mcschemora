@@ -5,7 +5,7 @@ edition = "2024"
 description = "Minecraft schematic authoring and conversion"
 license = "MIT"
 repository = "https://github.com/whuang37/schemora"
-include = ["/data/wiki-sprites/**", "/data/entity-models/**", "/data/block-models/**", "/src/**/*.rs", "/src/catalog/storage/native/SOURCE.md", "/examples/*.rs", "/Cargo.toml", "/README.md", "/LICENSE"]
+include = ["/data/wiki-sprites/**", "/data/entity-models/**", "/data/block-models/**", "/src/**/*.rs", "/src/convert/data/**", "/src/catalog/storage/native/SOURCE.md", "/examples/*.rs", "/Cargo.toml", "/README.md", "/LICENSE"]
 
 [lib]
 name = "mcschemora"

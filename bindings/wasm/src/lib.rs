@@ -197,12 +197,33 @@ impl WasmSchematic {
     /// allow_loss accepts reported omissions; flatten merges regions when required.
     /// Blocking errors and unaccepted losses throw an Error.
     #[wasm_bindgen(js_name = toBytes)]
-    pub fn to_bytes(
+    pub async fn to_bytes(
         &self,
         format: &str,
         allow_loss: bool,
         flatten: bool,
+        version: Option<String>,
     ) -> Result<Vec<u8>, JsValue> {
-        formats::encode(&self.schematic, format, allow_loss, flatten).map_err(error)
+        formats::encode(
+            &self.schematic,
+            format,
+            version.as_deref(),
+            allow_loss,
+            flatten,
+        )
+        .await
+        .map_err(error)
+    }
+    #[wasm_bindgen(js_name = checkExport)]
+    pub async fn check_export(
+        &self,
+        format: &str,
+        flatten: bool,
+        version: Option<String>,
+    ) -> Result<JsValue, JsValue> {
+        let report = formats::check_export(&self.schematic, format, version.as_deref(), flatten)
+            .await
+            .map_err(error)?;
+        value(serde_json::json!({"errors": report.errors, "losses": report.losses}))
     }
 }

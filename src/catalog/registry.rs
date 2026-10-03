@@ -24,6 +24,7 @@ pub struct Registry {
     blocks: BTreeMap<String, BlockSchema>,
     items: BTreeSet<String>,
     mobs: BTreeSet<String>,
+    entities: BTreeSet<String>,
     pub(crate) validation_shapes: std::sync::OnceLock<crate::validate::Shapes>,
 }
 
@@ -200,6 +201,14 @@ impl Registry {
             Err(format!("Unknown item {id} in Java {}", self.version))
         }
     }
+    pub(crate) fn entity_id(&self, id: &str) -> Result<()> {
+        if self.entities.contains(&namespace(id)) {
+            Ok(())
+        } else {
+            Err(format!("Unknown entity {id} in Java {}", self.version))
+        }
+    }
+
     /// Validates a living-mob identifier and returns its namespaced form.
     pub fn mob_id(&self, id: &str) -> Result<String> {
         let name = namespace(id);
@@ -238,7 +247,9 @@ impl Registry {
             .map(|(name, value)| Ok((name, BlockSchema::parse(&value)?)))
             .collect::<Result<_>>()?;
         let items = index(items)?.into_keys().collect();
-        let mobs = index(entities)?
+        let entity_data = index(entities)?;
+        let entities = entity_data.keys().cloned().collect();
+        let mobs = entity_data
             .into_iter()
             .filter(|(_, entry)| is_mob(entry))
             .map(|(name, _)| name)
@@ -249,6 +260,7 @@ impl Registry {
             blocks,
             items,
             mobs,
+            entities,
             validation_shapes: std::sync::OnceLock::new(),
         })
     }

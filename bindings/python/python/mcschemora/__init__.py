@@ -11,8 +11,9 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import lru_cache
 from importlib.metadata import version as _package_version
-from os import PathLike
+from os import PathLike, fsync, replace
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from types import MappingProxyType
 from typing import TypeAlias
 
@@ -437,11 +438,19 @@ class Schematic:
             _core.Schematic.from_bytes(content, format, _source(data), version, origin, states)
         )
 
-    def to_bytes(self, *, format: str, allow_loss: bool = False, flatten: bool = False) -> bytes:
+    def to_bytes(
+        self,
+        *,
+        format: str,
+        version: str | None = None,
+        allow_loss: bool = False,
+        flatten: bool = False,
+    ) -> bytes:
         """Encodes the document, requiring explicit acceptance of reported losses.
 
         Args:
             format: schem, litematic, nbt, snbt, mcstructure, or blueprint.
+            version: Target Minecraft Java version; None preserves the current version.
             allow_loss: Whether to accept omissions reported by check_export().
                 Blocking errors still prevent export.
             flatten: Whether to merge regions for a single-region format. Overlapping
@@ -453,22 +462,24 @@ class Schematic:
         Raises:
             ValueError: If export has blocking errors or unaccepted losses.
         """
-        return self._native.to_bytes(format, allow_loss, flatten)
+        return self._native.to_bytes(format, allow_loss, flatten, version)
 
     def save(
         self,
         path: _Path,
         *,
         format: str | None = None,
+        version: str | None = None,
         allow_loss: bool = False,
         flatten: bool = False,
     ) -> None:
-        """Encodes the document and writes it to a file, replacing an existing file.
+        """Encodes the document and atomically replaces the destination file.
 
         Args:
             path: Output file path.
             format: Codec name; None infers it from the extension, with .wiki
                 selecting blueprint.
+            version: Target Minecraft Java version; None preserves the current version.
             allow_loss: Whether to accept reported data omissions. Blocking errors
                 still prevent export.
             flatten: Whether to merge regions for a single-region format.
@@ -480,10 +491,23 @@ class Schematic:
         path = Path(path)
         data = self.to_bytes(
             format=format or ("blueprint" if path.suffix == ".wiki" else path.suffix.lstrip(".")),
+            version=version,
             allow_loss=allow_loss,
             flatten=flatten,
         )
-        path.write_bytes(data)
+        temporary = None
+        try:
+            with NamedTemporaryFile(
+                dir=path.parent, prefix=f".{path.name}.", delete=False
+            ) as output:
+                temporary = Path(output.name)
+                output.write(data)
+                output.flush()
+                fsync(output.fileno())
+            replace(temporary, path)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
 
     def region(self, name: str = "main") -> Region:
         """Returns an editing handle for an existing named region.
@@ -741,17 +765,20 @@ class Schematic:
             tuple(skipped),
         )
 
-    def check_export(self, *, format: str, flatten: bool = False) -> Report:
+    def check_export(
+        self, *, format: str, version: str | None = None, flatten: bool = False
+    ) -> Report:
         """Checks conversion errors and losses without writing or changing the document.
 
         Args:
             format: Target codec name.
+            version: Target Minecraft Java version; None preserves the current version.
             flatten: Whether to evaluate merging regions for a single-region format.
 
         Returns:
             A Report whose errors block export and whose losses need allow_loss=True.
         """
-        errors, losses = self._native.check_export(format, flatten)
+        errors, losses = self._native.check_export(format, flatten, version)
         return Report(tuple(errors), tuple(losses))
 
 

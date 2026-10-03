@@ -1,0 +1,9 @@
+[
+  ["Damage", "damage"],
+  ["RepairCost", "repair_cost"],
+  ["CustomModelData", "custom_model_data"],
+  ["map", "map_id"],
+  ["instrument", "instrument"],
+  ["Recipes", "recipes"],
+  ["DebugProperty", "debug_stick_state"]
+]

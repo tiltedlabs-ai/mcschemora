@@ -34,7 +34,7 @@ Arguments after `*` are keyword-only. Types and properties are documented below.
 
 ### Schematic
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L336)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L337)
 
 A versioned document containing named regions and metadata.
 
@@ -127,13 +127,22 @@ Decodes schematic bytes without changing their Minecraft version.
 
 #### Schematic.to_bytes
 
-`Schematic.to_bytes(*, format: str, allow_loss: bool = False, flatten: bool = False) -> bytes`
+```python
+Schematic.to_bytes(
+    *,
+    format: str,
+    version: str | None = None,
+    allow_loss: bool = False,
+    flatten: bool = False,
+) -> bytes
+```
 
 Encodes the document, requiring explicit acceptance of reported losses.
 
 **Args:**
 
 - `format`: schem, litematic, nbt, snbt, mcstructure, or blueprint.
+- `version`: Target Minecraft Java version; None preserves the current version.
 - `allow_loss`: Whether to accept omissions reported by check_export(). Blocking errors still prevent export.
 - `flatten`: Whether to merge regions for a single-region format. Overlapping bounds are rejected, and loss of region boundaries is reported.
 
@@ -148,17 +157,19 @@ Schematic.save(
     path: _Path,
     *,
     format: str | None = None,
+    version: str | None = None,
     allow_loss: bool = False,
     flatten: bool = False,
 ) -> None
 ```
 
-Encodes the document and writes it to a file, replacing an existing file.
+Encodes the document and atomically replaces the destination file.
 
 **Args:**
 
 - `path`: Output file path.
 - `format`: Codec name; None infers it from the extension, with .wiki selecting blueprint.
+- `version`: Target Minecraft Java version; None preserves the current version.
 - `allow_loss`: Whether to accept reported data omissions. Blocking errors still prevent export.
 - `flatten`: Whether to merge regions for a single-region format.
 
@@ -385,20 +396,21 @@ are preserved. Loading never invokes repair automatically.
 
 #### Schematic.check_export
 
-`Schematic.check_export(*, format: str, flatten: bool = False) -> Report`
+`Schematic.check_export(*, format: str, version: str | None = None, flatten: bool = False) -> Report`
 
 Checks conversion errors and losses without writing or changing the document.
 
 **Args:**
 
 - `format`: Target codec name.
+- `version`: Target Minecraft Java version; None preserves the current version.
 - `flatten`: Whether to evaluate merging regions for a single-region format.
 
 **Returns:** A Report whose errors block export and whose losses need allow_loss=True.
 
 ### MinecraftData
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L228)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L229)
 
 Shared access to pinned Java catalogs and cached rendering assets.
 
@@ -460,7 +472,7 @@ Prepares rendering assets and returns their cache directory.
 
 ### Region
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L758)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L785)
 
 An editing handle for a named region within a schematic.
 
@@ -603,7 +615,7 @@ The manager for NBT attached to this region's blocks.
 
 ### Selection
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L918)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L945)
 
 A set of region-local cells and entities that reads current content.
 
@@ -768,7 +780,7 @@ Returns a local Y layer as a text grid followed by a block-state legend.
 
 ### Block
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L73)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L74)
 
 An immutable block description, validated against a catalog on placement.
 
@@ -794,7 +806,7 @@ Returns the full block-state string with properties in sorted order.
 
 ### Bounds
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L134)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L135)
 
 A box with an inclusive start and exclusive upper bounds.
 
@@ -810,7 +822,7 @@ Bounds.size: Position
 
 ### Fragment
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1099)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1126)
 
 An independent copy of selected cells, attached data, and free entities.
 
@@ -825,7 +837,7 @@ Cell counts along X, Y, and Z in the copied bounding box.
 
 ### Report
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L187)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L188)
 
 Issues found during game-rule validation or export preflight.
 
@@ -863,7 +875,7 @@ Returns labeled issues, or "No issues found." for an empty report.
 
 ### RepairChange
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L152)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L153)
 
 A repaired block, identified by region and local position.
 
@@ -883,7 +895,7 @@ RepairChange.after: Block
 
 ### RepairReport
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L169)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L170)
 
 Changes applied by repair and cases skipped because their context is unknown.
 
@@ -905,7 +917,7 @@ The number of blocks changed.
 
 ### Function block
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L111)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L112)
 
 `block(identifier: str, **states: PropertyValue) -> Block`
 
@@ -920,7 +932,7 @@ Creates a block description, adding the minecraft namespace if omitted.
 
 ### Function water_source
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L128)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L129)
 
 `water_source() -> Block`
 
@@ -928,7 +940,7 @@ Returns a water block with level=0.
 
 ### Function bed
 
-[Source](../../bindings/python/src/lib.rs#L635)
+[Source](../../bindings/python/src/lib.rs#L660)
 
 `bed(*, color: str = 'red', head_toward: str = 'north') -> Placement`
 
@@ -943,7 +955,7 @@ Creates a bed placement anchored at the foot block when placed.
 
 ### Function door
 
-[Source](../../bindings/python/src/lib.rs#L656)
+[Source](../../bindings/python/src/lib.rs#L681)
 
 ```python
 door(
@@ -970,7 +982,7 @@ Creates a door placement anchored at the lower block when placed.
 
 ### Function sign
 
-[Source](../../bindings/python/src/lib.rs#L697)
+[Source](../../bindings/python/src/lib.rs#L722)
 
 ```python
 sign(
@@ -995,7 +1007,7 @@ Creates a standing-sign placement with plain text on its front face.
 
 ### Function chest
 
-[Source](../../bindings/python/src/lib.rs#L677)
+[Source](../../bindings/python/src/lib.rs#L702)
 
 ```python
 chest(
@@ -1016,7 +1028,7 @@ Creates a single-chest placement with optional inventory contents.
 
 ### Function item
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1115)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1142)
 
 `item(identifier: str, *, count: int = 1, components: str | None = None) -> _Item`
 
@@ -1032,7 +1044,7 @@ Creates an inventory item value for chest().
 
 ### Function mob
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1138)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1165)
 
 `mob(identifier: str, *, persistent: bool = True, nbt: str | None = None) -> _Mob`
 
@@ -1048,7 +1060,7 @@ Creates a free-entity description for Region.entities.add().
 
 ### Registry
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L296)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L297)
 
 Block schemas for a schematic's version, obtained through its registry.
 
@@ -1066,7 +1078,7 @@ Returns a block schema for this schematic's Minecraft version.
 
 ### Entity
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1156)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1183)
 
 An immutable snapshot of a free entity returned by Entities.get().
 
@@ -1084,7 +1096,7 @@ Entity.nbt: str
 
 ### Entities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1170)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1197)
 
 Access to a region's free entities through document-local integer references.
 
@@ -1148,7 +1160,7 @@ Iterates a snapshot of this region's entity references.
 
 ### BlockEntities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1229)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1256)
 
 Access to typed NBT attached to blocks at region-local cell coordinates.
 
@@ -1240,6 +1252,7 @@ export class Schematic {
     private constructor();
     free(): void;
     [Symbol.dispose](): void;
+    checkExport(format: string, flatten: boolean, version?: string | null): Promise<any>;
     /**
      * JavaScript getBlock: returns a full state string at local integer coordinates.
      *
@@ -1250,6 +1263,7 @@ export class Schematic {
      * Returns region descriptions with name, world origin, local start, and size.
      */
     regions(): any;
+    repair(rules?: string[] | null): any;
     /**
      * JavaScript setBlock: validates and writes a state string at local coordinates.
      */
@@ -1260,7 +1274,7 @@ export class Schematic {
      * allow_loss accepts reported omissions; flatten merges regions when required.
      * Blocking errors and unaccepted losses throw an Error.
      */
-    toBytes(format: string, allow_loss: boolean, flatten: boolean): Uint8Array;
+    toBytes(format: string, allow_loss: boolean, flatten: boolean, version?: string | null): Promise<Uint8Array>;
     toGlobal(region: string, x: number, y: number, z: number): Int32Array;
     toLocal(region: string, x: number, y: number, z: number): Int32Array;
     /**

@@ -95,6 +95,25 @@ and [block entities](../reference/api.md#blockentities) for the full signatures.
 
 ## Inspect and convert
 
+Changing the output format preserves the document's Minecraft version. Pass
+`version` to convert its blocks and payloads for another Java release:
+
+```python
+loaded = Schematic.load("build-1.20.4.litematic")
+report = loaded.check_export(format="litematic", version="1.20.5")
+print(report)
+loaded.save("build-1.20.5.litematic", version="1.20.5")
+```
+
+Conversion works on a copy; `loaded` retains its source version and data. Saving
+encodes first, then atomically replaces the destination. Conversion errors block
+export even with `allow_loss=True`.
+
+The initial converter supports selected routes within 1.20.2–1.20.6, including
+1.20.3/1.20.4 item tags to 1.20.5/1.20.6 components. Routes involving 1.20.2 support
+blocks only. Component downgrades and some specialized payloads are not implemented;
+see [conversion coverage](../../src/convert/README.md) for the exact scope.
+
 ```python
 loaded = Schematic.load("workshops.schem")
 report = loaded.check_export(format="litematic")

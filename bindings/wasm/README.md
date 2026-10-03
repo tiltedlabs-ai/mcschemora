@@ -24,7 +24,7 @@ try {
   scene.setBlock("main", 0, 0, 0, "minecraft:stone_bricks");
   console.log(scene.getBlock("main", 0, 0, 0));
   console.log(scene.validate().errors);
-  const bytes = scene.toBytes("schem", false, false);
+  const bytes = await scene.toBytes("schem", false, false);
   const file = new Blob([bytes], { type: "application/octet-stream" });
   console.log(file.size > 0);
 } finally {

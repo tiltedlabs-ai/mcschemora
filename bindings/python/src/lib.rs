@@ -159,19 +159,44 @@ impl PySchematic {
             )),
         })
     }
+    #[pyo3(signature = (format, allow_loss, flatten, version=None))]
     fn to_bytes<'py>(
         &self,
         py: Python<'py>,
         format: &str,
         allow_loss: bool,
         flatten: bool,
+        version: Option<&str>,
     ) -> PyResult<Bound<'py, PyBytes>> {
-        let data =
-            formats::encode(&*lock(&self.data)?, format, allow_loss, flatten).map_err(error)?;
+        let data = py.detach(|| {
+            pollster::block_on(formats::encode(
+                &*lock(&self.data)?,
+                format,
+                version,
+                allow_loss,
+                flatten,
+            ))
+            .map_err(error)
+        })?;
         Ok(PyBytes::new(py, &data))
     }
-    fn check_export(&self, format: &str, flatten: bool) -> PyResult<(Vec<String>, Vec<String>)> {
-        let report = formats::check_export(&*lock(&self.data)?, format, flatten).map_err(error)?;
+    #[pyo3(signature = (format, flatten, version=None))]
+    fn check_export(
+        &self,
+        py: Python<'_>,
+        format: &str,
+        flatten: bool,
+        version: Option<&str>,
+    ) -> PyResult<(Vec<String>, Vec<String>)> {
+        let report = py.detach(|| {
+            pollster::block_on(formats::check_export(
+                &*lock(&self.data)?,
+                format,
+                version,
+                flatten,
+            ))
+            .map_err(error)
+        })?;
         Ok((report.errors, report.losses))
     }
     fn glb<'py>(

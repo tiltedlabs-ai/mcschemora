@@ -1,0 +1,35 @@
+[
+  {
+    "data_version": 3698,
+    "kinds": [
+      "block",
+      "item"
+    ],
+    "from": "minecraft:grass",
+    "to": "minecraft:short_grass"
+  },
+  {
+    "data_version": 3800,
+    "kinds": [
+      "item"
+    ],
+    "from": "minecraft:scute",
+    "to": "minecraft:turtle_scute"
+  },
+  {
+    "data_version": 3803,
+    "kinds": [
+      "enchantment"
+    ],
+    "from": "minecraft:sweeping",
+    "to": "minecraft:sweeping_edge"
+  },
+  {
+    "data_version": 3814,
+    "kinds": [
+      "attribute"
+    ],
+    "from": "minecraft:horse.jump_strength",
+    "to": "minecraft:generic.jump_strength"
+  }
+]

@@ -5,9 +5,13 @@ use mcschemora::{
     nbt,
     transform::{Transform, transform_selection},
 };
-use pyo3::{exceptions::PyValueError, prelude::*, types::PyBytes};
+use pyo3::{
+    exceptions::PyValueError,
+    prelude::*,
+    types::{PyBytes, PyDict},
+};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     sync::{Arc, Mutex, MutexGuard},
 };
 type Shared = Arc<Mutex<Schematic>>;
@@ -20,6 +24,25 @@ fn lock(d: &Shared) -> PyResult<MutexGuard<'_, Schematic>> {
 }
 fn state(b: Block) -> State {
     (b.name, b.properties)
+}
+fn block_snapshot<'a, 'py>(
+    py: Python<'py>,
+    blocks: impl Iterator<Item = (&'a Position, &'a Block)>,
+    factory: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let result = PyDict::new(py);
+    let mut palette = HashMap::new();
+    for (position, block) in blocks.filter(|(_, block)| !block.is_air()) {
+        let key = block as *const Block;
+        let value = match palette.entry(key) {
+            std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                entry.insert(factory.call1((state(block.clone()),))?)
+            }
+        };
+        result.set_item((position[0], position[1], position[2]), &*value)?;
+    }
+    Ok(result)
 }
 fn render(
     schematic: &Schematic,
@@ -310,6 +333,15 @@ impl PyRegion {
     fn get(&self, at: Position) -> PyResult<State> {
         self.with(|r| Ok(state(r.get(at))))
     }
+    fn get_all<'py>(
+        &self,
+        py: Python<'py>,
+        factory: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let d = lock(&self.data)?;
+        let r = d.region(&self.name).map_err(error)?;
+        block_snapshot(py, r.blocks.iter(), factory)
+    }
     fn set_many(&self, palette: Vec<State>, cells: Vec<(Position, usize)>) -> PyResult<()> {
         let palette = palette
             .into_iter()
@@ -420,6 +452,34 @@ impl PySelection {
 impl PySelection {
     fn bounds(&self) -> (Position, Position) {
         (self.selection.bounds.start, self.selection.bounds.size)
+    }
+    fn get_all<'py>(
+        &self,
+        py: Python<'py>,
+        factory: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let d = lock(&self.data)?;
+        let r = d.region(&self.name).map_err(error)?;
+        if self.selection.cells.is_some()
+            || self.selection.bounds.volume().map_err(error)? < r.blocks.len()
+        {
+            let positions = self.selection.positions();
+            block_snapshot(
+                py,
+                positions
+                    .iter()
+                    .filter_map(|position| r.blocks.get(position).map(|block| (position, block))),
+                factory,
+            )
+        } else {
+            block_snapshot(
+                py,
+                r.blocks
+                    .iter()
+                    .filter(|(position, _)| self.selection.contains(**position)),
+                factory,
+            )
+        }
     }
     fn select(&self, id: Option<&str>, properties: BTreeMap<String, String>) -> PyResult<Self> {
         let d = lock(&self.data)?;

@@ -16,25 +16,9 @@ Choose a language quickstart, then use the guide or runnable examples for a work
 
 ## Updating documentation
 
-Public docstrings own API contracts. Python uses Google-style docstrings with types
-and defaults in signatures; Rust uses documentation comments. Keep authored pages
-focused on setup and workflows, with complete scripts and outputs in `examples/`.
-
 After an API or docstring change:
 
 ```sh
 make docs
 make docs-check
 ```
-
-Both commands rebuild the Python and WASM bindings. Use the Python version in
-`.python-version` and the [browser build tools](../bindings/wasm/README.md#build).
-Review and commit `docs/reference/api.md` with the code and affected workflows.
-Edit source docstrings rather than the generated page.
-
-The [Documentation workflow](../.github/workflows/docs.yml) runs `make docs-check`
-on pull requests, pushes to `master`, and manual runs. Missing or stale references
-fail the check; regenerate and commit them locally.
-
-After the first run, make **Documentation freshness** a required status check to
-enforce this before merging.

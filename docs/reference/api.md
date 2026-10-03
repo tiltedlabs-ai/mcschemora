@@ -466,6 +466,15 @@ Returns the block at a position in this region.
 
 **Returns:** The block at the position, or air if the cell is absent.
 
+#### Region.get_all
+
+`Region.get_all() -> dict[Position, Block]`
+
+Returns a snapshot of non-air blocks keyed by region-local coordinates.
+
+Identical states share immutable Block objects. Changes to the returned
+dictionary do not edit the schematic. Block entities and entities are excluded.
+
 #### Region.set
 
 `Region.set(at: Position, content: Block | Fragment) -> None`
@@ -479,13 +488,25 @@ Writes a block or pastes a fragment, replacing destination cells.
 
 #### Region.set_many
 
-`Region.set_many(placements: Iterable[tuple[Position, Block]]) -> None`
+```python
+Region.set_many(
+    placements: Mapping[Position, Block] | Iterable[tuple[Position, Block]],
+) -> None
+```
 
 Validates and writes a batch of blocks atomically.
 
-**Args:** `placements`: Iterable of (local position, Block) pairs. Later writes to the same position take precedence.
+**Args:** `placements`: Mapping of local positions to Blocks, or an iterable of (local position, Block) pairs. Later writes to the same position take precedence. Omitted positions are unchanged; write air to clear cells.
 
 **Raises:** `ValueError`: If a block, coordinate, or region-bound change is unsupported. No blocks are written when validation fails.
+
+#### Region.delete
+
+`Region.delete() -> None`
+
+Clears blocks, attached data, and entities within this region's bounds.
+
+The named region, origin, and bounds remain in the schematic.
 
 #### Region.patch
 
@@ -539,7 +560,7 @@ The manager for NBT attached to this region's blocks.
 
 ### Selection
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L802)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L822)
 
 A set of region-local cells and entities that reads current content.
 
@@ -551,6 +572,15 @@ other selections retain theirs. Block filters exclude free entities.
 `Selection.bounds: Bounds`
 
 The selection's local bounding box.
+
+#### Selection.get_all
+
+`Selection.get_all() -> dict[Position, Block]`
+
+Returns current non-air blocks at selected region-local coordinates.
+
+The dictionary is an independent snapshot, with identical states sharing
+immutable Block objects. Block entities and entities are excluded.
 
 #### Selection.select
 
@@ -737,7 +767,7 @@ Bounds.size: Position
 
 ### Fragment
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L975)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1003)
 
 An independent copy of selected cells, attached data, and free entities.
 
@@ -813,7 +843,7 @@ Returns a water block with level=0.
 
 ### Function bed
 
-[Source](../../bindings/python/src/lib.rs#L547)
+[Source](../../bindings/python/src/lib.rs#L607)
 
 `bed(*, color: str = 'red', head_toward: str = 'north') -> Placement`
 
@@ -828,7 +858,7 @@ Creates a bed placement anchored at the foot block when placed.
 
 ### Function door
 
-[Source](../../bindings/python/src/lib.rs#L568)
+[Source](../../bindings/python/src/lib.rs#L628)
 
 ```python
 door(
@@ -855,7 +885,7 @@ Creates a door placement anchored at the lower block when placed.
 
 ### Function sign
 
-[Source](../../bindings/python/src/lib.rs#L609)
+[Source](../../bindings/python/src/lib.rs#L669)
 
 ```python
 sign(
@@ -880,7 +910,7 @@ Creates a standing-sign placement with plain text on its front face.
 
 ### Function chest
 
-[Source](../../bindings/python/src/lib.rs#L589)
+[Source](../../bindings/python/src/lib.rs#L649)
 
 ```python
 chest(
@@ -901,7 +931,7 @@ Creates a single-chest placement with optional inventory contents.
 
 ### Function item
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L991)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1019)
 
 `item(identifier: str, *, count: int = 1, components: str | None = None) -> _Item`
 
@@ -917,7 +947,7 @@ Creates an inventory item value for chest().
 
 ### Function mob
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1014)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1042)
 
 `mob(identifier: str, *, persistent: bool = True, nbt: str | None = None) -> _Mob`
 
@@ -951,7 +981,7 @@ Returns a block schema for this schematic's Minecraft version.
 
 ### Entity
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1032)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1060)
 
 An immutable snapshot of a free entity returned by Entities.get().
 
@@ -969,7 +999,7 @@ Entity.nbt: str
 
 ### Entities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1046)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1074)
 
 Access to a region's free entities through document-local integer references.
 
@@ -1033,7 +1063,7 @@ Iterates a snapshot of this region's entity references.
 
 ### BlockEntities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1105)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1133)
 
 Access to typed NBT attached to blocks at region-local cell coordinates.
 

@@ -3,6 +3,7 @@ import gc
 import random
 import statistics
 import tempfile
+from itertools import product
 from pathlib import Path
 from time import perf_counter
 
@@ -35,12 +36,14 @@ PALETTE = tuple(
     ]
 )
 MOBS = tuple(mob(name) for name in ("pig", "cow", "sheep", "chicken", "zombie", "skeleton"))
+READ_STAGES = ("Get loop", "Get all", "Part get loop", "Part get all")
 STAGES = (
     "Prepare inputs",
     "Author scene",
     "Validate",
     "Save",
     "Load",
+    *READ_STAGES,
     "Sprite render",
     "3D render",
 )
@@ -53,6 +56,8 @@ def prepare(args):
     for x in range(args.side):
         for y in range(args.side):
             for z in range(args.side):
+                if args.density < 1 and rng.random() >= args.density:
+                    continue
                 batch.append(((x, y, z), rng.choice(PALETTE)))
                 if len(batch) == 16_384:
                     batches.append(batch)
@@ -87,20 +92,61 @@ def timed(results, stage, operation):
     return value
 
 
-def print_table(runs):
+def read_loop(region, bounds):
+    result = {}
+    ranges = [
+        range(start, start + size) for start, size in zip(bounds.start, bounds.size, strict=True)
+    ]
+    for position in product(*ranges):
+        value = region.get(position)
+        if value.id not in {"minecraft:air", "minecraft:cave_air", "minecraft:void_air"}:
+            result[position] = value
+    return result
+
+
+def measure_reads(scene, args, results, index):
+    region = scene.region()
+    start = (args.side // 4,) * 3
+    size = (max(1, args.side // 2),) * 3
+    part = region.select(start=start, size=size)
+    pairs = (
+        ("Get loop", "Get all", region.bounds, region.get_all),
+        ("Part get loop", "Part get all", part.bounds, part.get_all),
+    )
+    for loop_stage, bulk_stage, bounds, bulk_operation in pairs:
+        operations = [
+            (loop_stage, lambda bounds=bounds: read_loop(region, bounds)),
+            (bulk_stage, bulk_operation),
+        ]
+        if index % 2:
+            operations.reverse()
+        snapshots = {}
+        for stage, operation in operations:
+            gc.collect()
+            snapshots[stage] = timed(results, stage, operation)
+        if snapshots[loop_stage] != snapshots[bulk_stage]:
+            raise RuntimeError(f"{bulk_stage} differs from the get loop")
+        print(
+            f"  {bulk_stage}: {len(snapshots[bulk_stage]):,} blocks; "
+            f"{results[loop_stage] / results[bulk_stage]:.2f}x faster",
+            flush=True,
+        )
+
+
+def print_table(runs, stages=STAGES):
     headers = ["Stage", *(f"Run {i + 1}" for i in range(len(runs))), "Median", "Min", "Max"]
     rows = []
-    for stage in (*STAGES, "MCSchemora total"):
+    for stage in (*stages, "MCSchemora total"):
         values = [
-            sum(run[name] for name in STAGES if name != "Prepare inputs")
+            sum(run[name] for name in stages if name != "Prepare inputs")
             if stage == "MCSchemora total"
             else run[stage]
             for run in runs
         ]
         rows.append(
             [stage]
-            + [f"{value:.3f}" for value in values]
-            + [f"{statistics.median(values):.3f}", f"{min(values):.3f}", f"{max(values):.3f}"]
+            + [f"{value:.6f}" for value in values]
+            + [f"{statistics.median(values):.6f}", f"{min(values):.6f}", f"{max(values):.6f}"]
         )
     widths = [max(len(row[i]) for row in [headers, *rows]) for i in range(len(headers))]
     print("\nWall-clock seconds (MCSchemora total excludes input preparation):")
@@ -111,6 +157,10 @@ def print_table(runs):
 def main():
     parser = argparse.ArgumentParser(description="Benchmark a random solid cube and free entities.")
     parser.add_argument("--side", type=int, default=100, help="Cube side length (default: 100).")
+    parser.add_argument(
+        "--reads-only", action="store_true", help="Skip validation, I/O, and rendering."
+    )
+    parser.add_argument("--density", type=float, default=1.0, help="Occupied fraction (0..1).")
     parser.add_argument("--entities", type=int, default=1000)
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--seed", type=int, default=42)
@@ -124,6 +174,10 @@ def main():
     args = parser.parse_args()
     if not 1 <= args.side <= 256 or args.entities < 0 or args.runs < 1:
         parser.error("side must be 1..256, entities nonnegative, and runs positive")
+    if not 0 < args.density <= 1:
+        parser.error("density must be in (0, 1]")
+    if args.density < 1 and not args.reads_only:
+        parser.error("density below 1 requires --reads-only")
     if not 1 <= args.cell_size <= 128 or args.side * args.cell_size > 4096:
         parser.error("cell-size must be 1..128 and side * cell-size must be <= 4096")
     args.output.mkdir(parents=True, exist_ok=True)
@@ -133,7 +187,7 @@ def main():
     sprite_image = args.output / "sprites.png"
     geometry_image = args.output / "geometry.png"
     print(
-        f"{args.side}³ = {args.side**3:,} blocks, {args.entities:,} entities; "
+        f"{args.side}³ = {args.side**3:,} possible blocks, density {args.density:g}, {args.entities:,} entities; "
         f"{args.runs} runs, seed {args.seed}, Minecraft {args.version}\n"
         f"32 solid block types; entities on top of cube; full-volume top views at {pixels}².\n"
         "Preparing catalog and renderer caches (excluded from measurements)...",
@@ -141,13 +195,17 @@ def main():
     )
     start = perf_counter()
     data.load(args.version)
-    data.load_visuals(args.version)
+    if not args.reads_only:
+        data.load_visuals(args.version)
     warmup = Schematic.create(version=args.version, data=data)
     warmup.region().set((0, 0, 0), block("stone"))
     warmup.region().entities.add(MOBS[0], at=(0.5, 1.0, 0.5))
-    with tempfile.TemporaryDirectory(prefix="mcschemora-benchmark-warmup-") as directory:
-        warmup.export_sprites(Path(directory) / "sprites.png")
-        warmup.export_png(Path(directory) / "geometry.png", size=(32, 32), view="top")
+    warmup.region().get_all()
+    warmup.region().select(start=(0, 0, 0), size=(1, 1, 1)).get_all()
+    if not args.reads_only:
+        with tempfile.TemporaryDirectory(prefix="mcschemora-benchmark-warmup-") as directory:
+            warmup.export_sprites(Path(directory) / "sprites.png")
+            warmup.export_png(Path(directory) / "geometry.png", size=(32, 32), view="top")
     del warmup
     print(f"Setup: {perf_counter() - start:.3f} s", flush=True)
     runs = []
@@ -163,6 +221,11 @@ def main():
             lambda batches=batches, entities=entities: author(args, data, batches, entities),
         )
         del batches, entities
+        if args.reads_only:
+            measure_reads(scene, args, results, index)
+            runs.append(results)
+            del scene
+            continue
         report = timed(results, "Validate", scene.validate)
         print(
             f"  Validation: {len(report.errors)} errors, {len(report.warnings)} warnings, "
@@ -173,6 +236,7 @@ def main():
         timed(results, "Save", lambda scene=scene: scene.save(schematic))
         del scene
         loaded = timed(results, "Load", lambda: Schematic.load(schematic, data=data))
+        measure_reads(loaded, args, results, index)
         sprite_diagnostics = timed(
             results,
             "Sprite render",
@@ -203,6 +267,11 @@ def main():
             print(f"    {diagnostic}")
         runs.append(results)
         del loaded, region
+    if args.reads_only:
+        print_table(runs, ("Prepare inputs", "Author scene", *READ_STAGES))
+        print("Reads include Python dictionary construction; equality checks are untimed.")
+        print("Read order alternates between runs; selections cover the central half on each axis.")
+        return
     print_table(runs)
     print(f"\nLatest scene and PNGs: {args.output.resolve()}")
     print(

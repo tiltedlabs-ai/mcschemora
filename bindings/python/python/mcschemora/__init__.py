@@ -712,6 +712,14 @@ class Region:
         """
         return Block._from_native(self._native.get(at))
 
+    def get_all(self) -> dict[Position, Block]:
+        """Returns a snapshot of non-air blocks keyed by region-local coordinates.
+
+        Identical states share immutable Block objects. Changes to the returned
+        dictionary do not edit the schematic. Block entities and entities are excluded.
+        """
+        return self._native.get_all(Block._from_native)
+
     def set(self, at: Position, content: Block | Fragment) -> None:
         """Writes a block or pastes a fragment, replacing destination cells.
 
@@ -727,12 +735,15 @@ class Region:
         else:
             raise TypeError("set() expects a Block or Fragment")
 
-    def set_many(self, placements: Iterable[tuple[Position, Block]]) -> None:
+    def set_many(
+        self, placements: Mapping[Position, Block] | Iterable[tuple[Position, Block]]
+    ) -> None:
         """Validates and writes a batch of blocks atomically.
 
         Args:
-            placements: Iterable of (local position, Block) pairs. Later writes to the
-                same position take precedence.
+            placements: Mapping of local positions to Blocks, or an iterable of
+                (local position, Block) pairs. Later writes to the same position
+                take precedence. Omitted positions are unchanged; write air to clear cells.
 
         Raises:
             ValueError: If a block, coordinate, or region-bound change is unsupported.
@@ -741,7 +752,8 @@ class Region:
         indices: dict[Block, int] = {}
         palette: list[tuple[str, dict[str, str]]] = []
         cells: list[tuple[Position, int]] = []
-        for at, value in placements:
+        entries = placements.items() if isinstance(placements, Mapping) else placements
+        for at, value in entries:
             index = indices.get(value)
             if index is None:
                 index = len(palette)
@@ -749,6 +761,14 @@ class Region:
                 palette.append((value.id, dict(value._properties)))
             cells.append((at, index))
         self._native.set_many(palette, cells)
+
+    def delete(self) -> None:
+        """Clears blocks, attached data, and entities within this region's bounds.
+
+        The named region, origin, and bounds remain in the schematic.
+        """
+        bounds = self.bounds
+        self.select(start=bounds.start, size=bounds.size).delete()
 
     def patch(self, at: Position, **states: PropertyValue) -> None:
         """Changes supplied properties of the block at a local cell position.
@@ -813,6 +833,14 @@ class Selection:
     def bounds(self) -> Bounds:
         """The selection's local bounding box."""
         return Bounds._from_native(self._native.bounds())
+
+    def get_all(self) -> dict[Position, Block]:
+        """Returns current non-air blocks at selected region-local coordinates.
+
+        The dictionary is an independent snapshot, with identical states sharing
+        immutable Block objects. Block entities and entities are excluded.
+        """
+        return self._native.get_all(Block._from_native)
 
     def select(
         self, *, block: str | None = None, states: Mapping[str, PropertyValue] | None = None

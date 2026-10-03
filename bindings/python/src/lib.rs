@@ -16,6 +16,7 @@ use std::{
 };
 type Shared = Arc<Mutex<Schematic>>;
 type State = (String, BTreeMap<String, String>);
+type RepairChange = (String, Position, State, State);
 fn error(e: impl ToString) -> PyErr {
     PyValueError::new_err(e.to_string())
 }
@@ -269,6 +270,27 @@ impl PySchematic {
     fn validate(&self, py: Python<'_>) -> PyResult<(Vec<String>, Vec<String>, Vec<String>)> {
         let report = py.detach(|| -> PyResult<_> { Ok(lock(&self.data)?.validate()) })?;
         Ok((report.errors, report.warnings, report.unknown))
+    }
+    #[pyo3(signature = (rules=None))]
+    fn repair(
+        &self,
+        py: Python<'_>,
+        rules: Option<Vec<String>>,
+    ) -> PyResult<(Vec<RepairChange>, Vec<String>)> {
+        let report = py.detach(|| lock(&self.data)?.repair(rules.as_deref()).map_err(error))?;
+        let changes = report
+            .changes
+            .into_iter()
+            .map(|change| {
+                (
+                    change.region,
+                    change.position,
+                    (change.before.name, change.before.properties),
+                    (change.after.name, change.after.properties),
+                )
+            })
+            .collect();
+        Ok((changes, report.skipped))
     }
     fn region(&self, name: &str) -> PyResult<PyRegion> {
         lock(&self.data)?.region(name).map_err(error)?;

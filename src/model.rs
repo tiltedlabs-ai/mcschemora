@@ -421,6 +421,10 @@ impl Schematic {
     pub fn validate(&self) -> crate::validate::Report {
         crate::validate::validate(self)
     }
+
+    pub fn repair(&mut self, rules: Option<&[String]>) -> Result<crate::validate::RepairReport> {
+        crate::validate::repair(self, rules)
+    }
 }
 /// Fixed membership of local cells and document-local entity references.
 #[derive(Clone, Debug)]

@@ -2,11 +2,13 @@
 
 mod block_entities;
 mod portals;
+mod repair;
 mod rules;
 mod scene;
 mod shapes;
 
 pub(crate) use block_entities::block_entity_id;
+pub use repair::{RepairChange, RepairReport, repair};
 pub(crate) use shapes::Shapes;
 
 use crate::model::{Block, Position, Schematic, direction};
@@ -71,6 +73,7 @@ struct Check<'a, 'b> {
     cell: Cell<'b>,
     report: &'a mut Report,
     missing: Vec<&'static str>,
+    repaired: Option<Block>,
 }
 
 impl Check<'_, '_> {
@@ -100,6 +103,20 @@ impl Check<'_, '_> {
             None => (),
         }
     }
+    fn expect(
+        &mut self,
+        rule: &'static str,
+        block: &Block,
+        key: &str,
+        value: Option<&str>,
+        message: &str,
+    ) {
+        if let (Some(value), Some(repaired)) = (value, &mut self.repaired) {
+            repaired.properties.insert(key.into(), value.into());
+        } else {
+            self.require(rule, value.map(|value| prop(block, key) == value), message);
+        }
+    }
     fn at(&self, d: Point) -> Option<&Block> {
         self.scene.get(add(self.cell.point, d))
     }
@@ -123,35 +140,9 @@ pub fn validate(doc: &Schematic) -> Report {
             .collect(),
         ..Report::default()
     };
-    if doc.edition != "java" {
-        report
-            .unknown
-            .push("edition: game-rule validation currently requires Java Edition".into());
+    let Some(scene) = prepare(doc, &mut report) else {
         return report;
-    }
-    let registry = match doc.registry() {
-        Ok(registry) => registry,
-        Err(e) => {
-            report.unknown.push(e);
-            return report;
-        }
     };
-    scene::check_region_bounds(doc, &mut report);
-    if !report.errors.is_empty() {
-        return report;
-    }
-    if registry.validation_shapes.get().is_none() {
-        let shapes = doc.data.collision_shapes(&doc.version).and_then(|value| {
-            serde_json::from_value(value).map_err(|e| format!("Invalid collision shapes: {e}"))
-        });
-        match shapes {
-            Ok(shapes) => {
-                let _ = registry.validation_shapes.set(shapes);
-            }
-            Err(e) => report.unknown.push(format!("support.catalog: {e}")),
-        }
-    }
-    let scene = scene::build_scene(doc, registry, registry.validation_shapes.get(), &mut report);
     let mut portals = HashSet::new();
     for &cell in &scene.cells {
         let state = &scene.states[cell.state];
@@ -164,6 +155,7 @@ pub fn validate(doc: &Schematic) -> Report {
             cell,
             report: &mut report,
             missing: Vec::new(),
+            repaired: None,
         };
         for rule in &state.rules {
             rule(&mut check, b);
@@ -197,4 +189,41 @@ pub fn validate(doc: &Schematic) -> Report {
         }
     }
     report
+}
+
+fn prepare<'a>(doc: &'a Schematic, report: &mut Report) -> Option<Scene<'a>> {
+    if doc.edition != "java" {
+        report
+            .unknown
+            .push("edition: game-rule validation currently requires Java Edition".into());
+        return None;
+    }
+    let registry = match doc.registry() {
+        Ok(registry) => registry,
+        Err(e) => {
+            report.unknown.push(e);
+            return None;
+        }
+    };
+    scene::check_region_bounds(doc, report);
+    if !report.errors.is_empty() {
+        return None;
+    }
+    if registry.validation_shapes.get().is_none() {
+        let shapes = doc.data.collision_shapes(&doc.version).and_then(|value| {
+            serde_json::from_value(value).map_err(|e| format!("Invalid collision shapes: {e}"))
+        });
+        match shapes {
+            Ok(shapes) => {
+                let _ = registry.validation_shapes.set(shapes);
+            }
+            Err(e) => report.unknown.push(format!("support.catalog: {e}")),
+        }
+    }
+    Some(scene::build_scene(
+        doc,
+        registry,
+        registry.validation_shapes.get(),
+        report,
+    ))
 }

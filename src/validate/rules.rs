@@ -31,7 +31,7 @@ pub(super) fn for_block(block: &Block) -> Vec<Rule> {
     ) || n.ends_with("_button")
         || n.ends_with("_pressure_plate")
         || (n.ends_with("_sign") && !n.ends_with("_hanging_sign"));
-    let rules: [(bool, Rule); 12] = [
+    let rules: [(bool, Rule); 11] = [
         (n.ends_with("_bed"), check_bed),
         (n.ends_with("_door"), check_door),
         (tall_plant(n), check_tall_plant),
@@ -59,7 +59,6 @@ pub(super) fn for_block(block: &Block) -> Vec<Rule> {
                 || n.ends_with("glass_pane"),
             check_connections,
         ),
-        (n.ends_with("_wall"), check_wall_height),
         (n.ends_with("_stairs"), check_stairs),
         (n == "redstone_wire", check_redstone),
     ];
@@ -483,45 +482,43 @@ fn connection_exception(n: &str) -> bool {
 
 // https://github.com/mahtomedi/minecraft/blob/main/src/main/java/net/minecraft/world/level/block/FenceBlock.java
 // https://github.com/mahtomedi/minecraft/blob/main/src/main/java/net/minecraft/world/level/block/IronBarsBlock.java
-fn check_connections(c: &mut Check<'_, '_>, b: &Block) {
+fn connection(c: &Check<'_, '_>, b: &Block, d: super::Point) -> Option<bool> {
     let n = name(b);
     let fence = n.ends_with("_fence");
     let pane = n == "iron_bars" || n.ends_with("glass_pane");
-    let wall = n.ends_with("_wall");
-    if !(fence || pane || wall) {
-        return;
+    let o = c.at(d)?;
+    let other = name(o);
+    let matching = if fence {
+        other.ends_with("_fence") && (n == "nether_brick_fence") == (other == "nether_brick_fence")
+    } else if pane {
+        other == "iron_bars" || other.ends_with("glass_pane")
+    } else {
+        other.ends_with("_wall")
+    };
+    let gate =
+        !pane && other.ends_with("_fence_gate") && facing(o)[0] != d[0] && facing(o)[2] != d[2];
+    let special = (pane && (other == "glass" || other.ends_with("_stained_glass")))
+        || (!fence && !pane && (other == "iron_bars" || other.ends_with("glass_pane")));
+    if matching || gate || special {
+        Some(true)
+    } else if connection_exception(other) {
+        Some(false)
+    } else {
+        c.scene.support(add(c.cell.point, d), neg(d), Support::Full)
+    }
+}
+
+pub(super) fn check_connections(c: &mut Check<'_, '_>, b: &Block) {
+    let wall = name(b).ends_with("_wall") && !matches!(prop(b, "north"), "true" | "false");
+    if wall {
+        return check_wall_height(c, b);
     }
     for (side, d) in SIDES {
-        let result = c.at(d).and_then(|o| {
-            let other = name(o);
-            let matching = if fence {
-                other.ends_with("_fence")
-                    && (n == "nether_brick_fence") == (other == "nether_brick_fence")
-            } else if pane {
-                other == "iron_bars" || other.ends_with("glass_pane")
-            } else {
-                other.ends_with("_wall")
-            };
-            let gate = !pane
-                && other.ends_with("_fence_gate")
-                && facing(o)[0] != d[0]
-                && facing(o)[2] != d[2];
-            let special = (pane && (other == "glass" || other.ends_with("_stained_glass")))
-                || (wall && (other == "iron_bars" || other.ends_with("glass_pane")));
-            let expected = if matching || gate || special {
-                true
-            } else if connection_exception(other) {
-                false
-            } else {
-                c.scene
-                    .support(add(c.cell.point, d), neg(d), Support::Full)?
-            };
-            let actual = !matches!(prop(b, side), "false" | "none");
-            Some(expected == actual)
-        });
-        c.require(
+        c.expect(
             "connection.side",
-            result,
+            b,
+            side,
+            connection(c, b, d).map(|v| if v { "true" } else { "false" }),
             "side connection disagrees with its neighbor",
         );
     }
@@ -529,32 +526,18 @@ fn check_connections(c: &mut Check<'_, '_>, b: &Block) {
 
 // WallBlock.updateShape uses the lower collision face of the block above.
 // https://github.com/mahtomedi/minecraft/blob/main/src/main/java/net/minecraft/world/level/block/WallBlock.java
-fn check_wall_height(c: &mut Check<'_, '_>, b: &Block) {
-    if !name(b).ends_with("_wall") {
+pub(super) fn check_wall_height(c: &mut Check<'_, '_>, b: &Block) {
+    if matches!(prop(b, "north"), "true" | "false") {
         return;
     }
-    if matches!(prop(b, "north"), "true" | "false") {
-        c.require("wall.height", None, "");
-        return; // Pre-1.16 wall geometry.
-    }
-    let result = (|| {
+    let expected = (|| {
         let above = c.at(UP)?;
         let cover = c.scene.bottom_cover(add(c.cell.point, UP))?;
         let mut connected = [false; 4];
         let mut tall = [false; 4];
-        for (i, (side, _)) in SIDES.iter().enumerate() {
-            connected[i] = prop(b, side) != "none";
+        for (i, (_, d)) in SIDES.iter().enumerate() {
+            connected[i] = connection(c, b, *d)?;
             tall[i] = connected[i] && cover[i];
-            let expected = if !connected[i] {
-                "none"
-            } else if tall[i] {
-                "tall"
-            } else {
-                "low"
-            };
-            if prop(b, side) != expected {
-                return Some(false);
-            }
         }
         let asymmetric = connected.iter().all(|v| !v)
             || connected[0] != connected[2]
@@ -567,17 +550,36 @@ fn check_wall_height(c: &mut Check<'_, '_>, b: &Block) {
         let post = (name(above).ends_with("_wall") && prop(above, "up") == "true")
             || asymmetric
             || (!straight_tall && (forced || cover[4]));
-        Some((prop(b, "up") == "true") == post)
+        Some((connected, tall, post))
     })();
-    c.require(
+    for (i, (side, _)) in SIDES.iter().enumerate() {
+        c.expect(
+            "wall.height",
+            b,
+            side,
+            expected.map(|(connected, tall, _)| {
+                if !connected[i] {
+                    "none"
+                } else if tall[i] {
+                    "tall"
+                } else {
+                    "low"
+                }
+            }),
+            "wall arms or post disagree with neighboring blocks",
+        );
+    }
+    c.expect(
         "wall.height",
-        result,
-        "wall arms or post disagree with the block above",
+        b,
+        "up",
+        expected.map(|(_, _, post)| if post { "true" } else { "false" }),
+        "wall arms or post disagree with neighboring blocks",
     );
 }
 
 // https://github.com/mahtomedi/minecraft/blob/main/src/main/java/net/minecraft/world/level/block/StairBlock.java
-fn check_stairs(c: &mut Check<'_, '_>, b: &Block) {
+pub(super) fn check_stairs(c: &mut Check<'_, '_>, b: &Block) {
     if !name(b).ends_with("_stairs") {
         return;
     }
@@ -606,34 +608,137 @@ fn check_stairs(c: &mut Check<'_, '_>, b: &Block) {
         }
         Some("straight")
     })();
-    c.require(
+    c.expect(
         "stairs.shape",
-        expected.map(|s| s == prop(b, "shape")),
+        b,
+        "shape",
+        expected,
         "stair corner shape disagrees with neighboring stairs",
     );
 }
 
-// Redstone dots and crosses can be selected by the player. Do not require every
-// visible arm to have a recipient or infer powered state without running ticks.
-// https://github.com/mahtomedi/minecraft/blob/main/src/main/java/net/minecraft/world/level/block/RedStoneWireBlock.java
-fn check_redstone(c: &mut Check<'_, '_>, b: &Block) {
-    if name(b) != "redstone_wire" {
-        return;
+fn signal_source(b: &Block, d: Option<super::Point>) -> bool {
+    match name(b) {
+        "redstone_wire" => true,
+        "repeater" => d.is_some_and(|d| facing(b) == d || facing(b) == neg(d)),
+        "observer" => d == Some(facing(b)),
+        n => {
+            d.is_some()
+                && (matches!(
+                    n,
+                    "comparator"
+                        | "redstone_block"
+                        | "redstone_torch"
+                        | "redstone_wall_torch"
+                        | "lever"
+                        | "tripwire_hook"
+                        | "daylight_detector"
+                        | "detector_rail"
+                        | "lectern"
+                        | "sculk_sensor"
+                        | "calibrated_sculk_sensor"
+                        | "lightning_rod"
+                        | "target"
+                        | "trapped_chest"
+                ) || n.ends_with("_button")
+                    || n.ends_with("_pressure_plate"))
+        }
     }
-    for (side, d) in SIDES {
-        if prop(b, side) == "up" {
-            c.require(
-                "redstone.up",
-                c.at(add(d, UP)).map(|o| name(o) == "redstone_wire"),
-                "upward connection has no wire above its neighbor",
-            );
-            c.needs_support(d, neg(d), Support::Full);
-        } else if prop(b, side) == "none" && c.at(d).is_some_and(|o| name(o) == "redstone_wire") {
-            c.emit(
-                "redstone.connection",
-                "adjacent redstone wire is disconnected",
-                Severity::Error,
+}
+
+fn conductor(c: &Check<'_, '_>, d: super::Point) -> Option<bool> {
+    let b = c.at(d)?;
+    let n = name(b);
+    if b.is_air()
+        || n == "glass"
+        || n.ends_with("_stained_glass")
+        || n.ends_with("_leaves")
+        || n.ends_with("shulker_box")
+        || n.ends_with("copper_grate")
+        || n.ends_with("copper_bulb")
+        || matches!(
+            n,
+            "ice"
+                | "slime_block"
+                | "honey_block"
+                | "glowstone"
+                | "sea_lantern"
+                | "beacon"
+                | "observer"
+                | "redstone_block"
+                | "piston"
+                | "sticky_piston"
+                | "moving_piston"
+                | "tnt"
+        )
+    {
+        return Some(false);
+    }
+    for face in [UP, DOWN, [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]] {
+        if !c.scene.support(add(c.cell.point, d), face, Support::Full)? {
+            return Some(false);
+        }
+    }
+    Some(true)
+}
+
+fn wire_side(c: &Check<'_, '_>, d: super::Point, open_above: bool) -> Option<&'static str> {
+    let neighbor = c.at(d)?;
+    if open_above {
+        let top = name(neighbor).ends_with("_trapdoor")
+            || name(neighbor) == "hopper"
+            || c.scene.support(add(c.cell.point, d), UP, Support::Full)?;
+        if top && signal_source(c.at(add(d, UP))?, None) {
+            return Some(
+                if c.scene
+                    .support(add(c.cell.point, d), neg(d), Support::Full)?
+                {
+                    "up"
+                } else {
+                    "side"
+                },
             );
         }
+    }
+    if signal_source(neighbor, Some(d)) {
+        return Some("side");
+    }
+    if conductor(c, d)? {
+        return Some("none");
+    }
+    Some(if signal_source(c.at(add(d, DOWN))?, None) {
+        "side"
+    } else {
+        "none"
+    })
+}
+
+pub(super) fn check_redstone(c: &mut Check<'_, '_>, b: &Block) {
+    let expected = (|| {
+        let open_above = !conductor(c, UP)?;
+        let mut sides = ["none"; 4];
+        for (i, (_, d)) in SIDES.iter().enumerate() {
+            sides[i] = wire_side(c, *d, open_above)?;
+        }
+        let dot = SIDES.iter().all(|(side, _)| prop(b, side) == "none");
+        if !(dot && sides.iter().all(|&side| side == "none")) {
+            let north_south = sides[0] != "none" || sides[2] != "none";
+            let east_west = sides[1] != "none" || sides[3] != "none";
+            for (i, side) in sides.iter_mut().enumerate() {
+                if *side == "none" && if i % 2 == 0 { !east_west } else { !north_south } {
+                    *side = "side";
+                }
+            }
+        }
+        Some(sides)
+    })();
+    for (i, (side, _)) in SIDES.iter().enumerate() {
+        c.expect(
+            "redstone.connection",
+            b,
+            side,
+            expected.map(|sides| sides[i]),
+            "wire connection disagrees with neighboring blocks",
+        );
     }
 }

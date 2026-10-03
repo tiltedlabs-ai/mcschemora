@@ -16,6 +16,8 @@ Arguments after `*` are keyword-only. Types and properties are documented below.
 - [Bounds](#bounds)
 - [Fragment](#fragment)
 - [Report](#report)
+- [RepairChange](#repairchange)
+- [RepairReport](#repairreport)
 - [block](#function-block)
 - [water_source](#function-water_source)
 - [bed](#function-bed)
@@ -32,7 +34,7 @@ Arguments after `*` are keyword-only. Types and properties are documented below.
 
 ### Schematic
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L299)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L336)
 
 A versioned document containing named regions and metadata.
 
@@ -360,6 +362,27 @@ Checks Java game rules without changing the document or simulating ticks.
 
 **Returns:** A Report with structural errors, unstable-state warnings, and unknown checks requiring surrounding blocks or unavailable game data.
 
+#### Schematic.repair
+
+`Schematic.repair(*, rules: Sequence[str] | None = None) -> RepairReport`
+
+Repairs neighbor-dependent connections and shapes in place.
+
+Uses the same expected-state calculations as validate(). All supported
+rules run by default. Neighbor lookups cross regions in world coordinates;
+unknown surrounding blocks cause a cell to be skipped. Isolated redstone
+dots remain dots. Power, facing, waterlogging, entities, and attached data
+are preserved. Loading never invokes repair automatically.
+
+**Args:** `rules`: Any subset of redstone, stairs, fences, panes, and walls. None enables all rules; an empty sequence changes nothing.
+
+**Returns:** A RepairReport containing before/after states and skipped reasons.
+
+**Raises:**
+
+- `ValueError`: If a rule is unsupported, regions overlap, bounds are invalid, or repairs cannot converge. No changes are committed.
+- `TypeError`: If rules is a string rather than a sequence of rule names.
+
 #### Schematic.check_export
 
 `Schematic.check_export(*, format: str, flatten: bool = False) -> Report`
@@ -375,7 +398,7 @@ Checks conversion errors and losses without writing or changing the document.
 
 ### MinecraftData
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L191)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L228)
 
 Shared access to pinned Java catalogs and cached rendering assets.
 
@@ -437,7 +460,7 @@ Prepares rendering assets and returns their cache directory.
 
 ### Region
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L684)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L758)
 
 An editing handle for a named region within a schematic.
 
@@ -580,7 +603,7 @@ The manager for NBT attached to this region's blocks.
 
 ### Selection
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L844)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L918)
 
 A set of region-local cells and entities that reads current content.
 
@@ -745,7 +768,7 @@ Returns a local Y layer as a text grid followed by a block-state legend.
 
 ### Block
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L71)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L73)
 
 An immutable block description, validated against a catalog on placement.
 
@@ -771,7 +794,7 @@ Returns the full block-state string with properties in sorted order.
 
 ### Bounds
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L132)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L134)
 
 A box with an inclusive start and exclusive upper bounds.
 
@@ -787,7 +810,7 @@ Bounds.size: Position
 
 ### Fragment
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1025)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1099)
 
 An independent copy of selected cells, attached data, and free entities.
 
@@ -802,7 +825,7 @@ Cell counts along X, Y, and Z in the copied bounding box.
 
 ### Report
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L150)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L187)
 
 Issues found during game-rule validation or export preflight.
 
@@ -838,9 +861,51 @@ Whether errors, losses, and unknown results are absent; warnings are allowed.
 
 Returns labeled issues, or "No issues found." for an empty report.
 
+### RepairChange
+
+[Source](../../bindings/python/python/mcschemora/__init__.py#L152)
+
+A repaired block, identified by region and local position.
+
+**Attributes:**
+
+- `region`: Name of the containing region.
+- `position`: Region-local cell coordinates.
+- `before`: Block state before repair.
+- `after`: Block state after repair.
+
+```python
+RepairChange.region: str
+RepairChange.position: Position
+RepairChange.before: Block
+RepairChange.after: Block
+```
+
+### RepairReport
+
+[Source](../../bindings/python/python/mcschemora/__init__.py#L169)
+
+Changes applied by repair and cases skipped because their context is unknown.
+
+**Attributes:**
+
+- `changes`: Immutable snapshots of changed blocks.
+- `skipped`: Reasons why eligible blocks could not be repaired.
+
+```python
+RepairReport.changes: tuple[RepairChange, ...]
+RepairReport.skipped: tuple[str, ...]
+```
+
+#### RepairReport.changed
+
+`RepairReport.changed: int`
+
+The number of blocks changed.
+
 ### Function block
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L109)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L111)
 
 `block(identifier: str, **states: PropertyValue) -> Block`
 
@@ -855,7 +920,7 @@ Creates a block description, adding the minecraft namespace if omitted.
 
 ### Function water_source
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L126)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L128)
 
 `water_source() -> Block`
 
@@ -863,7 +928,7 @@ Returns a water block with level=0.
 
 ### Function bed
 
-[Source](../../bindings/python/src/lib.rs#L613)
+[Source](../../bindings/python/src/lib.rs#L635)
 
 `bed(*, color: str = 'red', head_toward: str = 'north') -> Placement`
 
@@ -878,7 +943,7 @@ Creates a bed placement anchored at the foot block when placed.
 
 ### Function door
 
-[Source](../../bindings/python/src/lib.rs#L634)
+[Source](../../bindings/python/src/lib.rs#L656)
 
 ```python
 door(
@@ -905,7 +970,7 @@ Creates a door placement anchored at the lower block when placed.
 
 ### Function sign
 
-[Source](../../bindings/python/src/lib.rs#L675)
+[Source](../../bindings/python/src/lib.rs#L697)
 
 ```python
 sign(
@@ -930,7 +995,7 @@ Creates a standing-sign placement with plain text on its front face.
 
 ### Function chest
 
-[Source](../../bindings/python/src/lib.rs#L655)
+[Source](../../bindings/python/src/lib.rs#L677)
 
 ```python
 chest(
@@ -951,7 +1016,7 @@ Creates a single-chest placement with optional inventory contents.
 
 ### Function item
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1041)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1115)
 
 `item(identifier: str, *, count: int = 1, components: str | None = None) -> _Item`
 
@@ -967,7 +1032,7 @@ Creates an inventory item value for chest().
 
 ### Function mob
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1064)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1138)
 
 `mob(identifier: str, *, persistent: bool = True, nbt: str | None = None) -> _Mob`
 
@@ -983,7 +1048,7 @@ Creates a free-entity description for Region.entities.add().
 
 ### Registry
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L259)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L296)
 
 Block schemas for a schematic's version, obtained through its registry.
 
@@ -1001,7 +1066,7 @@ Returns a block schema for this schematic's Minecraft version.
 
 ### Entity
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1082)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1156)
 
 An immutable snapshot of a free entity returned by Entities.get().
 
@@ -1019,7 +1084,7 @@ Entity.nbt: str
 
 ### Entities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1096)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1170)
 
 Access to a region's free entities through document-local integer references.
 
@@ -1083,7 +1148,7 @@ Iterates a snapshot of this region's entity references.
 
 ### BlockEntities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1155)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1229)
 
 Access to typed NBT attached to blocks at region-local cell coordinates.
 

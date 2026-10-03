@@ -29,6 +29,8 @@ __all__ = [
     "Bounds",
     "Fragment",
     "Report",
+    "RepairChange",
+    "RepairReport",
     "block",
     "water_source",
     "bed",
@@ -144,6 +146,41 @@ class Bounds:
     def _from_native(cls, value: tuple[list[int], list[int]]) -> Bounds:
         start, size = value
         return cls(_position(start), _position(size))
+
+
+@dataclass(frozen=True)
+class RepairChange:
+    """A repaired block, identified by region and local position.
+
+    Attributes:
+        region: Name of the containing region.
+        position: Region-local cell coordinates.
+        before: Block state before repair.
+        after: Block state after repair.
+    """
+
+    region: str
+    position: Position
+    before: Block
+    after: Block
+
+
+@dataclass(frozen=True)
+class RepairReport:
+    """Changes applied by repair and cases skipped because their context is unknown.
+
+    Attributes:
+        changes: Immutable snapshots of changed blocks.
+        skipped: Reasons why eligible blocks could not be repaired.
+    """
+
+    changes: tuple[RepairChange, ...] = ()
+    skipped: tuple[str, ...] = ()
+
+    @property
+    def changed(self) -> int:
+        """The number of blocks changed."""
+        return len(self.changes)
 
 
 @dataclass(frozen=True)
@@ -666,6 +703,43 @@ class Schematic:
         """
         errors, warnings, unknown = self._native.validate()
         return Report(errors=tuple(errors), warnings=tuple(warnings), unknown=tuple(unknown))
+
+    def repair(self, *, rules: Sequence[str] | None = None) -> RepairReport:
+        """Repairs neighbor-dependent connections and shapes in place.
+
+        Uses the same expected-state calculations as validate(). All supported
+        rules run by default. Neighbor lookups cross regions in world coordinates;
+        unknown surrounding blocks cause a cell to be skipped. Isolated redstone
+        dots remain dots. Power, facing, waterlogging, entities, and attached data
+        are preserved. Loading never invokes repair automatically.
+
+        Args:
+            rules: Any subset of redstone, stairs, fences, panes, and walls.
+                None enables all rules; an empty sequence changes nothing.
+
+        Returns:
+            A RepairReport containing before/after states and skipped reasons.
+
+        Raises:
+            ValueError: If a rule is unsupported, regions overlap, bounds are
+                invalid, or repairs cannot converge. No changes are committed.
+            TypeError: If rules is a string rather than a sequence of rule names.
+        """
+        if isinstance(rules, str):
+            raise TypeError("rules must be a sequence of rule names")
+        changes, skipped = self._native.repair(None if rules is None else list(rules))
+        return RepairReport(
+            tuple(
+                RepairChange(
+                    region,
+                    _position(position),
+                    Block._from_native(before),
+                    Block._from_native(after),
+                )
+                for region, position, before, after in changes
+            ),
+            tuple(skipped),
+        )
 
     def check_export(self, *, format: str, flatten: bool = False) -> Report:
         """Checks conversion errors and losses without writing or changing the document.

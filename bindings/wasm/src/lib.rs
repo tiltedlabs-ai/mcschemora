@@ -169,6 +169,23 @@ impl WasmSchematic {
         )
     }
 
+    pub fn repair(&mut self, rules: Option<Vec<String>>) -> Result<JsValue, JsValue> {
+        let report = self.schematic.repair(rules.as_deref()).map_err(error)?;
+        let changes: Vec<_> = report
+            .changes
+            .into_iter()
+            .map(|change| {
+                serde_json::json!({
+                    "region": change.region, "position": change.position,
+                    "before": change.before.text(), "after": change.after.text()
+                })
+            })
+            .collect();
+        value(
+            serde_json::json!({"changed": changes.len(), "changes": changes, "skipped": report.skipped}),
+        )
+    }
+
     /// JavaScript importDiagnostics: notices about import assumptions and omissions.
     #[wasm_bindgen(js_name = importDiagnostics, getter)]
     pub fn import_diagnostics(&self) -> Vec<String> {

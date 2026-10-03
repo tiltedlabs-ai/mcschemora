@@ -4,6 +4,7 @@
 //! Region cells use local coordinates; region origins and render filters use world coordinates.
 
 pub mod catalog;
+mod convert;
 mod edit;
 pub mod formats;
 pub mod helpers;

@@ -76,6 +76,8 @@ print(tower.to_local(world))  # (2, 1, 4).
 ```python
 # Check game rules, then save a litematic that keeps the named regions.
 print(scene.validate())
+repairs = scene.repair()
+print(repairs.changed, repairs.skipped)
 scene.save("workshops.litematic")
 
 # Review the losses from merging regions, then accept them for this schem export.

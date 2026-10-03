@@ -16,7 +16,12 @@ pub(super) struct State {
 }
 
 impl State {
-    fn new(block: Block, valid: bool, shapes: Option<&Shapes>, registry: &Registry) -> Self {
+    pub(super) fn new(
+        block: Block,
+        valid: bool,
+        shapes: Option<&Shapes>,
+        registry: &Registry,
+    ) -> Self {
         let mut state = Self {
             rules: if valid {
                 rules::for_block(&block)
@@ -136,6 +141,11 @@ impl BlockIndex {
 }
 
 impl Scene<'_> {
+    pub(super) fn replace(&mut self, cell: usize, state: usize) {
+        self.cells[cell].state = state;
+        self.index.insert(self.cells[cell].point, state);
+    }
+
     pub(super) fn state_at(&self, point: Point) -> Option<&State> {
         self.index.get(point).map(|state| &self.states[state])
     }

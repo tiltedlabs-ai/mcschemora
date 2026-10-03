@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         fs::create_dir_all(output)?;
         fs::write(
             output.join("floor.schem"),
-            formats::encode(&scene, "schem", false, false)?,
+            formats::encode(&scene, "schem", None, false, false).await?,
         )?;
         println!("Saved floor.schem");
         Ok(())

@@ -1,0 +1,197 @@
+{
+  "reference": {
+    "runtime": "Minecraft Java26.2",
+    "inner_server_jar_sha256": "183c0499c5f855570ee487dd38e141a53f0121f83a0b07a3bac2d8b6698823e8",
+    "method": "Vanilla DataFixers.update from3955 to4082; intentional semantic corrections recorded per fixture"
+  },
+  "cases": [
+    {
+      "name": "food_empty",
+      "type": "ITEM_STACK",
+      "source_data_version": 3955,
+      "target_data_version": 4082,
+      "input": "{id:\"minecraft:apple\",count:1,components:{\"minecraft:food\":{nutrition:1,saturation:0.5f}}}",
+      "expected": "{components:{\"minecraft:consumable\":{consume_seconds:1.6f,on_consume_effects:[]},\"minecraft:food\":{nutrition:1,saturation:0.5f}},count:1,id:\"minecraft:apple\"}",
+      "intentional_corrections": [],
+      "loss": false
+    },
+    {
+      "name": "fire",
+      "type": "ITEM_STACK",
+      "source_data_version": 3955,
+      "target_data_version": 4082,
+      "input": "{id:\"minecraft:apple\",count:1,components:{\"minecraft:fire_resistant\":{}}}",
+      "expected": "{components:{\"minecraft:damage_resistant\":{types:\"#minecraft:is_fire\"}},count:1,id:\"minecraft:apple\"}",
+      "intentional_corrections": [],
+      "loss": false
+    },
+    {
+      "name": "fire_removed",
+      "type": "ITEM_STACK",
+      "source_data_version": 3955,
+      "target_data_version": 4082,
+      "input": "{id:\"minecraft:apple\",count:1,components:{\"!minecraft:fire_resistant\":{}}}",
+      "expected": "{components:{\"!minecraft:damage_resistant\":{}},count:1,id:\"minecraft:apple\"}",
+      "intentional_corrections": [
+        "Rename removed component as well as explicit values"
+      ],
+      "loss": false
+    },
+    {
+      "name": "food_removed",
+      "type": "ITEM_STACK",
+      "source_data_version": 3955,
+      "target_data_version": 4082,
+      "input": "{id:\"minecraft:apple\",count:1,components:{\"!minecraft:food\":{}}}",
+      "expected": "{components:{\"!minecraft:food\":{},\"!minecraft:consumable\":{}},count:1,id:\"minecraft:apple\"}",
+      "intentional_corrections": [
+        "Keep food removal disabling eating after consumable splits from food"
+      ],
+      "loss": false
+    },
+    {
+      "name": "food_empty_effects",
+      "type": "ITEM_STACK",
+      "source_data_version": 3955,
+      "target_data_version": 4082,
+      "input": "{id:\"minecraft:apple\",count:1,components:{\"minecraft:food\":{nutrition:3,saturation:1.0f,effects:[],eat_seconds:1.6f}}}",
+      "expected": "{components:{\"minecraft:consumable\":{consume_seconds:1.6f,on_consume_effects:[]},\"minecraft:food\":{nutrition:3,saturation:1.0f}},count:1,id:\"minecraft:apple\"}",
+      "intentional_corrections": [],
+      "loss": false
+    },
+    {
+      "name": "boat",
+      "type": "ENTITY",
+      "source_data_version": 3955,
+      "target_data_version": 4082,
+      "input": "{id:\"minecraft:boat\",Type:\"spruce\",Pos:[0d,0d,0d]}",
+      "expected": "{Pos:[0.0d,0.0d,0.0d],id:\"minecraft:spruce_boat\"}",
+      "intentional_corrections": [
+        "Remove obsolete Type"
+      ],
+      "loss": false
+    },
+    {
+      "name": "boat_bamboo",
+      "type": "ENTITY",
+      "source_data_version": 3955,
+      "target_data_version": 4082,
+      "input": "{id:\"minecraft:boat\",Type:\"bamboo\"}",
+      "expected": "{id:\"minecraft:bamboo_raft\"}",
+      "intentional_corrections": [
+        "Remove obsolete Type"
+      ],
+      "loss": false
+    },
+    {
+      "name": "boat_default",
+      "type": "ENTITY",
+      "source_data_version": 3955,
+      "target_data_version": 4082,
+      "input": "{id:\"minecraft:boat\"}",
+      "expected": "{id:\"minecraft:oak_boat\"}",
+      "intentional_corrections": [],
+      "loss": false
+    },
+    {
+      "name": "chestboat",
+      "type": "ENTITY",
+      "source_data_version": 3955,
+      "target_data_version": 4082,
+      "input": "{id:\"minecraft:chest_boat\",Type:\"cherry\",Items:[]}",
+      "expected": "{Items:[],id:\"minecraft:cherry_chest_boat\"}",
+      "intentional_corrections": [
+        "Remove obsolete Type"
+      ],
+      "loss": false
+    },
+    {
+      "name": "salmon",
+      "type": "ENTITY",
+      "source_data_version": 3955,
+      "target_data_version": 4082,
+      "input": "{id:\"minecraft:salmon\"}",
+      "expected": "{id:\"minecraft:salmon\",type:\"medium\"}",
+      "intentional_corrections": [],
+      "loss": false
+    },
+    {
+      "name": "salmon_size",
+      "type": "ENTITY",
+      "source_data_version": 3955,
+      "target_data_version": 4082,
+      "input": "{id:\"minecraft:salmon\",type:\"small\"}",
+      "expected": "{id:\"minecraft:salmon\",type:\"medium\"}",
+      "intentional_corrections": [],
+      "loss": true
+    },
+    {
+      "name": "lock",
+      "type": "BLOCK_ENTITY",
+      "source_data_version": 3955,
+      "target_data_version": 4082,
+      "input": "{id:\"minecraft:chest\",Lock:\"key\"}",
+      "expected": "{id:\"minecraft:chest\",lock:{components:{\"minecraft:custom_name\":'\"key\"'}}}",
+      "intentional_corrections": [
+        "Remove obsolete Lock"
+      ],
+      "loss": false
+    },
+    {
+      "name": "empty_lock",
+      "type": "BLOCK_ENTITY",
+      "source_data_version": 3955,
+      "target_data_version": 4082,
+      "input": "{id:\"minecraft:chest\",Lock:\"\"}",
+      "expected": "{id:\"minecraft:chest\"}",
+      "intentional_corrections": [
+        "Remove obsolete Lock"
+      ],
+      "loss": false
+    },
+    {
+      "name": "banner",
+      "type": "ITEM_STACK",
+      "source_data_version": 3955,
+      "target_data_version": 4082,
+      "input": "{id:\"minecraft:white_banner\",count:1,components:{\"minecraft:item_name\":'{\"translate\":\"block.minecraft.ominous_banner\"}'}}",
+      "expected": "{components:{\"minecraft:item_name\":'{\"translate\":\"block.minecraft.ominous_banner\"}',\"minecraft:rarity\":\"uncommon\"},count:1,id:\"minecraft:white_banner\"}",
+      "intentional_corrections": [],
+      "loss": false
+    },
+    {
+      "name": "chorus_custom",
+      "type": "ITEM_STACK",
+      "source_data_version": 3955,
+      "target_data_version": 4082,
+      "input": "{id:\"minecraft:chorus_fruit\",count:1,components:{\"minecraft:food\":{nutrition:2,saturation:1f,eat_seconds:0.8f,effects:[{effect:{id:\"minecraft:speed\",duration:20},probability:1f}]}}}",
+      "expected": "{components:{\"minecraft:consumable\":{consume_seconds:0.8f,on_consume_effects:[{effects:[{duration:20,id:\"minecraft:speed\"}],probability:1.0f,type:\"minecraft:apply_effects\"},{type:\"minecraft:teleport_randomly\"}]},\"minecraft:food\":{nutrition:2,saturation:1.0f}},count:1,id:\"minecraft:chorus_fruit\"}",
+      "intentional_corrections": [
+        "Keep native chorus teleport after custom food effects; verified1.21.1 ChorusFruitItem.finishUsingItem and1.21.3 Consumable.onConsume"
+      ],
+      "loss": false
+    },
+    {
+      "name": "stew_custom",
+      "type": "ITEM_STACK",
+      "source_data_version": 3955,
+      "target_data_version": 4082,
+      "input": "{id:\"minecraft:suspicious_stew\",count:1,components:{\"minecraft:food\":{nutrition:2,saturation:1f,eat_seconds:0.8f,using_converts_to:{id:\"minecraft:bowl\",count:1}},\"minecraft:suspicious_stew_effects\":[{id:\"minecraft:night_vision\",duration:60}]}}",
+      "expected": "{components:{\"minecraft:consumable\":{consume_seconds:0.8f,on_consume_effects:[]},\"minecraft:food\":{nutrition:2,saturation:1.0f},\"minecraft:suspicious_stew_effects\":[{duration:60,id:\"minecraft:night_vision\"}],\"minecraft:use_remainder\":{count:1,id:\"minecraft:bowl\"}},count:1,id:\"minecraft:suspicious_stew\"}",
+      "intentional_corrections": [],
+      "loss": false
+    },
+    {
+      "name": "chorus_removed",
+      "type": "ITEM_STACK",
+      "source_data_version": 3955,
+      "target_data_version": 4082,
+      "input": "{id:\"minecraft:chorus_fruit\",count:1,components:{\"!minecraft:food\":{}}}",
+      "expected": "{components:{\"!minecraft:food\":{},\"!minecraft:consumable\":{}},count:1,id:\"minecraft:chorus_fruit\"}",
+      "intentional_corrections": [
+        "Keep removal disabling consumption"
+      ],
+      "loss": false
+    }
+  ]
+}

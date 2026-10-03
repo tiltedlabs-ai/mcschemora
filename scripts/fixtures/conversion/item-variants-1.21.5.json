@@ -1,0 +1,369 @@
+{
+  "reference": {
+    "runtime": "Minecraft Java26.2",
+    "inner_server_jar_sha256": "183c0499c5f855570ee487dd38e141a53f0121f83a0b07a3bac2d8b6698823e8",
+    "method": "Vanilla DataFixers.update from4189 to4325; intentional semantic corrections recorded per fixture"
+  },
+  "cases": [
+    {
+      "name": "painting",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:painting\",count:1,components:{\"minecraft:entity_data\":{id:\"minecraft:painting\",variant:\"minecraft:kebab\"}}}",
+      "expected": "{components:{\"minecraft:painting/variant\":\"minecraft:kebab\"},count:1,id:\"minecraft:painting\"}",
+      "loss": false
+    },
+    {
+      "name": "axolotl",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:axolotl_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{Variant:2,Health:10f}}}",
+      "expected": "{components:{\"minecraft:axolotl/variant\":\"gold\",\"minecraft:bucket_entity_data\":{Health:10.0f}},count:1,id:\"minecraft:axolotl_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "fish",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:tropical_fish_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{BucketVariantTag:50462976}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:tropical_fish/base_color\":\"magenta\",\"minecraft:tropical_fish/pattern\":\"sunstreak\",\"minecraft:tropical_fish/pattern_color\":\"light_blue\"},count:1,id:\"minecraft:tropical_fish_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "salmon",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:salmon_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{type:\"large\"}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:salmon/size\":\"large\"},count:1,id:\"minecraft:salmon_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "cat",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:cat_spawn_egg\",count:1,components:{\"minecraft:entity_data\":{id:\"minecraft:cat\",variant:\"minecraft:red\",CollarColor:14b}}}",
+      "expected": "{components:{\"minecraft:entity_data\":{CollarColor:14b,id:\"minecraft:cat\",variant:\"minecraft:red\"}},count:1,id:\"minecraft:cat_spawn_egg\"}",
+      "loss": false
+    },
+    {
+      "name": "wolf",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:wolf_spawn_egg\",count:1,components:{\"minecraft:entity_data\":{id:\"minecraft:wolf\",variant:\"minecraft:pale\",CollarColor:4b}}}",
+      "expected": "{components:{\"minecraft:entity_data\":{CollarColor:4b,id:\"minecraft:wolf\",variant:\"minecraft:pale\"}},count:1,id:\"minecraft:wolf_spawn_egg\"}",
+      "loss": false
+    },
+    {
+      "name": "rabbit",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:rabbit_spawn_egg\",count:1,components:{\"minecraft:entity_data\":{id:\"minecraft:rabbit\",RabbitType:2}}}",
+      "expected": "{components:{\"minecraft:entity_data\":{RabbitType:2,id:\"minecraft:rabbit\"}},count:1,id:\"minecraft:rabbit_spawn_egg\"}",
+      "loss": false
+    },
+    {
+      "name": "parrot",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:parrot_spawn_egg\",count:1,components:{\"minecraft:entity_data\":{id:\"minecraft:parrot\",Variant:2}}}",
+      "expected": "{components:{\"minecraft:entity_data\":{Variant:2,id:\"minecraft:parrot\"}},count:1,id:\"minecraft:parrot_spawn_egg\"}",
+      "loss": false
+    },
+    {
+      "name": "horse",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:horse_spawn_egg\",count:1,components:{\"minecraft:entity_data\":{id:\"minecraft:horse\",Variant:257}}}",
+      "expected": "{components:{\"minecraft:entity_data\":{Variant:257,id:\"minecraft:horse\"}},count:1,id:\"minecraft:horse_spawn_egg\"}",
+      "loss": false
+    },
+    {
+      "name": "llama",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:llama_spawn_egg\",count:1,components:{\"minecraft:entity_data\":{id:\"minecraft:llama\",Variant:3}}}",
+      "expected": "{components:{\"minecraft:entity_data\":{Variant:3,id:\"minecraft:llama\"}},count:1,id:\"minecraft:llama_spawn_egg\"}",
+      "loss": false
+    },
+    {
+      "name": "sheep",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:sheep_spawn_egg\",count:1,components:{\"minecraft:entity_data\":{id:\"minecraft:sheep\",Color:3b}}}",
+      "expected": "{components:{\"minecraft:entity_data\":{Color:3b,id:\"minecraft:sheep\"}},count:1,id:\"minecraft:sheep_spawn_egg\"}",
+      "loss": false
+    },
+    {
+      "name": "shulker",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:shulker_spawn_egg\",count:1,components:{\"minecraft:entity_data\":{id:\"minecraft:shulker\",Color:16b}}}",
+      "expected": "{components:{\"minecraft:entity_data\":{Color:16b,id:\"minecraft:shulker\"}},count:1,id:\"minecraft:shulker_spawn_egg\"}",
+      "loss": false
+    },
+    {
+      "name": "mooshroom",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:mooshroom_spawn_egg\",count:1,components:{\"minecraft:entity_data\":{id:\"minecraft:mooshroom\",Type:\"brown\"}}}",
+      "expected": "{components:{\"minecraft:entity_data\":{Type:\"brown\",id:\"minecraft:mooshroom\"}},count:1,id:\"minecraft:mooshroom_spawn_egg\"}",
+      "loss": false
+    },
+    {
+      "name": "fox",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:fox_spawn_egg\",count:1,components:{\"minecraft:entity_data\":{id:\"minecraft:fox\",Type:\"snow\"}}}",
+      "expected": "{components:{\"minecraft:entity_data\":{Type:\"snow\",id:\"minecraft:fox\"}},count:1,id:\"minecraft:fox_spawn_egg\"}",
+      "loss": false
+    },
+    {
+      "name": "frog",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:frog_spawn_egg\",count:1,components:{\"minecraft:entity_data\":{id:\"minecraft:frog\",variant:\"minecraft:warm\"}}}",
+      "expected": "{components:{\"minecraft:entity_data\":{id:\"minecraft:frog\",variant:\"minecraft:warm\"}},count:1,id:\"minecraft:frog_spawn_egg\"}",
+      "loss": false
+    },
+    {
+      "name": "villager",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:villager_spawn_egg\",count:1,components:{\"minecraft:entity_data\":{id:\"minecraft:villager\",VillagerData:{type:\"minecraft:desert\",profession:\"minecraft:farmer\",level:2}}}}",
+      "expected": "{components:{\"minecraft:entity_data\":{VillagerData:{level:2,profession:\"minecraft:farmer\",type:\"minecraft:desert\"},id:\"minecraft:villager\"}},count:1,id:\"minecraft:villager_spawn_egg\"}",
+      "loss": false
+    },
+    {
+      "name": "axolotl_0",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:axolotl_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{Variant:0}}}",
+      "expected": "{components:{\"minecraft:axolotl/variant\":\"lucy\",\"minecraft:bucket_entity_data\":{}},count:1,id:\"minecraft:axolotl_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "axolotl_1",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:axolotl_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{Variant:1}}}",
+      "expected": "{components:{\"minecraft:axolotl/variant\":\"wild\",\"minecraft:bucket_entity_data\":{}},count:1,id:\"minecraft:axolotl_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "axolotl_2",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:axolotl_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{Variant:2}}}",
+      "expected": "{components:{\"minecraft:axolotl/variant\":\"gold\",\"minecraft:bucket_entity_data\":{}},count:1,id:\"minecraft:axolotl_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "axolotl_3",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:axolotl_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{Variant:3}}}",
+      "expected": "{components:{\"minecraft:axolotl/variant\":\"cyan\",\"minecraft:bucket_entity_data\":{}},count:1,id:\"minecraft:axolotl_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "axolotl_4",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:axolotl_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{Variant:4}}}",
+      "expected": "{components:{\"minecraft:axolotl/variant\":\"blue\",\"minecraft:bucket_entity_data\":{}},count:1,id:\"minecraft:axolotl_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "fish_0",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:tropical_fish_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{BucketVariantTag:251658240}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:tropical_fish/base_color\":\"white\",\"minecraft:tropical_fish/pattern\":\"kob\",\"minecraft:tropical_fish/pattern_color\":\"black\"},count:1,id:\"minecraft:tropical_fish_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "fish_1",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:tropical_fish_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{BucketVariantTag:234946816}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:tropical_fish/base_color\":\"orange\",\"minecraft:tropical_fish/pattern\":\"sunstreak\",\"minecraft:tropical_fish/pattern_color\":\"red\"},count:1,id:\"minecraft:tropical_fish_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "fish_2",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:tropical_fish_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{BucketVariantTag:218235392}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:tropical_fish/base_color\":\"magenta\",\"minecraft:tropical_fish/pattern\":\"snooper\",\"minecraft:tropical_fish/pattern_color\":\"green\"},count:1,id:\"minecraft:tropical_fish_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "fish_3",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:tropical_fish_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{BucketVariantTag:201523968}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:tropical_fish/base_color\":\"light_blue\",\"minecraft:tropical_fish/pattern\":\"dasher\",\"minecraft:tropical_fish/pattern_color\":\"brown\"},count:1,id:\"minecraft:tropical_fish_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "fish_4",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:tropical_fish_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{BucketVariantTag:184812544}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:tropical_fish/base_color\":\"yellow\",\"minecraft:tropical_fish/pattern\":\"brinely\",\"minecraft:tropical_fish/pattern_color\":\"blue\"},count:1,id:\"minecraft:tropical_fish_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "fish_5",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:tropical_fish_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{BucketVariantTag:168101120}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:tropical_fish/base_color\":\"lime\",\"minecraft:tropical_fish/pattern\":\"spotty\",\"minecraft:tropical_fish/pattern_color\":\"purple\"},count:1,id:\"minecraft:tropical_fish_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "fish_6",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:tropical_fish_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{BucketVariantTag:151388161}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:tropical_fish/base_color\":\"pink\",\"minecraft:tropical_fish/pattern\":\"flopper\",\"minecraft:tropical_fish/pattern_color\":\"cyan\"},count:1,id:\"minecraft:tropical_fish_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "fish_7",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:tropical_fish_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{BucketVariantTag:134676737}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:tropical_fish/base_color\":\"gray\",\"minecraft:tropical_fish/pattern\":\"stripey\",\"minecraft:tropical_fish/pattern_color\":\"light_gray\"},count:1,id:\"minecraft:tropical_fish_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "fish_8",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:tropical_fish_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{BucketVariantTag:117965313}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:tropical_fish/base_color\":\"light_gray\",\"minecraft:tropical_fish/pattern\":\"glitter\",\"minecraft:tropical_fish/pattern_color\":\"gray\"},count:1,id:\"minecraft:tropical_fish_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "fish_9",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:tropical_fish_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{BucketVariantTag:101253889}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:tropical_fish/base_color\":\"cyan\",\"minecraft:tropical_fish/pattern\":\"blockfish\",\"minecraft:tropical_fish/pattern_color\":\"pink\"},count:1,id:\"minecraft:tropical_fish_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "fish_10",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:tropical_fish_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{BucketVariantTag:84542465}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:tropical_fish/base_color\":\"purple\",\"minecraft:tropical_fish/pattern\":\"betty\",\"minecraft:tropical_fish/pattern_color\":\"lime\"},count:1,id:\"minecraft:tropical_fish_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "fish_11",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:tropical_fish_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{BucketVariantTag:67831041}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:tropical_fish/base_color\":\"blue\",\"minecraft:tropical_fish/pattern\":\"clayfish\",\"minecraft:tropical_fish/pattern_color\":\"yellow\"},count:1,id:\"minecraft:tropical_fish_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "fish_12",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:tropical_fish_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{BucketVariantTag:51118080}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:tropical_fish/base_color\":\"brown\",\"minecraft:tropical_fish/pattern\":\"kob\",\"minecraft:tropical_fish/pattern_color\":\"light_blue\"},count:1,id:\"minecraft:tropical_fish_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "fish_13",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:tropical_fish_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{BucketVariantTag:34406656}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:tropical_fish/base_color\":\"green\",\"minecraft:tropical_fish/pattern\":\"sunstreak\",\"minecraft:tropical_fish/pattern_color\":\"magenta\"},count:1,id:\"minecraft:tropical_fish_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "fish_14",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:tropical_fish_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{BucketVariantTag:17695232}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:tropical_fish/base_color\":\"red\",\"minecraft:tropical_fish/pattern\":\"snooper\",\"minecraft:tropical_fish/pattern_color\":\"orange\"},count:1,id:\"minecraft:tropical_fish_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "fish_15",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:tropical_fish_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{BucketVariantTag:983808}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:tropical_fish/base_color\":\"black\",\"minecraft:tropical_fish/pattern\":\"dasher\",\"minecraft:tropical_fish/pattern_color\":\"white\"},count:1,id:\"minecraft:tropical_fish_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "salmon_small",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:salmon_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{type:\"small\"}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:salmon/size\":\"small\"},count:1,id:\"minecraft:salmon_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "salmon_medium",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:salmon_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{type:\"medium\"}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:salmon/size\":\"medium\"},count:1,id:\"minecraft:salmon_bucket\"}",
+      "loss": false
+    },
+    {
+      "name": "salmon_large",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:salmon_bucket\",count:1,components:{\"minecraft:bucket_entity_data\":{type:\"large\"}}}",
+      "expected": "{components:{\"minecraft:bucket_entity_data\":{},\"minecraft:salmon/size\":\"large\"},count:1,id:\"minecraft:salmon_bucket\"}",
+      "loss": false
+    }
+  ]
+}

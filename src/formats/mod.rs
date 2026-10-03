@@ -73,7 +73,17 @@ pub async fn decode(
         );
     }
     let root = if format == "snbt" {
-        nbt::from_snbt(std::str::from_utf8(data).map_err(|e| e.to_string())?)?
+        let mut root = nbt::from_snbt(std::str::from_utf8(data).map_err(|e| e.to_string())?)?;
+        if root
+            .get("DataVersion")
+            .map(nbt::number)
+            .transpose()?
+            .unwrap_or(0)
+            >= crate::versions::NBT_TEXT_COMPONENTS
+        {
+            nbt::snbt_lists(&mut root, true)?;
+        }
+        root
     } else {
         nbt::decode(data, format == "mcstructure")?
     };

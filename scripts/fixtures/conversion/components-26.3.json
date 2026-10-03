@@ -1,0 +1,63 @@
+{
+  "reference": {
+    "runtime": "Minecraft Java26.3",
+    "inner_server_jar_sha256": "a362163eec5d1612d520772bc16e5b39c09e3b234fdc045f56bf544284ee8ae6",
+    "method": "Vanilla DataFixers.update from4903 to5023"
+  },
+  "cases": [
+    {
+      "name": "pot_empty",
+      "type": "ITEM_STACK",
+      "source_data_version": 4903,
+      "target_data_version": 5023,
+      "input": "{id:\"minecraft:filled_map\",count:1,components:{\"minecraft:pot_decorations\":[]}}",
+      "expected": "{components:{\"minecraft:pot_decorations\":{back:{id:\"minecraft:brick\"},front:{id:\"minecraft:brick\"},left:{id:\"minecraft:brick\"},right:{id:\"minecraft:brick\"}}},count:1,id:\"minecraft:filled_map\"}",
+      "loss": false
+    },
+    {
+      "name": "pot_full",
+      "type": "ITEM_STACK",
+      "source_data_version": 4903,
+      "target_data_version": 5023,
+      "input": "{id:\"minecraft:filled_map\",count:1,components:{\"minecraft:pot_decorations\":[\"minecraft:angler_pottery_sherd\",\"minecraft:brick\",\"minecraft:archer_pottery_sherd\",\"minecraft:prize_pottery_sherd\"]}}",
+      "expected": "{components:{\"minecraft:pot_decorations\":{back:{id:\"minecraft:angler_pottery_sherd\"},front:{id:\"minecraft:prize_pottery_sherd\"},left:{id:\"minecraft:brick\"},right:{id:\"minecraft:archer_pottery_sherd\"}}},count:1,id:\"minecraft:filled_map\"}",
+      "loss": false
+    },
+    {
+      "name": "animation",
+      "type": "ITEM_STACK",
+      "source_data_version": 4903,
+      "target_data_version": 5023,
+      "input": "{id:\"minecraft:filled_map\",count:1,components:{\"minecraft:swing_animation\":{type:\"stab\",duration:12}}}",
+      "expected": "{components:{\"minecraft:attack_animation\":{duration:12,type:\"stab\"},\"minecraft:interact_animation\":{duration:12,type:\"stab\"}},count:1,id:\"minecraft:filled_map\"}",
+      "loss": false
+    },
+    {
+      "name": "map_custom",
+      "type": "ITEM_STACK",
+      "source_data_version": 4903,
+      "target_data_version": 5023,
+      "input": "{id:\"minecraft:filled_map\",count:1,components:{\"minecraft:map_color\":12345}}",
+      "expected": "{components:{},count:1,id:\"minecraft:filled_map\"}",
+      "loss": true
+    },
+    {
+      "name": "consumable",
+      "type": "ITEM_STACK",
+      "source_data_version": 4903,
+      "target_data_version": 5023,
+      "input": "{id:\"minecraft:filled_map\",count:1,components:{\"minecraft:consumable\":{on_consume_effects:[{type:\"minecraft:teleport_randomly\",diameter:16f}]}}}",
+      "expected": "{components:{\"minecraft:consumable\":{on_consume_effects:[{diameter:16.0f,type:\"minecraft:teleport_randomly\"}]}},count:1,id:\"minecraft:filled_map\"}",
+      "loss": false
+    },
+    {
+      "name": "instrument",
+      "type": "ITEM_STACK",
+      "source_data_version": 4903,
+      "target_data_version": 5023,
+      "input": "{id:\"minecraft:filled_map\",count:1,components:{\"minecraft:instrument\":{sound_event:\"minecraft:item.goat_horn.sound.0\",use_duration:7f,range:256f,description:{text:\"Horn\"}}}}",
+      "expected": "{components:{\"minecraft:instrument\":{description:{text:\"Horn\"},range:256.0f,sound_event:\"minecraft:item.goat_horn.sound.0\",use_duration:7.0f}},count:1,id:\"minecraft:filled_map\"}",
+      "loss": false
+    }
+  ]
+}

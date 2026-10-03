@@ -1,0 +1,98 @@
+{
+  "reference": {
+    "runtime": "Minecraft Java1.21.1",
+    "inner_server_jar_sha256": "c301de10f575027d13eac18c7f34409d60648cf56a35d566aa1f530ff617840a",
+    "method": "Vanilla DataFixers.getDataFixer().update with each fixture type and version interval",
+    "note": "Reference output may retain obsolete fields. Semantic comparisons must explicitly classify these fields rather than ignore arbitrary differences."
+  },
+  "cases": [
+    {
+      "name": "sign",
+      "type": "BLOCK_ENTITY",
+      "source_data_version": 3337,
+      "target_data_version": 3463,
+      "input": "{id:\"minecraft:sign\",Text1:'{\"text\":\"First\"}',Text2:'{\"text\":\"Second\"}',Text3:'{\"text\":\"\"}',Text4:'{\"text\":\"\"}',Color:\"blue\",GlowingText:1b,FilteredText1:'{\"text\":\"Filtered\"}'}",
+      "expected": "{Color:\"blue\",FilteredText1:'{\"text\":\"Filtered\"}',GlowingText:1b,Text1:'{\"text\":\"First\"}',Text2:'{\"text\":\"Second\"}',Text3:'{\"text\":\"\"}',Text4:'{\"text\":\"\"}',back_text:{color:\"black\",has_glowing_text:0b,messages:['{\"text\":\"\"}','{\"text\":\"\"}','{\"text\":\"\"}','{\"text\":\"\"}']},front_text:{_filtered_correct:1b,color:\"blue\",filtered_messages:['{\"text\":\"Filtered\"}','{\"text\":\"Second\"}','{\"text\":\"\"}','{\"text\":\"\"}'],has_glowing_text:1b,messages:['{\"text\":\"First\"}','{\"text\":\"Second\"}','{\"text\":\"\"}','{\"text\":\"\"}']},id:\"minecraft:sign\",is_waxed:0b}"
+    },
+    {
+      "name": "effects",
+      "type": "ENTITY",
+      "source_data_version": 3465,
+      "target_data_version": 3578,
+      "input": "{id:\"minecraft:zombie\",ActiveEffects:[{Id:2b,Duration:90,HiddenEffect:{Id:1b,Duration:10}}]}",
+      "expected": "{ActiveEffects:[{Duration:90,HiddenEffect:{Duration:10,Id:1b},Id:2b}],active_effects:[{duration:90,hidden_effect:{duration:10,id:\"minecraft:speed\"},id:\"minecraft:slowness\"}],id:\"minecraft:zombie\"}"
+    },
+    {
+      "name": "beacon",
+      "type": "BLOCK_ENTITY",
+      "source_data_version": 3465,
+      "target_data_version": 3578,
+      "input": "{id:\"minecraft:beacon\",Primary:1,Secondary:10}",
+      "expected": "{Primary:1,Secondary:10,id:\"minecraft:beacon\",primary_effect:\"minecraft:speed\",secondary_effect:\"minecraft:regeneration\"}"
+    },
+    {
+      "name": "beacon_empty",
+      "type": "BLOCK_ENTITY",
+      "source_data_version": 3465,
+      "target_data_version": 3578,
+      "input": "{id:\"minecraft:beacon\",Primary:0,Secondary:-1}",
+      "expected": "{Primary:0,Secondary:-1,id:\"minecraft:beacon\"}"
+    },
+    {
+      "name": "mooshroom",
+      "type": "ENTITY",
+      "source_data_version": 3465,
+      "target_data_version": 3578,
+      "input": "{id:\"minecraft:mooshroom\",EffectId:1,EffectDuration:100}",
+      "expected": "{EffectDuration:100,EffectId:1,id:\"minecraft:mooshroom\",stew_effects:[{duration:100,id:\"minecraft:speed\"}]}"
+    },
+    {
+      "name": "potion",
+      "type": "ITEM_STACK",
+      "source_data_version": 3465,
+      "target_data_version": 3578,
+      "input": "{id:\"minecraft:potion\",Count:1b,tag:{CustomPotionEffects:[{Id:1b,Amplifier:2b,Duration:300,Ambient:0b,ShowParticles:1b,HiddenEffect:{Id:5b,Duration:60}}]}}",
+      "expected": "{Count:1b,id:\"minecraft:potion\",tag:{custom_potion_effects:[{ambient:0b,amplifier:2b,duration:300,hidden_effect:{duration:60,id:\"minecraft:strength\"},id:\"minecraft:speed\",show_particles:1b}]}}"
+    },
+    {
+      "name": "spawner",
+      "type": "BLOCK_ENTITY",
+      "source_data_version": 2730,
+      "target_data_version": 2975,
+      "input": "{id:\"minecraft:mob_spawner\",SpawnData:{id:\"minecraft:pig\"},SpawnPotentials:[{Weight:2,Entity:{id:\"minecraft:zombie\"}}]}",
+      "expected": "{SpawnData:{entity:{id:\"minecraft:pig\"}},SpawnPotentials:[{data:{entity:{id:\"minecraft:zombie\"}},weight:2}],id:\"minecraft:mob_spawner\"}"
+    },
+    {
+      "name": "villager",
+      "type": "ENTITY",
+      "source_data_version": 1631,
+      "target_data_version": 1976,
+      "input": "{id:\"minecraft:villager\",Profession:1,Career:2,CareerLevel:3}",
+      "expected": "{Career:2,CareerLevel:3,Profession:1,VillagerData:{level:3,profession:\"minecraft:cartographer\",type:\"minecraft:plains\"},Xp:50,id:\"minecraft:villager\"}"
+    },
+    {
+      "name": "vr_defaults",
+      "type": "ENTITY",
+      "source_data_version": 1631,
+      "target_data_version": 1976,
+      "input": "{id:\"minecraft:villager\"}",
+      "expected": "{VillagerData:{level:1,profession:\"minecraft:farmer\",type:\"minecraft:plains\"},Xp:0,id:\"minecraft:villager\"}"
+    },
+    {
+      "name": "uuid",
+      "type": "ENTITY",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{id:\"minecraft:wolf\",UUIDMost:1L,UUIDLeast:-2L,OwnerUUID:\"12345678-1234-1234-1234-123456789abc\",Attributes:[{Name:\"generic.maxHealth\",Base:20d,Modifiers:[{Name:\"health\",Amount:2d,Operation:0,UUIDMost:5L,UUIDLeast:6L}]}]}",
+      "expected": "{Attributes:[{Base:20.0d,Modifiers:[{Amount:2.0d,Name:\"health\",Operation:0,UUID:[I;0,5,0,6]}],Name:\"minecraft:generic.max_health\"}],Owner:[I;305419896,305402420,305402420,1450744508],OwnerUUID:\"12345678-1234-1234-1234-123456789abc\",UUID:[I;0,1,-1,-2],UUIDLeast:-2L,UUIDMost:1L,id:\"minecraft:wolf\"}"
+    },
+    {
+      "name": "skull",
+      "type": "ITEM_STACK",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{id:\"minecraft:player_head\",Count:1b,tag:{SkullOwner:{Name:\"Builder\",Id:\"12345678-1234-1234-1234-123456789abc\"}}}",
+      "expected": "{Count:1b,id:\"minecraft:player_head\",tag:{SkullOwner:{Id:[I;305419896,305402420,305402420,1450744508],Name:\"Builder\"}}}"
+    }
+  ]
+}

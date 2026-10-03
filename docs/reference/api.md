@@ -34,12 +34,12 @@ Arguments after `*` are keyword-only. Types and properties are documented below.
 
 ### Schematic
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L337)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L338)
 
-A versioned document containing named regions and metadata.
+A versioned schematic containing named regions and metadata.
 
-Obtain a document with create(), load(), or from_bytes(). Its region handles
-and selections edit the same document.
+Obtain a schematic with create(), load(), or from_bytes(). Its region handles
+and selections edit the same schematic.
 
 #### Schematic.create
 
@@ -52,7 +52,7 @@ Schematic.create(
 ) -> Schematic
 ```
 
-Creates an empty document with a main region and a loaded catalog.
+Creates an empty schematic with a main region and a loaded catalog.
 
 **Args:**
 
@@ -86,7 +86,7 @@ Reads a schematic file, preserving its edition and Minecraft version.
 - `format`: Codec name; None infers it from the extension, with .wiki selecting blueprint.
 - `data`: Catalog provider; None uses the shared default provider.
 - `version`: Explicit Java version for blueprint import only.
-- `origin`: World origin for blueprint import only.
+- `origin`: Schematic-global origin for blueprint import only.
 - `palette`: Blueprint symbols mapped to explicit Block descriptions.
 
 **Returns:** A Schematic with any import notices in import_diagnostics.
@@ -118,7 +118,7 @@ Decodes schematic bytes without changing their Minecraft version.
 - `format`: schem, litematic, nbt, snbt, mcstructure, or blueprint.
 - `data`: Catalog provider; None uses the shared default provider.
 - `version`: Explicit Java version required for blueprint import only.
-- `origin`: World origin for blueprint import only; defaults to (0, 0, 0).
+- `origin`: Schematic-global origin for blueprint import only; defaults to (0, 0, 0).
 - `palette`: Blueprint symbols mapped to explicit Block descriptions.
 
 **Returns:** A Schematic with any import notices in import_diagnostics.
@@ -137,7 +137,7 @@ Schematic.to_bytes(
 ) -> bytes
 ```
 
-Encodes the document, requiring explicit acceptance of reported losses.
+Encodes the schematic, requiring explicit acceptance of reported losses.
 
 **Args:**
 
@@ -163,7 +163,7 @@ Schematic.save(
 ) -> None
 ```
 
-Encodes the document and replaces the destination file.
+Encodes the schematic and atomically replaces the destination file.
 
 **Args:**
 
@@ -203,15 +203,20 @@ Schematic.export_glb(
 
 Writes textured geometry to a binary glTF file.
 
+Identical blocks and attached data at shared global positions render once.
+Palette states are converted once to 1.21.6 for rendering; stored blocks stay unchanged.
+
 **Args:**
 
 - `path`: Output file path, replaced if it exists.
 - `region`: Region name; None selects all regions.
-- `x`: World X coordinate or inclusive (minimum, maximum) pair; None keeps all.
-- `y`: World Y coordinate or inclusive (minimum, maximum) pair; None keeps all.
-- `z`: World Z coordinate or inclusive (minimum, maximum) pair; None keeps all.
+- `x`: Global X coordinate or inclusive (minimum, maximum) pair; None keeps all.
+- `y`: Global Y coordinate or inclusive (minimum, maximum) pair; None keeps all.
+- `z`: Global Z coordinate or inclusive (minimum, maximum) pair; None keeps all.
 
 **Returns:** Diagnostics describing visual approximations.
+
+**Raises:** `ValueError`: If overlapping regions contain conflicting blocks or attached data.
 
 #### Schematic.export_blueprint
 
@@ -234,7 +239,7 @@ Writes Minecraft Wiki layered-blueprint markup using block sprites.
 - `path`: Output UTF-8 file path, replaced if it exists.
 - `name`: Blueprint title.
 - `region`: Region name; None selects all regions.
-- `y`: World Y coordinate or inclusive pair; None keeps all layers.
+- `y`: Global Y coordinate or inclusive pair; None keeps all layers.
 - `rotation`: Number of quarter turns about Y.
 - `sprites`: Block IDs or full state strings mapped to wiki sprite identifiers.
 
@@ -268,9 +273,9 @@ Writes a flat PNG diagram using bundled Minecraft Wiki sprites.
 - `grid`: Whether to draw grid lines.
 - `entities`: Whether to include free-entity icons.
 - `region`: Region name; None selects all regions.
-- `x`: World X coordinate or inclusive pair; None keeps all.
-- `y`: World Y coordinate or inclusive pair; None keeps all.
-- `z`: World Z coordinate or inclusive pair; None keeps all.
+- `x`: Global X coordinate or inclusive pair; None keeps all.
+- `y`: Global Y coordinate or inclusive pair; None keeps all.
+- `z`: Global Z coordinate or inclusive pair; None keeps all.
 - `sprites`: Block IDs or full state strings mapped to wiki sprite identifiers.
 
 **Returns:** Diagnostics describing omitted state details and sprite approximations.
@@ -293,18 +298,23 @@ Schematic.export_png(
 
 Writes an automatically framed textured PNG with a transparent background.
 
+Identical blocks and attached data at shared global positions render once.
+Palette states are converted once to 1.21.6 for rendering; stored blocks stay unchanged.
+
 **Args:**
 
 - `path`: Output file path, replaced if it exists.
 - `size`: (width, height), each from 1 through 4096 pixels.
-- `view`: isometric, top, bottom, north, south, east, or west. Cardinal names describe the viewer's location; side views keep world-up vertical.
+- `view`: isometric, top, bottom, north, south, east, or west. Cardinal names describe the viewer's location; side views keep Y-up vertical.
 - `grid`: Whether to draw outlined block edges; entities are excluded.
 - `region`: Region name; None selects all regions.
-- `x`: World X coordinate or inclusive pair; None keeps all.
-- `y`: World Y coordinate or inclusive pair; None keeps all.
-- `z`: World Z coordinate or inclusive pair; None keeps all.
+- `x`: Global X coordinate or inclusive pair; None keeps all.
+- `y`: Global Y coordinate or inclusive pair; None keeps all.
+- `z`: Global Z coordinate or inclusive pair; None keeps all.
 
-**Returns:** Diagnostics describing visual approximations. Rendering uses the shared Java 1.21.1 visual bundle.
+**Returns:** Diagnostics describing visual approximations. Rendering uses the shared Java 1.21.6 visual bundle.
+
+**Raises:** `ValueError`: If overlapping regions contain conflicting blocks or attached data.
 
 #### Schematic.add_region
 
@@ -315,7 +325,7 @@ Adds an empty region and returns its editing handle.
 **Args:**
 
 - `name`: Nonempty, unique region name.
-- `origin`: Region origin in world coordinates.
+- `origin`: Region origin in schematic-global coordinates.
 
 **Raises:** `ValueError`: If the name is empty or already exists.
 
@@ -323,7 +333,7 @@ Adds an empty region and returns its editing handle.
 
 `Schematic.regions: tuple[str, ...]`
 
-The names of the document's regions.
+The names of the schematic's regions.
 
 #### Schematic.import_diagnostics
 
@@ -335,19 +345,19 @@ Notices about assumptions or omissions made while importing.
 
 `Schematic.edition: str`
 
-The document's Minecraft edition.
+The schematic's Minecraft edition.
 
 #### Schematic.version
 
 `Schematic.version: str`
 
-The document's Minecraft version string.
+The schematic's Minecraft version string.
 
 #### Schematic.data_version
 
 `Schematic.data_version: int`
 
-The numeric Minecraft data version stored in the document.
+The numeric Minecraft data version stored in the schematic.
 
 #### Schematic.metadata
 
@@ -357,19 +367,19 @@ Schematic metadata as typed SNBT; assigning replaces the whole compound.
 
 Writable property.
 
-Replaces document metadata with a typed SNBT compound.
+Replaces schematic metadata with a typed SNBT compound.
 
 #### Schematic.registry
 
 `Schematic.registry: Registry`
 
-Block schema access for the document's Minecraft version.
+Block schema access for the schematic's Minecraft version.
 
 #### Schematic.validate
 
 `Schematic.validate() -> Report`
 
-Checks Java game rules without changing the document or simulating ticks.
+Checks Java game rules without changing the schematic or simulating ticks.
 
 **Returns:** A Report with structural errors, unstable-state warnings, and unknown checks requiring surrounding blocks or unavailable game data.
 
@@ -380,8 +390,9 @@ Checks Java game rules without changing the document or simulating ticks.
 Repairs neighbor-dependent connections and shapes in place.
 
 Uses the same expected-state calculations as validate(). All supported
-rules run by default. Neighbor lookups cross regions in world coordinates;
-unknown surrounding blocks cause a cell to be skipped. Isolated redstone
+rules run by default. Neighbor lookups cross regions in schematic-global coordinates;
+known connections are repaired even when other sides are unknown.
+Properties requiring unknown surroundings remain unchanged. Isolated redstone
 dots remain dots. Power, facing, waterlogging, entities, and attached data
 are preserved. Loading never invokes repair automatically.
 
@@ -398,7 +409,7 @@ are preserved. Loading never invokes repair automatically.
 
 `Schematic.check_export(*, format: str, version: str | None = None, flatten: bool = False) -> Report`
 
-Checks conversion errors and losses without writing or changing the document.
+Checks conversion errors and losses without writing or changing the schematic.
 
 **Args:**
 
@@ -410,7 +421,7 @@ Checks conversion errors and losses without writing or changing the document.
 
 ### MinecraftData
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L229)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L230)
 
 Shared access to pinned Java catalogs and cached rendering assets.
 
@@ -466,18 +477,18 @@ Loads and returns a parsed catalog dataset for a Java version.
 
 Prepares rendering assets and returns their cache directory.
 
-**Args:** `version`: Java version, or latest. All versions use the 1.21.1 visual bundle.
+**Args:** `version`: Java version, or latest. All versions use the 1.21.6 visual bundle.
 
 **Raises:** `ValueError`: If the version is unsupported or the assets cannot be prepared.
 
 ### Region
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L785)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L801)
 
 An editing handle for a named region within a schematic.
 
 Cell coordinates are local to this region. Its origin locates those coordinates
-in the world. Obtain a handle through Schematic.region() or add_region().
+in schematic-global coordinates. Obtain a handle through Schematic.region() or add_region().
 
 #### Region.bounds
 
@@ -489,13 +500,13 @@ The region's stored bounding box in local coordinates.
 
 `Region.origin: Position`
 
-The world coordinates corresponding to this region's local (0, 0, 0).
+The schematic-global coordinates corresponding to this region's local (0, 0, 0).
 
 #### Region.to_global
 
 `Region.to_global(local: Position) -> Position`
 
-Converts a region-local position to world coordinates by adding the origin.
+Converts a region-local position to schematic-global coordinates by adding the origin.
 
 **Args:** `local`: Integer coordinates relative to this region's origin.
 
@@ -505,9 +516,9 @@ Converts a region-local position to world coordinates by adding the origin.
 
 `Region.to_local(global_position: Position) -> Position`
 
-Converts a world position to region-local coordinates by subtracting the origin.
+Converts a schematic-global position to region-local coordinates by subtracting the origin.
 
-**Args:** `global_position`: Integer coordinates in the schematic's shared world space.
+**Args:** `global_position`: Integer coordinates in the schematic's shared coordinate space.
 
 **Raises:** `ValueError`: If the result exceeds signed 32-bit coordinates.
 
@@ -539,7 +550,7 @@ Writes a block or pastes a fragment, replacing destination cells.
 **Args:**
 
 - `at`: Local cell coordinates; fragments are anchored at their minimum corner.
-- `content`: Block description or independent Fragment. Fragments require matching editions and versions and preserve unrelated free entities.
+- `content`: Block description or independent Fragment. Fragments require matching editions and versions and preserve unrelated entities.
 
 #### Region.set_many
 
@@ -565,14 +576,14 @@ The named region, origin, and bounds remain in the schematic.
 
 #### Region.patch
 
-`Region.patch(at: Position, **states: PropertyValue) -> None`
+`Region.patch(at: Position, **properties: PropertyValue) -> None`
 
 Changes supplied properties of the block at a local cell position.
 
 **Args:**
 
 - `at`: Local cell coordinates.
-- `**states`: Minecraft properties to replace; other properties are preserved.
+- `**properties`: Minecraft properties to replace; other properties are preserved.
 
 #### Region.select
 
@@ -585,7 +596,7 @@ Returns a box selection that edits this region's current content.
 - `start`: Inclusive minimum local coordinates; negative values are allowed.
 - `size`: Nonnegative cell counts along X, Y, and Z. Upper bounds are exclusive.
 
-**Returns:** A Selection including cells and free entities within the box.
+**Returns:** A Selection including cells and entities within the box.
 
 #### Region.place
 
@@ -605,7 +616,7 @@ Validates and commits a placement recipe atomically.
 
 `Region.entities: Entities`
 
-The manager for free entities in this region.
+The manager for entities in this region.
 
 #### Region.block_entities
 
@@ -615,12 +626,12 @@ The manager for NBT attached to this region's blocks.
 
 ### Selection
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L945)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L961)
 
 A set of region-local cells and entities that reads current content.
 
 Filters resolve membership once. Transforms update this selection's coordinates;
-other selections retain theirs. Block filters exclude free entities.
+other selections retain theirs. Block filters exclude entities.
 
 #### Selection.bounds
 
@@ -643,7 +654,7 @@ immutable Block objects. Block entities and entities are excluded.
 Selection.select(
     *,
     block: str | None = None,
-    states: Mapping[str, PropertyValue] | None = None,
+    properties: Mapping[str, PropertyValue] | None = None,
 ) -> Selection
 ```
 
@@ -652,9 +663,9 @@ Returns a new selection filtered by current block IDs and properties.
 **Args:**
 
 - `block`: Minecraft block identifier; None accepts any block ID.
-- `states`: Required property values; None leaves properties unrestricted.
+- `properties`: Required property values; None leaves properties unrestricted.
 
-**Returns:** A selection with fixed cell membership and no free entities.
+**Returns:** A selection with fixed cell membership and no entities.
 
 **Raises:** `ValueError`: If neither a block ID nor a property filter is supplied.
 
@@ -662,7 +673,7 @@ Returns a new selection filtered by current block IDs and properties.
 
 `Selection.fill(value: Block) -> Selection`
 
-Fills selected cells with a block and returns self; free entities are unchanged.
+Fills selected cells with a block and returns self; entities are unchanged.
 
 #### Selection.replace
 
@@ -677,11 +688,11 @@ Replaces selected blocks matching an identifier and returns self.
 
 #### Selection.patch
 
-`Selection.patch(**states: PropertyValue) -> Selection`
+`Selection.patch(**properties: PropertyValue) -> Selection`
 
 Changes supplied properties on selected blocks and returns self.
 
-**Args:** `**states`: Properties to replace; other properties and free entities remain.
+**Args:** `**properties`: Properties to replace; other properties and entities remain.
 
 #### Selection.delete
 
@@ -750,7 +761,7 @@ Copies content at an offset and returns a new destination selection.
 - `offset`: Local X, Y, and Z displacement.
 - `replace`: Whether to overwrite occupied targets. Selected air clears targets.
 
-**Returns:** The copied selection. The source selection retains its coordinates; copied free entities receive new references.
+**Returns:** The copied selection. The source selection retains its coordinates; copied entities receive new references.
 
 #### Selection.copy
 
@@ -782,19 +793,22 @@ Returns a local Y layer as a text grid followed by a block-state legend.
 
 [Source](../../bindings/python/python/mcschemora/__init__.py#L74)
 
-An immutable block description, validated against a catalog on placement.
+Immutable block description.
 
 Use block() to normalize an identifier and its properties.
 
-**Attributes:** `id`: Namespaced Minecraft block identifier.
+**Attributes:**
+
+- `id`: Namespaced Minecraft block identifier.
+- `properties`: Read-only Minecraft property names and values.
 
 ```python
 Block.id: str
 ```
 
-#### Block.states
+#### Block.properties
 
-`Block.states: Mapping[str, str]`
+`Block.properties: Mapping[str, str]`
 
 The read-only mapping of Minecraft property names to string values.
 
@@ -806,7 +820,7 @@ Returns the full block-state string with properties in sorted order.
 
 ### Bounds
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L135)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L136)
 
 A box with an inclusive start and exclusive upper bounds.
 
@@ -822,9 +836,9 @@ Bounds.size: Position
 
 ### Fragment
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1126)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1142)
 
-An independent copy of selected cells, attached data, and free entities.
+An independent copy of selected cells, attached data, and entities.
 
 Obtain one through Selection.copy() and paste it with Region.set(). Pasting
 requires matching Minecraft editions and versions.
@@ -837,7 +851,7 @@ Cell counts along X, Y, and Z in the copied bounding box.
 
 ### Report
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L188)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L189)
 
 Issues found during game-rule validation or export preflight.
 
@@ -875,7 +889,7 @@ Returns labeled issues, or "No issues found." for an empty report.
 
 ### RepairChange
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L153)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L154)
 
 A repaired block, identified by region and local position.
 
@@ -895,14 +909,14 @@ RepairChange.after: Block
 
 ### RepairReport
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L170)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L171)
 
 Changes applied by repair and cases skipped because their context is unknown.
 
 **Attributes:**
 
 - `changes`: Immutable snapshots of changed blocks.
-- `skipped`: Reasons why eligible blocks could not be repaired.
+- `skipped`: Reasons why individual properties could not be repaired.
 
 ```python
 RepairReport.changes: tuple[RepairChange, ...]
@@ -917,22 +931,22 @@ The number of blocks changed.
 
 ### Function block
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L112)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L113)
 
-`block(identifier: str, **states: PropertyValue) -> Block`
+`block(identifier: str, **properties: PropertyValue) -> Block`
 
 Creates a block description, adding the minecraft namespace if omitted.
 
 **Args:**
 
 - `identifier`: Minecraft block identifier.
-- `**states`: Minecraft properties as strings, integers, or booleans.
+- `**properties`: Minecraft properties as strings, integers, or booleans.
 
 **Returns:** An immutable Block. Catalog validation occurs when it is placed.
 
 ### Function water_source
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L129)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L130)
 
 `water_source() -> Block`
 
@@ -1028,7 +1042,7 @@ Creates a single-chest placement with optional inventory contents.
 
 ### Function item
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1142)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1158)
 
 `item(identifier: str, *, count: int = 1, components: str | None = None) -> _Item`
 
@@ -1044,7 +1058,7 @@ Creates an inventory item value for chest().
 
 ### Function mob
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1165)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1181)
 
 `mob(identifier: str, *, persistent: bool = True, nbt: str | None = None) -> _Mob`
 
@@ -1060,7 +1074,7 @@ Creates a free-entity description for Region.entities.add().
 
 ### Registry
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L297)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L298)
 
 Block schemas for a schematic's version, obtained through its registry.
 
@@ -1078,9 +1092,9 @@ Returns a block schema for this schematic's Minecraft version.
 
 ### Entity
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1183)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1199)
 
-An immutable snapshot of a free entity returned by Entities.get().
+An immutable snapshot of a entity returned by Entities.get().
 
 **Attributes:**
 
@@ -1096,15 +1110,15 @@ Entity.nbt: str
 
 ### Entities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1197)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1213)
 
-Access to a region's free entities through document-local integer references.
+Access to a region's entities through schematic-local integer references.
 
 #### Entities.add
 
 `Entities.add(value: _Mob, *, at: FloatPosition) -> int`
 
-Adds an entity and returns its document-local reference.
+Adds an entity and returns its schematic-local reference.
 
 **Args:**
 
@@ -1144,7 +1158,7 @@ Replaces supplied fields of an entity; omitted fields are preserved.
 
 `Entities.remove(reference: int) -> None`
 
-Removes the entity identified by a document-local reference.
+Removes the entity identified by a schematic-local reference.
 
 **Args:** `reference`: Schematic-local reference of an entity in this region.
 
@@ -1160,7 +1174,7 @@ Iterates a snapshot of this region's entity references.
 
 ### BlockEntities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1256)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1272)
 
 Access to typed NBT attached to blocks at region-local cell coordinates.
 
@@ -1260,7 +1274,7 @@ export class Schematic {
      */
     getBlock(region: string, x: number, y: number, z: number): string;
     /**
-     * Returns region descriptions with name, world origin, local start, and size.
+     * Returns region descriptions with name, schematic-global origin, local start, and size.
      */
     regions(): any;
     repair(rules?: string[] | null): any;

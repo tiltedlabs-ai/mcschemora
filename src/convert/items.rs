@@ -5,7 +5,25 @@ pub(super) fn convert(item: &mut Compound, context: &Context, level: usize) -> R
     if item.is_empty() {
         return Ok(());
     }
-    let id = context.rename("item", &text(item, "id")?)?;
+    let mut source_id = text(item, "id")?;
+    let original_id = source_id.clone();
+    if context.crosses(3209)
+        && context.forward()
+        && source_id.ends_with("_spawn_egg")
+        && let Some(V::Compound(tag)) = item.get("tag")
+        && let Some(V::Compound(entity)) = tag.get("EntityTag")
+        && let Some(value) = entity.get("id")
+    {
+        let id = context.rename("entity", crate::nbt::string(value)?)?;
+        let corrected = format!("{id}_spawn_egg");
+        if crate::catalog::namespace(&source_id) != corrected {
+            context.loss(
+                "id",
+                "spawn egg item identity is corrected to its embedded entity identity",
+            );
+        }
+        source_id = corrected;
+    }
     let count = match item.get(if context.source < crate::versions::ITEM_COMPONENTS {
         "Count"
     } else {
@@ -15,17 +33,57 @@ pub(super) fn convert(item: &mut Compound, context: &Context, level: usize) -> R
         None if context.source >= crate::versions::ITEM_COMPONENTS => 1,
         None => return Err("Count: missing item count".into()),
     };
-    if id == "minecraft:air" || count <= 0 {
+    if crate::catalog::namespace(&source_id) == "minecraft:air" || count <= 0 {
         item.clear();
         return Ok(());
     }
-    if count > 99 {
+    if count > 99
+        && (context.source >= crate::versions::ITEM_COMPONENTS
+            || context.target.data_version >= crate::versions::ITEM_COMPONENTS)
+    {
         return Err("Count: count above 99 cannot be represented".into());
     }
+    context
+        .source_registry
+        .item(&crate::catalog::namespace(&original_id))?;
+    source_id = super::maps::identity(item, &source_id, context)?;
+    let id = context.rename("item", &source_id)?;
     context.target.item(&id)?;
     item.insert("id".into(), V::String(id.clone()));
+    super::effects::item(item, &id, context)?;
+    if context.source < crate::versions::ITEM_COMPONENTS
+        && let Some(value) = item.get_mut("tag")
+        && let Some(value) = map_mut(value)?.get_mut("BlockStateTag")
+    {
+        blocks::item(
+            value,
+            &crate::catalog::namespace(&original_id),
+            &id,
+            context,
+        )?;
+    }
+    if context.source >= crate::versions::ITEM_COMPONENTS
+        && let Some(value) = item.get_mut("components")
+    {
+        let components = map_mut(value)?;
+        super::components::normalize(components)?;
+        if let Some(value) = components.get_mut("minecraft:block_state") {
+            blocks::item(
+                value,
+                &crate::catalog::namespace(&original_id),
+                &id,
+                context,
+            )?;
+        }
+        super::components::convert(components, context, level, &id)?;
+    }
+    if context.legacy() {
+        super::legacy_items::convert(item, context, level)?;
+        return historical(item, &id, context);
+    }
+    historical(item, &id, context)?;
     if !context.components() {
-        return Ok(());
+        return children(item, &id, context, level);
     }
     if item.contains_key("components") || item.contains_key("count") {
         return Err("source item already contains modern fields".into());
@@ -33,19 +91,6 @@ pub(super) fn convert(item: &mut Compound, context: &Context, level: usize) -> R
     item.remove("Count");
     item.insert("count".into(), V::Int(count));
     let mut tag = take_map(item, "tag")?;
-    if tag
-        .get("HideFlags")
-        .map(crate::nbt::number)
-        .transpose()?
-        .unwrap_or(0)
-        & 2
-        != 0
-        && !tag.contains_key("AttributeModifiers")
-    {
-        return Err(
-            "HideFlags: hiding default attribute modifiers requires target item defaults".into(),
-        );
-    }
     let mut components = Compound::new();
     let hide = tag
         .remove("HideFlags")
@@ -56,6 +101,7 @@ pub(super) fn convert(item: &mut Compound, context: &Context, level: usize) -> R
         serde_json::from_str(include_str!("data/item_fields.json")).map_err(|e| e.to_string())?;
     for [old, new] in fields {
         if let Some(value) = tag.remove(&old) {
+            scalar(&new, &value)?;
             put(&mut components, &new, value);
         }
     }
@@ -72,7 +118,10 @@ pub(super) fn convert(item: &mut Compound, context: &Context, level: usize) -> R
         ("Enchantments", "enchantments", 1),
         ("StoredEnchantments", "stored_enchantments", 32),
     ] {
-        if let Some(value) = tag.remove(old) {
+        if let Some(value) = tag
+            .remove(old)
+            .or_else(|| (hide & mask != 0).then_some(V::List(Vec::new())))
+        {
             let mut levels = Compound::new();
             for value in crate::nbt::list(&value)? {
                 let value = crate::nbt::compound(value)?;
@@ -102,12 +151,12 @@ pub(super) fn convert(item: &mut Compound, context: &Context, level: usize) -> R
     }
     let mut display = take_map(&mut tag, "display")?;
     if let Some(mut name) = display.remove("Name") {
-        text_component(&mut name)?;
+        super::text::convert(&mut name, context, level + 1)?;
         put(&mut components, "custom_name", name);
     }
     if let Some(mut lore) = display.remove("Lore") {
         for line in list_mut(&mut lore)? {
-            text_component(line)?;
+            super::text::convert(line, context, level + 1)?;
         }
         put(&mut components, "lore", lore);
     }
@@ -135,19 +184,12 @@ pub(super) fn convert(item: &mut Compound, context: &Context, level: usize) -> R
             let mut predicates = Vec::new();
             for value in crate::nbt::list(&value)? {
                 let predicate = crate::nbt::string(value)?;
-                if predicate.contains(['{', '[']) {
-                    return Err(format!(
-                        "{old}: complex block predicate conversion is not implemented"
-                    ));
-                }
-                let id = if predicate.starts_with('#') {
-                    predicate.into()
-                } else {
-                    context.rename("block", predicate)?
-                };
+                predicates.push(super::commands::predicate(predicate, context)?);
+            }
+            if predicates.is_empty() {
                 predicates.push(V::Compound(Compound::from([(
                     "blocks".into(),
-                    V::String(id),
+                    V::List(Vec::new()),
                 )])));
             }
             put(
@@ -159,6 +201,18 @@ pub(super) fn convert(item: &mut Compound, context: &Context, level: usize) -> R
                 )),
             );
         }
+    }
+    if hide & 2 != 0 && !tag.contains_key("AttributeModifiers") {
+        if id.ends_with("_horse_armor") {
+            return Err(
+                "HideFlags: horse armor requires source-effective body attribute defaults".into(),
+            );
+        }
+        put(
+            &mut components,
+            "attribute_modifiers",
+            V::Compound(tooltip(super::defaults::attributes(&id)?, true)),
+        );
     }
     if let Some(value) = tag.remove("AttributeModifiers") {
         let mut modifiers = Vec::new();
@@ -189,6 +243,9 @@ pub(super) fn convert(item: &mut Compound, context: &Context, level: usize) -> R
             }
             modifiers.push(V::Compound(modifier));
         }
+        if modifiers.is_empty() && super::defaults::fallback(&id)? {
+            return Err("AttributeModifiers: explicit empty override cannot suppress the target item's armor fallback".into());
+        }
         put(
             &mut components,
             "attribute_modifiers",
@@ -212,7 +269,11 @@ pub(super) fn convert(item: &mut Compound, context: &Context, level: usize) -> R
     ] {
         if let Some(mut value) = tag.remove(old) {
             if new == "custom_effects" {
-                entities::effects(&mut value)?;
+                super::effects::remove_interpolation(
+                    &mut value,
+                    context,
+                    "components.minecraft:potion_contents.custom_effects",
+                )?;
             }
             potion.insert(new.into(), value);
         }
@@ -221,11 +282,15 @@ pub(super) fn convert(item: &mut Compound, context: &Context, level: usize) -> R
         put(&mut components, "potion_contents", V::Compound(potion));
     }
     if let Some(mut value) = tag.remove("effects") {
-        entities::effects(&mut value)?;
+        super::effects::remove_interpolation(
+            &mut value,
+            context,
+            "components.minecraft:suspicious_stew_effects",
+        )?;
         put(&mut components, "suspicious_stew_effects", value);
     }
     if let Some(value) = tag.remove("SkullOwner") {
-        put(&mut components, "profile", entities::profile(value)?);
+        put(&mut components, "profile", profiles::forward(value)?);
     }
     if let Some(value) = tag.remove("Explosion") {
         put(&mut components, "firework_explosion", explosion(value)?);
@@ -242,7 +307,7 @@ pub(super) fn convert(item: &mut Compound, context: &Context, level: usize) -> R
             if !(0..=255).contains(&flight) {
                 return Err("Fireworks.Flight: expected duration in 0..255".into());
             }
-            fireworks.insert("flight_duration".into(), V::Int(flight));
+            fireworks.insert("flight_duration".into(), V::Byte(flight as u8 as i8));
         }
         if let Some(value) = fireworks.remove("Explosions") {
             let explosions = crate::nbt::list(&value)?
@@ -262,13 +327,13 @@ pub(super) fn convert(item: &mut Compound, context: &Context, level: usize) -> R
             for (index, value) in crate::nbt::list(&value)?.iter().enumerate() {
                 let mut value = value.clone();
                 if id == "minecraft:written_book" {
-                    text_component(&mut value)?;
+                    super::text::convert(&mut value, context, level + 1)?;
                 }
                 let mut page = Compound::from([("raw".into(), value)]);
                 if let Some(value) = filtered.get(&index.to_string()) {
                     let mut value = value.clone();
                     if id == "minecraft:written_book" {
-                        text_component(&mut value)?;
+                        super::text::convert(&mut value, context, level + 1)?;
                     }
                     page.insert("filtered".into(), value);
                 }
@@ -277,7 +342,10 @@ pub(super) fn convert(item: &mut Compound, context: &Context, level: usize) -> R
             book.insert("pages".into(), V::List(pages));
         }
         if id == "minecraft:written_book" {
-            if let Some(value) = tag.remove("title") {
+            {
+                let value = tag
+                    .remove("title")
+                    .unwrap_or_else(|| V::String(String::new()));
                 let mut title = Compound::from([("raw".into(), value)]);
                 if let Some(value) = tag.remove("filtered_title") {
                     title.insert("filtered".into(), value);
@@ -290,15 +358,17 @@ pub(super) fn convert(item: &mut Compound, context: &Context, level: usize) -> R
                 }
             }
         }
-        put(
-            &mut components,
-            if id == "minecraft:written_book" {
-                "written_book_content"
-            } else {
-                "writable_book_content"
-            },
-            V::Compound(book),
-        );
+        if !book.is_empty() {
+            put(
+                &mut components,
+                if id == "minecraft:written_book" {
+                    "written_book_content"
+                } else {
+                    "writable_book_content"
+                },
+                V::Compound(book),
+            );
+        }
     }
     if tag.contains_key("LodestonePos")
         || tag.contains_key("LodestoneDimension")
@@ -405,8 +475,12 @@ pub(super) fn convert(item: &mut Compound, context: &Context, level: usize) -> R
             put(&mut components, "bucket_entity_data", V::Compound(bucket));
         }
     }
-    if tag.contains_key("Decorations") {
-        return Err("Decorations: map decoration conversion is not implemented".into());
+    if let Some(value) = tag.remove("Decorations") {
+        put(
+            &mut components,
+            "map_decorations",
+            super::maps::forward(value, context)?,
+        );
     }
     if hide & 32 != 0 {
         put(
@@ -482,38 +556,11 @@ fn block_entity_components(
     let V::Compound(mut data) = value else {
         return Err("BlockEntityTag: expected compound".into());
     };
-    if !data.contains_key("id") {
-        let name = id.strip_prefix("minecraft:").unwrap_or(id);
-        let kind = if name.ends_with("shulker_box") {
-            Some("shulker_box")
-        } else if name.ends_with("_banner") || name == "shield" {
-            Some("banner")
-        } else if name.ends_with("_head") || name.ends_with("_skull") {
-            Some("skull")
-        } else if name.ends_with("_hanging_sign") {
-            Some("hanging_sign")
-        } else if name.ends_with("_sign") {
-            Some("sign")
-        } else {
-            match name {
-                "chest" | "trapped_chest" | "barrel" | "hopper" | "furnace" | "blast_furnace"
-                | "smoker" | "brewing_stand" | "dispenser" | "dropper" | "lectern" | "jukebox"
-                | "decorated_pot" | "chiseled_bookshelf" | "beehive" | "beacon" | "conduit"
-                | "command_block" | "structure_block" | "jigsaw" => Some(name),
-                "bee_nest" => Some("beehive"),
-                "spawner" => Some("mob_spawner"),
-                _ => None,
-            }
-        };
-        data.insert(
-            "id".into(),
-            V::String(format!(
-                "minecraft:{}",
-                kind.ok_or("BlockEntityTag: cannot infer block-entity ID")?
-            )),
-        );
+    block_entity_id(&mut data, id)?;
+    if super::block_entities::removed(&data, context)? {
+        return Ok(());
     }
-    entities::block_entity(&mut data, context, level)?;
+    super::block_entities::convert(&mut data, context, level)?;
     for (old, new) in [
         ("patterns", "banner_patterns"),
         ("sherds", "pot_decorations"),
@@ -559,48 +606,13 @@ fn block_entity_components(
 }
 
 pub(super) fn text_component(value: &mut V) -> Result<()> {
-    let V::String(text) = value else {
-        return Err("text component: expected JSON string".into());
-    };
-    let json: serde_json::Value =
-        serde_json::from_str(text).map_err(|e| format!("invalid text component: {e}"))?;
-    fn check(value: &serde_json::Value) -> Result<()> {
-        match value {
-            serde_json::Value::Object(map) => {
-                if map
-                    .get("hoverEvent")
-                    .and_then(|v| v.get("action"))
-                    .and_then(|v| v.as_str())
-                    == Some("show_item")
-                {
-                    return Err(
-                        "text component: show_item hover conversion is not implemented".into(),
-                    );
-                }
-                if map
-                    .get("clickEvent")
-                    .and_then(|v| v.get("action"))
-                    .and_then(|v| v.as_str())
-                    .is_some_and(|s| matches!(s, "run_command" | "suggest_command"))
-                {
-                    return Err(
-                        "text component: embedded command conversion is not implemented".into(),
-                    );
-                }
-                for value in map.values() {
-                    check(value)?;
-                }
-            }
-            serde_json::Value::Array(list) => {
-                for value in list {
-                    check(value)?;
-                }
-            }
-            _ => {}
-        }
-        Ok(())
+    let text = crate::nbt::string(value)?;
+    if text.len() > 1024 * 1024 {
+        return Err("text exceeds 1 MiB".into());
     }
-    check(&json)
+    serde_json::from_str::<serde_json::Value>(text)
+        .map_err(|e| format!("invalid text component: {e}"))?;
+    Ok(())
 }
 
 pub(super) fn standard_name(id: &str, value: &V) -> Result<bool> {
@@ -618,4 +630,319 @@ pub(super) fn standard_name(id: &str, value: &V) -> Result<bool> {
                 .get(id)
                 .is_some_and(|names| names.iter().any(|n| n == name))
         }))
+}
+
+pub(super) fn scalar(name: &str, value: &V) -> Result<()> {
+    match name {
+        "damage" | "repair_cost" | "map_id" => {
+            let number = crate::nbt::number(value).map_err(|e| format!("{name}: {e}"))?;
+            if number < 0 {
+                return Err(format!("{name}: expected nonnegative integer"));
+            }
+        }
+        "custom_model_data" => {
+            crate::nbt::number(value).map_err(|e| format!("{name}: {e}"))?;
+        }
+        "instrument" => {
+            crate::nbt::string(value).map_err(|e| format!("{name}: {e}"))?;
+        }
+        "recipes" => {
+            for value in crate::nbt::list(value)? {
+                crate::nbt::string(value)?;
+            }
+        }
+        "debug_stick_state" => {
+            for value in crate::nbt::compound(value)?.values() {
+                crate::nbt::string(value)?;
+            }
+        }
+        _ => return Err(format!("unknown scalar component {name}")),
+    }
+    Ok(())
+}
+
+fn block_entity_id(data: &mut Compound, id: &str) -> Result<()> {
+    if !data.contains_key("id") {
+        let name = id.strip_prefix("minecraft:").unwrap_or(id);
+        let kind = if name.ends_with("shulker_box") {
+            Some("shulker_box")
+        } else if name.ends_with("_banner") || name == "shield" {
+            Some("banner")
+        } else if name.ends_with("_head") || name.ends_with("_skull") {
+            Some("skull")
+        } else if name.ends_with("_hanging_sign") {
+            Some("hanging_sign")
+        } else if name.ends_with("_sign") {
+            Some("sign")
+        } else {
+            match name {
+                "chest" | "trapped_chest" | "barrel" | "hopper" | "furnace" | "blast_furnace"
+                | "smoker" | "brewing_stand" | "dispenser" | "dropper" | "lectern" | "jukebox"
+                | "decorated_pot" | "chiseled_bookshelf" | "beehive" | "beacon" | "conduit"
+                | "command_block" | "structure_block" | "jigsaw" => Some(name),
+                "bee_nest" => Some("beehive"),
+                "spawner" => Some("mob_spawner"),
+                _ => None,
+            }
+        };
+        data.insert(
+            "id".into(),
+            V::String(format!(
+                "minecraft:{}",
+                kind.ok_or("BlockEntityTag: cannot infer block-entity ID")?
+            )),
+        );
+    }
+    Ok(())
+}
+
+fn children(item: &mut Compound, id: &str, context: &Context, level: usize) -> Result<()> {
+    if context.source < crate::versions::ITEM_COMPONENTS {
+        if let Some(value) = item.get_mut("tag") {
+            let tag = map_mut(value)?;
+            for key in ["ChargedProjectiles", "Items"] {
+                if key == "Items" && id != "minecraft:bundle" {
+                    continue;
+                }
+                if let Some(value) = tag.get_mut(key) {
+                    for (index, value) in list_mut(value)?.iter_mut().enumerate() {
+                        convert(map_mut(value)?, context, level + 1)
+                            .map_err(|e| format!("tag.{key}[{index}].{e}"))?;
+                    }
+                }
+            }
+            if let Some(value) = tag.get_mut("BlockEntityTag") {
+                let data = map_mut(value)?;
+                block_entity_id(data, id)?;
+                super::block_entities::convert(data, context, level + 1)
+                    .map_err(|e| format!("tag.BlockEntityTag.{e}"))?;
+            }
+            if let Some(value) = tag.get_mut("EntityTag") {
+                let data = map_mut(value)?;
+                if !data.contains_key("id") {
+                    let entity = id
+                        .strip_suffix("_spawn_egg")
+                        .or_else(|| {
+                            matches!(
+                                id,
+                                "minecraft:armor_stand"
+                                    | "minecraft:item_frame"
+                                    | "minecraft:glow_item_frame"
+                                    | "minecraft:painting"
+                            )
+                            .then_some(id)
+                        })
+                        .ok_or("EntityTag: cannot infer entity ID")?;
+                    data.insert("id".into(), V::String(entity.into()));
+                }
+                entities::entity(data, context, level + 1)
+                    .map_err(|e| format!("tag.EntityTag.{e}"))?;
+            }
+            if id == "minecraft:written_book" {
+                if let Some(value) = tag.get_mut("pages") {
+                    for value in list_mut(value)? {
+                        super::text::convert(value, context, level + 1)?;
+                    }
+                }
+                if let Some(value) = tag.get_mut("filtered_pages") {
+                    for value in map_mut(value)?.values_mut() {
+                        super::text::convert(value, context, level + 1)?;
+                    }
+                }
+            }
+            if let Some(value) = tag.get_mut("display") {
+                let display = map_mut(value)?;
+                if let Some(value) = display.get_mut("Name") {
+                    super::text::convert(value, context, level + 1)?;
+                }
+                if context.target.data_version >= 1803
+                    && let Some(value) = display.get_mut("Lore")
+                {
+                    for value in list_mut(value)? {
+                        super::text::convert(value, context, level + 1)?;
+                    }
+                }
+            }
+        }
+    } else if let Some(value) = item.get_mut("components") {
+        let components = map_mut(value)?;
+        if let Some(value) = components.get_mut("minecraft:use_remainder") {
+            convert(map_mut(value)?, context, level + 1)
+                .map_err(|e| format!("components.minecraft:use_remainder.{e}"))?;
+        }
+        if let Some(value) = components.get_mut("minecraft:food")
+            && let Some(value) = map_mut(value)?.get_mut("using_converts_to")
+        {
+            convert(map_mut(value)?, context, level + 1)
+                .map_err(|e| format!("components.minecraft:food.using_converts_to.{e}"))?;
+        }
+        for key in ["minecraft:charged_projectiles", "minecraft:bundle_contents"] {
+            if let Some(value) = components.get_mut(key) {
+                for (index, value) in list_mut(value)?.iter_mut().enumerate() {
+                    convert(map_mut(value)?, context, level + 1)
+                        .map_err(|e| format!("components.{key}[{index}].{e}"))?;
+                }
+            }
+        }
+        if let Some(value) = components.get_mut("minecraft:container") {
+            for (index, value) in list_mut(value)?.iter_mut().enumerate() {
+                if let Some(value) = map_mut(value)?.get_mut("item") {
+                    convert(map_mut(value)?, context, level + 1)
+                        .map_err(|e| format!("components.container[{index}].item.{e}"))?;
+                }
+            }
+        }
+        if let Some(value) = components.get_mut("minecraft:entity_data") {
+            entities::entity(map_mut(value)?, context, level + 1)?;
+        }
+        if let Some(value) = components.get_mut("minecraft:block_entity_data") {
+            let data = map_mut(value)?;
+            if super::block_entities::removed(data, context)? {
+                components.remove("minecraft:block_entity_data");
+            } else {
+                super::block_entities::convert(data, context, level + 1)?;
+            }
+        }
+        if let Some(value) = components.get_mut("minecraft:bees") {
+            for (index, value) in list_mut(value)?.iter_mut().enumerate() {
+                if let Some(value) = map_mut(value)?.get_mut("entity_data") {
+                    entities::entity(map_mut(value)?, context, level + 1)
+                        .map_err(|e| format!("components.bees[{index}].entity_data.{e}"))?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn historical(item: &mut Compound, id: &str, context: &Context) -> Result<()> {
+    let Some(value) = item.get_mut("tag") else {
+        return Ok(());
+    };
+    let tag = map_mut(value)?;
+    if context.source < crate::versions::ITEM_COMPONENTS
+        && let Some(value) = tag.get_mut("Recipes")
+    {
+        references(value, "recipe", context)?;
+    }
+    if context.source < crate::versions::ITEM_COMPONENTS
+        && context.target.data_version < crate::versions::ITEM_COMPONENTS
+    {
+        for key in ["CanDestroy", "CanPlaceOn"] {
+            if let Some(value) = tag.get_mut(key) {
+                for value in list_mut(value)? {
+                    *value = commands::historical_predicate(crate::nbt::string(value)?, context)?;
+                }
+            }
+        }
+    }
+
+    for key in ["Enchantments", "StoredEnchantments"] {
+        if let Some(value) = tag.get(key) {
+            for (index, value) in crate::nbt::list(value)?.iter().enumerate() {
+                let effect = crate::nbt::compound(value)?;
+                enchantment(&text(effect, "id")?, context)
+                    .map_err(|e| format!("{key}[{index}].{e}"))?;
+            }
+        }
+    }
+    if context.target.data_version < 2724
+        && matches!(id, "minecraft:written_book" | "minecraft:writable_book")
+    {
+        if let Some(value) = tag.remove("filtered_title")
+            && tag.get("title") != Some(&value)
+        {
+            return Err(
+                "filtered_title: distinct filtered text cannot be represented before Java1.17"
+                    .into(),
+            );
+        }
+        if let Some(value) = tag.remove("filtered_pages") {
+            let pages = tag
+                .get("pages")
+                .map(crate::nbt::list)
+                .transpose()?
+                .map(Vec::as_slice)
+                .unwrap_or(&[]);
+            for (index, filtered) in crate::nbt::compound(&value)? {
+                let index: usize = index
+                    .parse()
+                    .map_err(|_| "filtered_pages: invalid page index")?;
+                if pages.get(index) != Some(filtered) {
+                    return Err("filtered_pages: distinct filtered text cannot be represented before Java1.17".into());
+                }
+            }
+        }
+    }
+    if context.crosses(1803)
+        && let Some(value) = tag.get_mut("display")
+        && let Some(value) = map_mut(value)?.get_mut("Lore")
+    {
+        for value in list_mut(value)? {
+            let text = crate::nbt::string(value)?;
+            let text = if context.forward() {
+                serde_json::to_string(&serde_json::json!({"text": text}))
+                    .map_err(|e| e.to_string())?
+            } else {
+                let parsed: serde_json::Value =
+                    serde_json::from_str(text).map_err(|e| format!("display.Lore: {e}"))?;
+                match parsed {
+                    serde_json::Value::String(text) => text,
+                    serde_json::Value::Object(mut object) if object.len() == 1 => object
+                        .remove("text")
+                        .and_then(|v| v.as_str().map(str::to_owned))
+                        .ok_or("display.Lore: rich text cannot be represented before1.14")?,
+                    _ => {
+                        return Err(
+                            "display.Lore: rich text cannot be represented before1.14".into()
+                        );
+                    }
+                }
+            };
+            *value = V::String(text);
+        }
+    }
+    if let Some(value) = tag.get_mut("AttributeModifiers") {
+        for value in list_mut(value)? {
+            let modifier = map_mut(value)?;
+            if context.crosses(2514) {
+                super::uuids::pair(modifier, "UUIDMost", "UUIDLeast", "UUID", context.forward())?;
+            }
+            if let Some(value) = modifier.get_mut("AttributeName") {
+                *value = V::String(context.rename("attribute", crate::nbt::string(value)?)?);
+            }
+        }
+    }
+    if id == "minecraft:player_head"
+        && context.crosses(2514)
+        && let Some(V::Compound(owner)) = tag.get_mut("SkullOwner")
+    {
+        super::uuids::string(owner, "Id", "Id", context.forward())?;
+    }
+    Ok(())
+}
+
+pub(super) fn enchantment(id: &str, context: &Context) -> Result<()> {
+    static ENCHANTMENTS: OnceLock<
+        std::result::Result<std::collections::BTreeMap<String, i32>, String>,
+    > = OnceLock::new();
+    let table = ENCHANTMENTS
+        .get_or_init(|| {
+            serde_json::from_str(include_str!("data/enchantments.json")).map_err(|e| e.to_string())
+        })
+        .as_ref()
+        .map_err(Clone::clone)?;
+    let mut id = crate::catalog::namespace(id);
+    if id == "minecraft:sweeping_edge" {
+        id = "minecraft:sweeping".into();
+    }
+    let minimum = table
+        .get(&id)
+        .ok_or_else(|| format!("unresolved external enchantment {id}"))?;
+    if context.source < *minimum || context.target.data_version < *minimum {
+        return Err(format!(
+            "enchantment {id} is unavailable in the source or target release"
+        ));
+    }
+    Ok(())
 }

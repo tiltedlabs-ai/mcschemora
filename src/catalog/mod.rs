@@ -1,6 +1,7 @@
 //! Pinned Java catalogs, version resolution, and shared asset caching.
 
 mod registry;
+mod snapshots;
 pub(crate) mod source;
 mod storage;
 
@@ -15,7 +16,7 @@ use std::{
 
 /// Java version of the shared native rendering asset bundle.
 #[cfg(not(target_arch = "wasm32"))]
-pub const VISUAL_VERSION: &str = "1.21.1";
+pub const VISUAL_VERSION: &str = "1.21.6";
 
 #[derive(Debug)]
 struct Loaded {
@@ -69,7 +70,11 @@ impl MinecraftData {
 
     /// Lists supported Java versions; initialize() or load() must have completed.
     pub fn versions(&self) -> Result<Vec<String>> {
-        Ok(self.metadata()?.versions())
+        let mut versions = self.metadata()?.versions();
+        versions.extend(snapshots::versions().map(str::to_owned));
+        versions.sort();
+        versions.dedup();
+        Ok(versions)
     }
 
     /// Looks up a loaded metadata entry by numeric data version.
@@ -82,7 +87,6 @@ impl MinecraftData {
         self.initialize().await?;
         let metadata = self.metadata()?;
         let version = metadata.resolve(requested)?;
-        let data_version = metadata.data_version(&version)?;
         if let Some(loaded) = self
             .catalogs
             .lock()
@@ -91,13 +95,18 @@ impl MinecraftData {
         {
             return Ok(loaded.registry.clone());
         }
-        let mut datasets = BTreeMap::new();
-        for kind in source::KINDS {
-            datasets.insert(
-                kind.into(),
-                self.read(&metadata.dataset(&version, kind)?).await?,
-            );
-        }
+        let (data_version, datasets) = if let Some(snapshot) = snapshots::load(&version)? {
+            snapshot
+        } else {
+            let mut datasets = BTreeMap::new();
+            for kind in source::KINDS {
+                datasets.insert(
+                    kind.into(),
+                    self.read(&metadata.dataset(&version, kind)?).await?,
+                );
+            }
+            (metadata.data_version(&version)?, datasets)
+        };
         let registry = Arc::new(Registry::parse(
             version.clone(),
             data_version,
@@ -145,13 +154,43 @@ impl MinecraftData {
         self.dataset(version, "blockCollisionShapes")
     }
 
+    pub(crate) async fn load_biomes(&self, registry: &Registry) -> Result<()> {
+        if registry.biomes.get().is_none() {
+            let data = if snapshots::contains(&registry.version) {
+                self.dataset(&registry.version, "biomes")?
+            } else {
+                let path = self.metadata()?.dataset(&registry.version, "biomes")?;
+                self.read(&path).await?
+            };
+            let names = data
+                .as_array()
+                .ok_or("Biome catalog must be an array")?
+                .iter()
+                .map(|entry| {
+                    entry["name"]
+                        .as_str()
+                        .map(|name| {
+                            namespace(if registry.data_version < 2552 && name == "nether_wastes" {
+                                "nether"
+                            } else {
+                                name
+                            })
+                        })
+                        .ok_or_else(|| "Biome catalog entry has no name".to_string())
+                })
+                .collect::<Result<std::collections::BTreeSet<_>>>()?;
+            let _ = registry.biomes.set(names);
+        }
+        Ok(())
+    }
+
     /// Returns the native filesystem cache directory.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn cache_dir(&self) -> &std::path::Path {
         &self.cache.root
     }
 
-    /// Prepares and returns the shared Java 1.21.1 visual bundle directory.
+    /// Prepares and returns the shared Java 1.21.6 visual bundle directory.
     ///
     /// Catalog metadata must be loaded. Other versions use the same bundle with a warning.
     #[cfg(not(target_arch = "wasm32"))]
@@ -168,6 +207,7 @@ impl MinecraftData {
     /// Loads and shares the native geometry assets for the shared visual bundle.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn geometry_assets(&self, requested: &str) -> Result<Arc<crate::render::GeometryAssets>> {
+        pollster::block_on(self.load(VISUAL_VERSION))?;
         let path = self.load_visuals(requested)?;
         let mut assets = self
             .geometry

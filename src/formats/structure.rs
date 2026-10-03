@@ -19,7 +19,7 @@ pub(super) fn read_structure(root: &Compound, schematic: &mut Schematic) -> Resu
         let variants=list(get(root,"palettes")?)?;
         if variants.len()!=1{return Err("Multiple structure palettes need an explicit variant choice; import one variant first".into());}
         list(&variants[0])?
-    }.iter().map(tag_block).collect::<Result<Vec<_>>>()?;
+    }.iter().map(|value| tag_block(value, schematic.data_version)).collect::<Result<Vec<_>>>()?;
     let mut present = std::collections::BTreeSet::new();
     for v in list(get(root, "blocks")?)? {
         let c = compound(v)?;
@@ -71,7 +71,11 @@ pub(super) fn write_structure(schematic: &Schematic, r: &Region) -> Result<Compo
         ("size".into(), ints(r.bounds.size)),
         (
             "palette".into(),
-            V::List(pal.iter().map(block_tag).collect()),
+            V::List(
+                pal.iter()
+                    .map(|block| block_tag(block, schematic.data_version))
+                    .collect(),
+            ),
         ),
         ("blocks".into(), V::List(blocks)),
         ("entities".into(), entities(r, r.bounds.start, "nbt")),

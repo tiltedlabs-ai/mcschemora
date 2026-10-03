@@ -3,8 +3,9 @@
 ## Version selection
 
 Pin a Minecraft version for reproducible builds. Catalog validation uses that
-version, while PNG/GLB appearance uses a shared Java 1.21.1 visual bundle.
-Catalog loading does not upgrade imported files. For available versions, datasets,
+version, while PNG/GLB appearance uses a shared Java 1.21.6 visual bundle.
+Rendering converts a temporary palette to 1.21.6 using the block-state conversion
+rules. For available versions, datasets,
 and loading methods, see [MinecraftData](api.md#minecraftdata).
 
 ## Cache and offline use

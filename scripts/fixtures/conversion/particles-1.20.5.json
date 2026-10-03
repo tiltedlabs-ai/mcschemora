@@ -1,0 +1,82 @@
+{
+  "reference": {
+    "runtime": "Minecraft Java1.21.1",
+    "inner_server_jar_sha256": "c301de10f575027d13eac18c7f34409d60648cf56a35d566aa1f530ff617840a",
+    "method": "Vanilla DataFixers.getDataFixer().update with each fixture type and version interval",
+    "note": "Reference output may retain obsolete fields. Semantic comparisons must explicitly classify these fields rather than ignore arbitrary differences."
+  },
+  "cases": [
+    {
+      "name": "dust",
+      "type": "ENTITY",
+      "source_data_version": 3700,
+      "target_data_version": 3837,
+      "input": "{id:\"minecraft:area_effect_cloud\",Particle:\"minecraft:dust 0.2 0.4 0.6 1.5\"}",
+      "expected": "{Particle:{color:[0.2f,0.4f,0.6f],scale:1.5f,type:\"minecraft:dust\"},id:\"minecraft:area_effect_cloud\"}",
+      "loss": false
+    },
+    {
+      "name": "transition",
+      "type": "ENTITY",
+      "source_data_version": 3700,
+      "target_data_version": 3837,
+      "input": "{id:\"minecraft:area_effect_cloud\",Particle:\"minecraft:dust_color_transition 1 0 0 1.5 0 0 1\"}",
+      "expected": "{Particle:{from_color:[1.0f,0.0f,0.0f],scale:1.5f,to_color:[0.0f,0.0f,1.0f],type:\"minecraft:dust_color_transition\"},id:\"minecraft:area_effect_cloud\"}",
+      "loss": false
+    },
+    {
+      "name": "block",
+      "type": "ENTITY",
+      "source_data_version": 3700,
+      "target_data_version": 3837,
+      "input": "{id:\"minecraft:area_effect_cloud\",Particle:\"minecraft:block minecraft:oak_log[axis=x]\"}",
+      "expected": "{Particle:{block_state:{Name:\"minecraft:oak_log\",Properties:{axis:\"x\"}},type:\"minecraft:block\"},id:\"minecraft:area_effect_cloud\"}",
+      "loss": false
+    },
+    {
+      "name": "item",
+      "type": "ENTITY",
+      "source_data_version": 3700,
+      "target_data_version": 3837,
+      "input": "{id:\"minecraft:area_effect_cloud\",Particle:\"minecraft:item minecraft:diamond_sword{Damage:3}\"}",
+      "expected": "{Particle:{item:{components:{\"minecraft:damage\":3},count:1,id:\"minecraft:diamond_sword\"},type:\"minecraft:item\"},id:\"minecraft:area_effect_cloud\"}",
+      "loss": false
+    },
+    {
+      "name": "vibration",
+      "type": "ENTITY",
+      "source_data_version": 3700,
+      "target_data_version": 3837,
+      "input": "{id:\"minecraft:area_effect_cloud\",Particle:\"minecraft:vibration 1.5 2.5 3.5 20\"}",
+      "expected": "{Particle:{arrival_in_ticks:20,destination:{pos:[I;1,2,3],type:\"minecraft:block\"},type:\"minecraft:vibration\"},id:\"minecraft:area_effect_cloud\"}",
+      "loss": false
+    },
+    {
+      "name": "sculk",
+      "type": "ENTITY",
+      "source_data_version": 3700,
+      "target_data_version": 3837,
+      "input": "{id:\"minecraft:area_effect_cloud\",Particle:\"minecraft:sculk_charge 0.5\"}",
+      "expected": "{Particle:{roll:0.5f,type:\"minecraft:sculk_charge\"},id:\"minecraft:area_effect_cloud\"}",
+      "loss": false
+    },
+    {
+      "name": "shriek",
+      "type": "ENTITY",
+      "source_data_version": 3700,
+      "target_data_version": 3837,
+      "input": "{id:\"minecraft:area_effect_cloud\",Particle:\"minecraft:shriek 20\"}",
+      "expected": "{Particle:{delay:20,type:\"minecraft:shriek\"},id:\"minecraft:area_effect_cloud\"}",
+      "loss": false
+    },
+    {
+      "name": "plain",
+      "type": "ENTITY",
+      "source_data_version": 3700,
+      "target_data_version": 3837,
+      "input": "{id:\"minecraft:area_effect_cloud\",Particle:\"minecraft:flame\"}",
+      "expected": "{Particle:{type:\"minecraft:flame\"},id:\"minecraft:area_effect_cloud\"}",
+      "loss": false
+    }
+  ]
+}

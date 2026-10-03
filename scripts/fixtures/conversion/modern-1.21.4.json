@@ -1,0 +1,65 @@
+{
+  "reference": {
+    "runtime": "Minecraft Java26.2",
+    "inner_server_jar_sha256": "183c0499c5f855570ee487dd38e141a53f0121f83a0b07a3bac2d8b6698823e8",
+    "method": "Vanilla DataFixers.update from3955 to4082; intentional semantic corrections recorded per fixture"
+  },
+  "cases": [
+    {
+      "name": "furnace",
+      "type": "BLOCK_ENTITY",
+      "source_data_version": 4082,
+      "target_data_version": 4189,
+      "input": "{id:\"minecraft:furnace\",BurnTime:10s,CookTime:5s,CookTimeTotal:200s,Items:[{Slot:1b,id:\"minecraft:coal\",count:1}]}",
+      "expected": "{BurnTime:10s,CookTime:5s,CookTimeTotal:200s,Items:[{Slot:1b,count:1,id:\"minecraft:coal\"}],cooking_time_spent:5s,cooking_total_time:200s,id:\"minecraft:furnace\",lit_time_remaining:10s,lit_total_time:10s}",
+      "loss": false,
+      "obsolete_fields": [
+        "BurnTime",
+        "CookTime",
+        "CookTimeTotal"
+      ]
+    },
+    {
+      "name": "furnace_empty",
+      "type": "BLOCK_ENTITY",
+      "source_data_version": 4082,
+      "target_data_version": 4189,
+      "input": "{id:\"minecraft:furnace\"}",
+      "expected": "{id:\"minecraft:furnace\"}",
+      "loss": false,
+      "obsolete_fields": []
+    },
+    {
+      "name": "tnt",
+      "type": "ENTITY",
+      "source_data_version": 4082,
+      "target_data_version": 4189,
+      "input": "{id:\"minecraft:tnt_minecart\",TNTFuse:30}",
+      "expected": "{TNTFuse:30,fuse:30,id:\"minecraft:tnt_minecart\"}",
+      "loss": false,
+      "obsolete_fields": [
+        "TNTFuse"
+      ]
+    },
+    {
+      "name": "custom_model",
+      "type": "ITEM_STACK",
+      "source_data_version": 4082,
+      "target_data_version": 4189,
+      "input": "{id:\"minecraft:stone\",count:1,components:{\"minecraft:custom_model_data\":1234}}",
+      "expected": "{components:{\"minecraft:custom_model_data\":{floats:[1234.0f]}},count:1,id:\"minecraft:stone\"}",
+      "loss": false,
+      "obsolete_fields": []
+    },
+    {
+      "name": "equippable",
+      "type": "ITEM_STACK",
+      "source_data_version": 4082,
+      "target_data_version": 4189,
+      "input": "{id:\"minecraft:stone\",count:1,components:{\"minecraft:equippable\":{slot:\"head\",model:\"minecraft:iron\"}}}",
+      "expected": "{components:{\"minecraft:equippable\":{asset_id:\"minecraft:iron\",slot:\"head\"}},count:1,id:\"minecraft:stone\"}",
+      "loss": false,
+      "obsolete_fields": []
+    }
+  ]
+}

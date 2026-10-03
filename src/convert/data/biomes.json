@@ -1,0 +1,192 @@
+[
+  {
+    "data_version": 2552,
+    "from": "minecraft:nether",
+    "to": "minecraft:nether_wastes"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:badlands_plateau",
+    "to": "minecraft:badlands"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:bamboo_jungle_hills",
+    "to": "minecraft:bamboo_jungle"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:birch_forest_hills",
+    "to": "minecraft:birch_forest"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:dark_forest_hills",
+    "to": "minecraft:dark_forest"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:deep_warm_ocean",
+    "to": "minecraft:warm_ocean"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:desert_hills",
+    "to": "minecraft:desert"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:desert_lakes",
+    "to": "minecraft:desert"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:giant_spruce_taiga",
+    "to": "minecraft:old_growth_spruce_taiga"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:giant_spruce_taiga_hills",
+    "to": "minecraft:old_growth_spruce_taiga"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:giant_tree_taiga",
+    "to": "minecraft:old_growth_pine_taiga"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:giant_tree_taiga_hills",
+    "to": "minecraft:old_growth_pine_taiga"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:gravelly_mountains",
+    "to": "minecraft:windswept_gravelly_hills"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:jungle_edge",
+    "to": "minecraft:sparse_jungle"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:jungle_hills",
+    "to": "minecraft:jungle"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:modified_badlands_plateau",
+    "to": "minecraft:badlands"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:modified_gravelly_mountains",
+    "to": "minecraft:windswept_gravelly_hills"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:modified_jungle",
+    "to": "minecraft:jungle"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:modified_jungle_edge",
+    "to": "minecraft:sparse_jungle"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:modified_wooded_badlands_plateau",
+    "to": "minecraft:wooded_badlands"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:mountain_edge",
+    "to": "minecraft:windswept_hills"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:mountains",
+    "to": "minecraft:windswept_hills"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:mushroom_field_shore",
+    "to": "minecraft:mushroom_fields"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:shattered_savanna",
+    "to": "minecraft:windswept_savanna"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:shattered_savanna_plateau",
+    "to": "minecraft:windswept_savanna"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:snowy_mountains",
+    "to": "minecraft:snowy_plains"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:snowy_taiga_hills",
+    "to": "minecraft:snowy_taiga"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:snowy_taiga_mountains",
+    "to": "minecraft:snowy_taiga"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:snowy_tundra",
+    "to": "minecraft:snowy_plains"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:stone_shore",
+    "to": "minecraft:stony_shore"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:swamp_hills",
+    "to": "minecraft:swamp"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:taiga_hills",
+    "to": "minecraft:taiga"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:taiga_mountains",
+    "to": "minecraft:taiga"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:tall_birch_forest",
+    "to": "minecraft:old_growth_birch_forest"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:tall_birch_hills",
+    "to": "minecraft:old_growth_birch_forest"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:wooded_badlands_plateau",
+    "to": "minecraft:wooded_badlands"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:wooded_hills",
+    "to": "minecraft:forest"
+  },
+  {
+    "data_version": 2838,
+    "from": "minecraft:wooded_mountains",
+    "to": "minecraft:windswept_forest"
+  }
+]

@@ -37,7 +37,7 @@ pub(super) fn read_litematic(root: &Compound, schematic: &mut Schematic) -> Resu
         r.bounds = Bounds::new(start, abs)?;
         let pal = list(get(c, "BlockStatePalette")?)?
             .iter()
-            .map(tag_block)
+            .map(|value| tag_block(value, schematic.data_version))
             .collect::<Result<Vec<_>>>()?;
         if pal.is_empty() {
             return Err("Empty Litematica palette".into());
@@ -122,7 +122,11 @@ pub(super) fn write_litematic(schematic: &Schematic) -> Result<Compound> {
             ("Size".into(), pos_compound(size)),
             (
                 "BlockStatePalette".into(),
-                V::List(pal.iter().map(block_tag).collect()),
+                V::List(
+                    pal.iter()
+                        .map(|block| block_tag(block, schematic.data_version))
+                        .collect(),
+                ),
             ),
             (
                 "BlockStates".into(),
@@ -167,13 +171,15 @@ pub(super) fn write_litematic(schematic: &Schematic) -> Result<Compound> {
         "EnclosingSize".into(),
         pos_compound(Bounds::around(ends.into_iter())?.size),
     );
-    Ok(Compound::from([
+    let mut root = Compound::from([
         (
             "Version".into(),
             V::Int(if schematic.data_version >= ITEM_COMPONENTS {
                 7
-            } else {
+            } else if schematic.data_version >= 2860 {
                 6
+            } else {
+                5
             }),
         ),
         ("SubVersion".into(), V::Int(1)),
@@ -183,7 +189,11 @@ pub(super) fn write_litematic(schematic: &Schematic) -> Result<Compound> {
         ),
         ("Metadata".into(), V::Compound(metadata)),
         ("Regions".into(), V::Compound(regions)),
-    ]))
+    ]);
+    if schematic.data_version < 2860 {
+        root.remove("SubVersion");
+    }
+    Ok(root)
 }
 
 fn rebase_ticks(value: Option<&V>, source: Position, target: Position) -> Result<V> {

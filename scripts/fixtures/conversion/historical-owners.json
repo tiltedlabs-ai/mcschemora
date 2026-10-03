@@ -1,0 +1,284 @@
+{
+  "reference": {
+    "runtime": "Minecraft Java1.21.1",
+    "inner_server_jar_sha256": "c301de10f575027d13eac18c7f34409d60648cf56a35d566aa1f530ff617840a",
+    "method": "Vanilla DataFixers.getDataFixer().update with each fixture type and version interval",
+    "note": "Reference output may retain obsolete fields. Semantic comparisons must explicitly classify these fields rather than ignore arbitrary differences."
+  },
+  "status": "Public four-codec forward and inverse verification in verify_conversion.py",
+  "cases": [
+    {
+      "name": "history-next-lore",
+      "type": "ITEM_STACK",
+      "source_data_version": 1631,
+      "target_data_version": 1976,
+      "input": "{id:\"minecraft:stone\",Count:1b,tag:{display:{Lore:[\"plain\",\"{\\\"text\\\":\\\"already\\\"}\"]}}}",
+      "expected": "{Count:1b,id:\"minecraft:stone\",tag:{display:{Lore:['{\"text\":\"plain\"}','{\"text\":\"{\\\\\"text\\\\\":\\\\\"already\\\\\"}\"}']}}}"
+    },
+    {
+      "name": "history-next-itemuuid",
+      "type": "ITEM_STACK",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{id:\"minecraft:stone\",Count:1b,tag:{AttributeModifiers:[{AttributeName:\"generic.maxHealth\",Name:\"a\",Amount:1d,Operation:0,UUIDMost:1L,UUIDLeast:2L}],SkullOwner:{Id:\"12345678-1234-5678-1234-567812345678\"}}}",
+      "expected": "{Count:1b,id:\"minecraft:stone\",tag:{AttributeModifiers:[{Amount:1.0d,AttributeName:\"minecraft:generic.max_health\",Name:\"a\",Operation:0,UUID:[I;0,1,0,2]}],SkullOwner:{Id:\"12345678-1234-5678-1234-567812345678\"}}}"
+    },
+    {
+      "name": "history-next-attrs",
+      "type": "ENTITY",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{id:\"minecraft:pig\",Attributes:[{Name:\"generic.maxHealth\",Base:20d},{Name:\"generic.followRange\",Base:20d},{Name:\"generic.knockbackResistance\",Base:0d},{Name:\"generic.movementSpeed\",Base:1d},{Name:\"generic.flyingSpeed\",Base:1d},{Name:\"generic.attackDamage\",Base:1d},{Name:\"generic.attackKnockback\",Base:1d},{Name:\"generic.attackSpeed\",Base:1d},{Name:\"generic.armor\",Base:1d},{Name:\"generic.armorToughness\",Base:1d},{Name:\"generic.luck\",Base:1d},{Name:\"horse.jumpStrength\",Base:1d},{Name:\"zombie.spawnReinforcements\",Base:1d}]}",
+      "expected": "{Attributes:[{Base:20.0d,Name:\"minecraft:generic.max_health\"},{Base:20.0d,Name:\"minecraft:generic.follow_range\"},{Base:0.0d,Name:\"minecraft:generic.knockback_resistance\"},{Base:1.0d,Name:\"minecraft:generic.movement_speed\"},{Base:1.0d,Name:\"minecraft:generic.flying_speed\"},{Base:1.0d,Name:\"minecraft:generic.attack_damage\"},{Base:1.0d,Name:\"minecraft:generic.attack_knockback\"},{Base:1.0d,Name:\"minecraft:generic.attack_speed\"},{Base:1.0d,Name:\"generic.armor\"},{Base:1.0d,Name:\"minecraft:generic.armor_toughness\"},{Base:1.0d,Name:\"generic.luck\"},{Base:1.0d,Name:\"minecraft:horse.jump_strength\"},{Base:1.0d,Name:\"minecraft:zombie.spawn_reinforcements\"}],id:\"minecraft:pig\"}"
+    },
+    {
+      "name": "uuids-next-cloud",
+      "type": "ENTITY",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{id:\"minecraft:area_effect_cloud\",OwnerUUIDMost:1L,OwnerUUIDLeast:2L}",
+      "expected": "{Owner:[I;0,1,0,2],OwnerUUIDLeast:2L,OwnerUUIDMost:1L,id:\"minecraft:area_effect_cloud\"}"
+    },
+    {
+      "name": "uuids-next-item",
+      "type": "ENTITY",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{id:\"minecraft:item\",Owner:{M:1L,L:2L},Thrower:{M:3L,L:4L}}",
+      "expected": "{Owner:[I;0,1,0,2],Thrower:[I;0,3,0,4],id:\"minecraft:item\"}"
+    },
+    {
+      "name": "uuids-next-fox",
+      "type": "ENTITY",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{id:\"minecraft:fox\",TrustedUUIDs:[{M:1L,L:2L},{M:3L,L:4L}]}",
+      "expected": "{Trusted:[[I;0,1,0,2],[I;0,3,0,4]],TrustedUUIDs:[{L:2L,M:1L},{L:4L,M:3L}],id:\"minecraft:fox\"}"
+    },
+    {
+      "name": "uuids-next-bullet",
+      "type": "ENTITY",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{id:\"minecraft:shulker_bullet\",Owner:{M:1L,L:2L},Target:{M:3L,L:4L}}",
+      "expected": "{Owner:[I;0,1,0,2],Target:[I;0,3,0,4],id:\"minecraft:shulker_bullet\"}"
+    },
+    {
+      "name": "uuids-next-zvillager",
+      "type": "ENTITY",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{id:\"minecraft:zombie_villager\",ConversionPlayerMost:1L,ConversionPlayerLeast:2L}",
+      "expected": "{ConversionPlayer:[I;0,1,0,2],ConversionPlayerLeast:2L,ConversionPlayerMost:1L,id:\"minecraft:zombie_villager\"}"
+    },
+    {
+      "name": "uuids-next-pearl",
+      "type": "ENTITY",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{id:\"minecraft:ender_pearl\",owner:{M:1L,L:2L}}",
+      "expected": "{Owner:[I;0,1,0,2],id:\"minecraft:ender_pearl\",owner:{L:2L,M:1L}}"
+    },
+    {
+      "name": "uuids-next-bee",
+      "type": "ENTITY",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{id:\"minecraft:bee\",HurtBy:\"12345678-1234-5678-1234-567812345678\"}",
+      "expected": "{HurtBy:[I;305419896,305419896,305419896,305419896],id:\"minecraft:bee\"}"
+    },
+    {
+      "name": "uuids-next-conduit",
+      "type": "BLOCK_ENTITY",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{id:\"minecraft:conduit\",target_uuid:{M:1L,L:2L}}",
+      "expected": "{Target:[I;0,1,0,2],id:\"minecraft:conduit\",target_uuid:{L:2L,M:1L}}"
+    },
+    {
+      "name": "uuids-next-head",
+      "type": "ITEM_STACK",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{id:\"minecraft:player_head\",Count:1b,tag:{SkullOwner:{Id:\"12345678-1234-5678-1234-567812345678\"}}}",
+      "expected": "{Count:1b,id:\"minecraft:player_head\",tag:{SkullOwner:{Id:[I;305419896,305419896,305419896,305419896]}}}"
+    },
+    {
+      "name": "historical-more-potion",
+      "type": "ENTITY",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{id:\"minecraft:potion\",Potion:{id:\"minecraft:splash_potion\",Count:1b,tag:{Potion:\"minecraft:healing\"}}}",
+      "expected": "{Item:{Count:1b,id:\"minecraft:splash_potion\",tag:{Potion:\"minecraft:healing\"}},Potion:{Count:1b,id:\"minecraft:splash_potion\",tag:{Potion:\"minecraft:healing\"}},id:\"minecraft:potion\"}"
+    },
+    {
+      "name": "historical-more-memory",
+      "type": "ENTITY",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{id:\"minecraft:villager\",Brain:{memories:{\"minecraft:home\":{pos:[I;1,2,3],dimension:\"minecraft:overworld\"}}}}",
+      "expected": "{Brain:{memories:{\"minecraft:home\":{value:{dimension:\"minecraft:overworld\",pos:[I;1,2,3]}}}},id:\"minecraft:villager\"}"
+    },
+    {
+      "name": "historical-more-furnace",
+      "type": "BLOCK_ENTITY",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{id:\"minecraft:furnace\",RecipesUsedSize:2,RecipeLocation0:\"minecraft:iron_ingot\",RecipeAmount0:3,RecipeLocation1:\"minecraft:gold_ingot\",RecipeAmount1:4}",
+      "expected": "{RecipeAmount0:3,RecipeAmount1:4,RecipeLocation0:\"minecraft:iron_ingot\",RecipeLocation1:\"minecraft:gold_ingot\",RecipesUsed:{\"minecraft:gold_ingot\":4,\"minecraft:iron_ingot\":3},RecipesUsedSize:2,id:\"minecraft:furnace\"}"
+    },
+    {
+      "name": "historical-more-jigsaw",
+      "type": "BLOCK_ENTITY",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{id:\"minecraft:jigsaw\",target_pool:\"minecraft:pool\",attachement_type:\"minecraft:target\",final_state:\"minecraft:grass_path\"}",
+      "expected": "{attachement_type:\"minecraft:target\",final_state:\"minecraft:grass_path\",id:\"minecraft:jigsaw\",name:\"minecraft:target\",pool:\"minecraft:pool\",target:\"minecraft:target\",target_pool:\"minecraft:pool\"}"
+    },
+    {
+      "name": "historical-more-cat",
+      "type": "ENTITY",
+      "source_data_version": 2975,
+      "target_data_version": 3105,
+      "input": "{id:\"minecraft:cat\",CatType:2}",
+      "expected": "{CatType:2,id:\"minecraft:cat\",variant:\"minecraft:red\"}"
+    },
+    {
+      "name": "historical-more-painting",
+      "type": "ENTITY",
+      "source_data_version": 2975,
+      "target_data_version": 3105,
+      "input": "{id:\"minecraft:painting\",Motive:\"minecraft:burning_skull\"}",
+      "expected": "{Motive:\"minecraft:burning_skull\",id:\"minecraft:painting\",variant:\"minecraft:burning_skull\"}"
+    },
+    {
+      "name": "historical-more-goat",
+      "type": "ENTITY",
+      "source_data_version": 2975,
+      "target_data_version": 3105,
+      "input": "{id:\"minecraft:goat\"}",
+      "expected": "{HasLeftHorn:1b,HasRightHorn:1b,id:\"minecraft:goat\"}"
+    },
+    {
+      "name": "block-history-wire_none",
+      "type": "BLOCK_STATE",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{Name:\"minecraft:redstone_wire\",Properties:{power:\"0\",north:\"none\",south:\"none\",east:\"none\",west:\"none\"}}",
+      "expected": "{Name:\"minecraft:redstone_wire\",Properties:{east:\"side\",north:\"side\",power:\"0\",south:\"side\",west:\"side\"}}"
+    },
+    {
+      "name": "block-history-wire_north",
+      "type": "BLOCK_STATE",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{Name:\"minecraft:redstone_wire\",Properties:{power:\"0\",north:\"side\",south:\"none\",east:\"none\",west:\"none\"}}",
+      "expected": "{Name:\"minecraft:redstone_wire\",Properties:{east:\"none\",north:\"side\",power:\"0\",south:\"side\",west:\"none\"}}"
+    },
+    {
+      "name": "block-history-wire_corner",
+      "type": "BLOCK_STATE",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{Name:\"minecraft:redstone_wire\",Properties:{power:\"0\",north:\"side\",south:\"none\",east:\"up\",west:\"none\"}}",
+      "expected": "{Name:\"minecraft:redstone_wire\",Properties:{east:\"up\",north:\"side\",power:\"0\",south:\"none\",west:\"none\"}}"
+    },
+    {
+      "name": "block-history-jigsaw_down",
+      "type": "BLOCK_STATE",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{Name:\"minecraft:jigsaw\",Properties:{facing:\"down\"}}",
+      "expected": "{Name:\"minecraft:jigsaw\",Properties:{orientation:\"down_south\"}}"
+    },
+    {
+      "name": "block-history-jigsaw_up",
+      "type": "BLOCK_STATE",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{Name:\"minecraft:jigsaw\",Properties:{facing:\"up\"}}",
+      "expected": "{Name:\"minecraft:jigsaw\",Properties:{orientation:\"up_north\"}}"
+    },
+    {
+      "name": "block-history-jigsaw_north",
+      "type": "BLOCK_STATE",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{Name:\"minecraft:jigsaw\",Properties:{facing:\"north\"}}",
+      "expected": "{Name:\"minecraft:jigsaw\",Properties:{orientation:\"north_up\"}}"
+    },
+    {
+      "name": "block-history-jigsaw_south",
+      "type": "BLOCK_STATE",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{Name:\"minecraft:jigsaw\",Properties:{facing:\"south\"}}",
+      "expected": "{Name:\"minecraft:jigsaw\",Properties:{orientation:\"south_up\"}}"
+    },
+    {
+      "name": "block-history-jigsaw_west",
+      "type": "BLOCK_STATE",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{Name:\"minecraft:jigsaw\",Properties:{facing:\"west\"}}",
+      "expected": "{Name:\"minecraft:jigsaw\",Properties:{orientation:\"west_up\"}}"
+    },
+    {
+      "name": "block-history-jigsaw_east",
+      "type": "BLOCK_STATE",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{Name:\"minecraft:jigsaw\",Properties:{facing:\"east\"}}",
+      "expected": "{Name:\"minecraft:jigsaw\",Properties:{orientation:\"east_up\"}}"
+    },
+    {
+      "name": "last-historical-factor",
+      "type": "ENTITY",
+      "source_data_version": 3120,
+      "target_data_version": 3337,
+      "input": "{id:\"minecraft:zombie\",ActiveEffects:[{Id:33b,Duration:100,FactorCalculationData:{effect_changed_timestamp:10,padding_duration:20,factor_previous_frame:0f,factor_start:0f,factor_target:1f,had_effect_last_tick:1b}}]}",
+      "expected": "{ActiveEffects:[{Duration:100,FactorCalculationData:{factor_previous_frame:0.0f,factor_start:0.0f,factor_target:1.0f,had_effect_last_tick:1b,padding_duration:20,ticks_active:-90},Id:33b}],id:\"minecraft:zombie\"}",
+      "source_schema": "effectChangedTimestamp is int in the Java1.19.2 FactorData schema; initial Long probe was noncanonical"
+    },
+    {
+      "name": "last-historical-spawn_egg",
+      "type": "ITEM_STACK",
+      "source_data_version": 3120,
+      "target_data_version": 3337,
+      "input": "{id:\"minecraft:pig_spawn_egg\",Count:1b,tag:{EntityTag:{id:\"minecraft:zombie\"}}}",
+      "expected": "{Count:1b,id:\"minecraft:zombie_spawn_egg\",tag:{EntityTag:{id:\"minecraft:zombie\"}}}"
+    },
+    {
+      "name": "last-historical-gossip",
+      "type": "ENTITY",
+      "source_data_version": 1631,
+      "target_data_version": 1976,
+      "input": "{id:\"minecraft:villager\",Gossips:[{Type:\"golem\",Value:20,TargetMost:1L,TargetLeast:2L},{Type:\"minor_positive\",Value:10,TargetMost:3L,TargetLeast:4L}]}",
+      "expected": "{Gossips:[{TargetLeast:4L,TargetMost:3L,Type:\"minor_positive\",Value:10}],VillagerData:{level:1,profession:\"minecraft:farmer\",type:\"minecraft:plains\"},Xp:0,id:\"minecraft:villager\"}"
+    },
+    {
+      "name": "last-historical-villagerattrs",
+      "type": "ENTITY",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{id:\"minecraft:villager\",Attributes:[{Name:\"generic.followRange\",Base:16d}]}",
+      "expected": "{Attributes:[{Base:16.0d,Name:\"minecraft:generic.follow_range\"}],id:\"minecraft:villager\"}"
+    },
+    {
+      "name": "last-historical-shulker",
+      "type": "ENTITY",
+      "source_data_version": 2230,
+      "target_data_version": 2567,
+      "input": "{id:\"minecraft:shulker\",Rotation:[90f,45f]}",
+      "expected": "{Rotation:[-90.0d,45.0d],id:\"minecraft:shulker\"}"
+    },
+    {
+      "name": "last-historical-pickup",
+      "type": "ENTITY",
+      "source_data_version": 2567,
+      "target_data_version": 2730,
+      "input": "{id:\"minecraft:arrow\",player:1b}",
+      "expected": "{id:\"minecraft:arrow\",pickup:1b,player:1b}"
+    }
+  ]
+}

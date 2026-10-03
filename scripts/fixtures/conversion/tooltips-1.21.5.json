@@ -1,0 +1,86 @@
+{
+  "reference": {
+    "runtime": "Minecraft Java26.2",
+    "inner_server_jar_sha256": "183c0499c5f855570ee487dd38e141a53f0121f83a0b07a3bac2d8b6698823e8",
+    "method": "Vanilla DataFixers.update from4189 to4325; intentional semantic corrections recorded per fixture"
+  },
+  "cases": [
+    {
+      "name": "wrappers",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:stone\",count:1,components:{\"minecraft:attribute_modifiers\":{modifiers:[],show_in_tooltip:0b},\"minecraft:dyed_color\":{rgb:12345,show_in_tooltip:0b},\"minecraft:enchantments\":{levels:{\"minecraft:sharpness\":2},show_in_tooltip:0b},\"minecraft:unbreakable\":{show_in_tooltip:0b}}}",
+      "expected": "{components:{\"minecraft:attribute_modifiers\":[],\"minecraft:dyed_color\":12345,\"minecraft:enchantments\":{\"minecraft:sharpness\":2},\"minecraft:tooltip_display\":{hidden_components:[\"minecraft:attribute_modifiers\",\"minecraft:enchantments\",\"minecraft:unbreakable\",\"minecraft:dyed_color\"],hide_tooltip:0b},\"minecraft:unbreakable\":{}},count:1,id:\"minecraft:stone\"}",
+      "loss": false,
+      "set_fields": [
+        [
+          "components",
+          "minecraft:tooltip_display",
+          "hidden_components"
+        ]
+      ]
+    },
+    {
+      "name": "predicates",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:stone\",count:1,components:{\"minecraft:can_break\":{predicates:[{blocks:\"minecraft:stone\"}],show_in_tooltip:0b},\"minecraft:can_place_on\":{predicates:[{blocks:\"minecraft:dirt\"}]}}}",
+      "expected": "{components:{\"minecraft:can_break\":[{blocks:\"minecraft:stone\"}],\"minecraft:can_place_on\":[{blocks:\"minecraft:dirt\"}],\"minecraft:tooltip_display\":{hidden_components:[\"minecraft:can_break\"],hide_tooltip:0b}},count:1,id:\"minecraft:stone\"}",
+      "loss": false,
+      "set_fields": [
+        [
+          "components",
+          "minecraft:tooltip_display",
+          "hidden_components"
+        ]
+      ]
+    },
+    {
+      "name": "additional",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:stone\",count:1,components:{\"minecraft:hide_additional_tooltip\":{},\"minecraft:fireworks\":{flight_duration:1},\"minecraft:potion_contents\":{potion:\"minecraft:water\"}}}",
+      "expected": "{components:{\"minecraft:fireworks\":{flight_duration:1},\"minecraft:potion_contents\":{potion:\"minecraft:water\"},\"minecraft:tooltip_display\":{hidden_components:[\"minecraft:fireworks\",\"minecraft:potion_contents\"],hide_tooltip:0b}},count:1,id:\"minecraft:stone\"}",
+      "loss": false,
+      "set_fields": [
+        [
+          "components",
+          "minecraft:tooltip_display",
+          "hidden_components"
+        ]
+      ]
+    },
+    {
+      "name": "whole",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:stone\",count:1,components:{\"minecraft:hide_tooltip\":{}}}",
+      "expected": "{components:{\"minecraft:tooltip_display\":{hidden_components:[],hide_tooltip:1b}},count:1,id:\"minecraft:stone\"}",
+      "loss": false,
+      "set_fields": [
+        [
+          "components",
+          "minecraft:tooltip_display",
+          "hidden_components"
+        ]
+      ]
+    },
+    {
+      "name": "removals",
+      "type": "ITEM_STACK",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:stone\",count:1,components:{\"!minecraft:hide_tooltip\":{},\"!minecraft:hide_additional_tooltip\":{}}}",
+      "expected": "{components:{\"!minecraft:hide_additional_tooltip\":{},\"!minecraft:hide_tooltip\":{}},count:1,id:\"minecraft:stone\"}",
+      "loss": true,
+      "obsolete_components": [
+        "!minecraft:hide_additional_tooltip",
+        "!minecraft:hide_tooltip"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "reference": {
+    "runtime": "Minecraft Java1.21.1",
+    "type": "ITEM_STACK",
+    "source_data_version": 3700,
+    "target_data_version": 3837,
+    "inner_server_jar_sha256": "c301de10f575027d13eac18c7f34409d60648cf56a35d566aa1f530ff617840a",
+    "method": "Vanilla DataFixers.getDataFixer().update(References.ITEM_STACK, Dynamic<NbtOps>,3700,3837)",
+    "note": "Nonempty exact-NBT predicates are negative cases: their matching semantics require predicate-specific schema conversion. Vanilla fixer also truncates nested SNBT at the first closing brace."
+  },
+  "expected": {
+    "damage": "{Slot:0b,components:{\"minecraft:custom_model_data\":2,\"minecraft:damage\":7,\"minecraft:repair_cost\":4,\"minecraft:unbreakable\":{}},count:1,id:\"minecraft:diamond_sword\"}",
+    "enchantment": "{Slot:0b,components:{\"minecraft:enchantments\":{levels:{\"minecraft:sweeping_edge\":2},show_in_tooltip:0b}},count:1,id:\"minecraft:diamond_sword\"}",
+    "custom": "{Slot:0b,components:{\"minecraft:custom_data\":{foo:{Count:1b,bar:[I;1,2],id:\"minecraft:scute\"}}},count:4,id:\"minecraft:stone\"}",
+    "lore": "{Slot:0b,components:{\"minecraft:custom_name\":'{\"text\":\"Name\"}',\"minecraft:lore\":['{\"text\":\"Lore\"}']},count:1,id:\"minecraft:stone\"}",
+    "fireworks": "{Slot:0b,components:{\"minecraft:fireworks\":{explosions:[{colors:[I;123],has_trail:1b,shape:\"star\"}],flight_duration:3b}},count:2,id:\"minecraft:firework_rocket\"}",
+    "lodestone": "{Slot:0b,components:{\"minecraft:lodestone_tracker\":{target:{dimension:\"minecraft:overworld\",pos:[I;4,5,6]},tracked:0b}},count:1,id:\"minecraft:compass\"}",
+    "book": "{Slot:0b,components:{\"minecraft:written_book_content\":{author:\"Builder\",pages:[{filtered:'{\"text\":\"Filtered\"}',raw:'{\"text\":\"Hello\"}'}],title:{raw:\"Notes\"}}},count:1,id:\"minecraft:written_book\"}",
+    "attributes": "{Slot:0b,components:{\"minecraft:attribute_modifiers\":{modifiers:[],show_in_tooltip:0b}},count:1,id:\"minecraft:diamond_sword\"}",
+    "profile": "{Slot:0b,components:{\"minecraft:profile\":{name:\"Builder\",properties:[{name:\"textures\",signature:\"signature\",value:\"texture\"}]}},count:1,id:\"minecraft:player_head\"}",
+    "container": "{Slot:0b,components:{\"minecraft:container\":[{item:{count:4,id:\"minecraft:turtle_scute\"},slot:3}]},count:1,id:\"minecraft:shulker_box\"}",
+    "potion": "{Slot:0b,components:{\"minecraft:potion_contents\":{custom_color:123,potion:\"minecraft:water\"}},count:1,id:\"minecraft:potion\"}"
+  }
+}

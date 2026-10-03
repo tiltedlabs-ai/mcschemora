@@ -1,0 +1,50 @@
+{
+  "reference": {
+    "runtime": "Minecraft Java1.21.1",
+    "inner_server_jar_sha256": "c301de10f575027d13eac18c7f34409d60648cf56a35d566aa1f530ff617840a",
+    "method": "Vanilla DataFixers.getDataFixer().update with each fixture type and version interval",
+    "note": "Reference output may retain obsolete fields. Semantic comparisons must explicitly classify these fields rather than ignore arbitrary differences."
+  },
+  "cases": [
+    {
+      "name": "modifier",
+      "type": "ITEM_STACK",
+      "source_data_version": 3837,
+      "target_data_version": 3955,
+      "input": "{id:\"minecraft:diamond_sword\",count:1,components:{\"minecraft:attribute_modifiers\":{modifiers:[{type:\"minecraft:generic.attack_damage\",name:\"Custom\",amount:2.0d,uuid:[I;123,456,789,10],operation:\"add_value\"}]}}}",
+      "expected": "{components:{\"minecraft:attribute_modifiers\":{modifiers:[{amount:2.0d,id:\"minecraft:0000007b-0000-01c8-0000-03150000000a\",operation:\"add_value\",type:\"minecraft:generic.attack_damage\"}]}},count:1,id:\"minecraft:diamond_sword\"}"
+    },
+    {
+      "name": "modifier_named",
+      "type": "ITEM_STACK",
+      "source_data_version": 3837,
+      "target_data_version": 3955,
+      "input": "{id:\"minecraft:diamond_sword\",count:1,components:{\"minecraft:attribute_modifiers\":{modifiers:[{type:\"minecraft:generic.attack_damage\",name:\"Weapon modifier\",amount:3.0d,uuid:[I;123,456,789,10],operation:\"add_value\"}]}}}",
+      "expected": "{components:{\"minecraft:attribute_modifiers\":{modifiers:[{amount:3.0d,id:\"minecraft:0000007b-0000-01c8-0000-03150000000a\",operation:\"add_value\",type:\"minecraft:generic.attack_damage\"}]}},count:1,id:\"minecraft:diamond_sword\"}"
+    },
+    {
+      "name": "entity_modifiers",
+      "type": "ENTITY",
+      "source_data_version": 3837,
+      "target_data_version": 3955,
+      "input": "{id:\"minecraft:zombie\",Attributes:[{Name:\"minecraft:generic.attack_damage\",Base:3.0d,Modifiers:[{Name:\"Custom\",Amount:2.0d,UUID:[I;123,456,789,10],Operation:1}]}]}",
+      "expected": "{Attributes:[{Base:3.0d,Modifiers:[{Amount:2.0d,Name:\"Custom\",Operation:1,UUID:[I;123,456,789,10]}],Name:\"minecraft:generic.attack_damage\"}],attributes:[{base:3.0d,id:\"minecraft:generic.attack_damage\",modifiers:[{amount:2.0d,id:\"minecraft:0000007b-0000-01c8-0000-03150000000a\",operation:\"add_multiplied_base\"}]}],id:\"minecraft:zombie\"}"
+    },
+    {
+      "name": "precedence",
+      "type": "ITEM_STACK",
+      "source_data_version": 3837,
+      "target_data_version": 3955,
+      "input": "{id:\"minecraft:stone\",count:1,components:{\"minecraft:attribute_modifiers\":{modifiers:[{type:\"minecraft:generic.attack_damage\",uuid:[I; -885041709, 1683771192, -1533567981, -1556236849],name:\"Random spawn bonus\",amount:1.0d,operation:\"add_value\"}]}}}",
+      "expected": "{components:{\"minecraft:attribute_modifiers\":{modifiers:[{amount:1.0d,id:\"minecraft:base_attack_damage\",operation:\"add_value\",type:\"minecraft:generic.attack_damage\"}]}},count:1,id:\"minecraft:stone\"}"
+    },
+    {
+      "name": "named",
+      "type": "ITEM_STACK",
+      "source_data_version": 3837,
+      "target_data_version": 3955,
+      "input": "{id:\"minecraft:stone\",count:1,components:{\"minecraft:attribute_modifiers\":{modifiers:[{type:\"minecraft:generic.attack_damage\",uuid:[I;1,2,3,4],name:\"Random spawn bonus\",amount:1.0d,operation:\"add_value\"}]}}}",
+      "expected": "{components:{\"minecraft:attribute_modifiers\":{modifiers:[{amount:1.0d,id:\"minecraft:random_spawn_bonus\",operation:\"add_value\",type:\"minecraft:generic.attack_damage\"}]}},count:1,id:\"minecraft:stone\"}"
+    }
+  ]
+}

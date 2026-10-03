@@ -1,0 +1,136 @@
+{
+  "reference": {
+    "runtime": "Minecraft Java26.2",
+    "inner_server_jar_sha256": "183c0499c5f855570ee487dd38e141a53f0121f83a0b07a3bac2d8b6698823e8",
+    "method": "Vanilla DataFixers.update from4189 to4325; intentional semantic corrections recorded per fixture"
+  },
+  "cases": [
+    {
+      "name": "fall",
+      "type": "ENTITY",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:pig\",FallDistance:2.5f}",
+      "expected": "{FallDistance:2.5f,fall_distance:2.5d,id:\"minecraft:pig\"}",
+      "loss": false,
+      "obsolete_fields": [
+        "FallDistance"
+      ]
+    },
+    {
+      "name": "phantom",
+      "type": "ENTITY",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:phantom\",Size:3,AX:2,AY:70,AZ:-5}",
+      "expected": "{AX:2,AY:70,AZ:-5,Size:3,anchor_pos:[I;2,70,-5],id:\"minecraft:phantom\",size:3}",
+      "loss": false,
+      "obsolete_fields": [
+        "Size",
+        "AX",
+        "AY",
+        "AZ"
+      ]
+    },
+    {
+      "name": "vex",
+      "type": "ENTITY",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:vex\",LifeTicks:200,BoundX:2,BoundY:70,BoundZ:-5}",
+      "expected": "{BoundX:2,BoundY:70,BoundZ:-5,LifeTicks:200,bound_pos:[I;2,70,-5],id:\"minecraft:vex\",life_ticks:200}",
+      "loss": false,
+      "obsolete_fields": [
+        "LifeTicks",
+        "BoundX",
+        "BoundY",
+        "BoundZ"
+      ]
+    },
+    {
+      "name": "turtle",
+      "type": "ENTITY",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:turtle\",HomePosX:2,HomePosY:70,HomePosZ:-5,HasEgg:1b,TravelPosX:3,TravelPosY:40,TravelPosZ:5}",
+      "expected": "{HasEgg:1b,HomePosX:2,HomePosY:70,HomePosZ:-5,TravelPosX:3,TravelPosY:40,TravelPosZ:5,has_egg:1b,home_pos:[I;2,70,-5],id:\"minecraft:turtle\"}",
+      "loss": true,
+      "obsolete_fields": [
+        "HasEgg",
+        "HomePosX",
+        "HomePosY",
+        "HomePosZ",
+        "TravelPosX",
+        "TravelPosY",
+        "TravelPosZ"
+      ]
+    },
+    {
+      "name": "frame",
+      "type": "ENTITY",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:item_frame\",TileX:2,TileY:70,TileZ:-5,Item:{id:\"minecraft:stone\",count:1}}",
+      "expected": "{Item:{count:1,id:\"minecraft:stone\"},TileX:2,TileY:70,TileZ:-5,block_pos:[I;2,70,-5],id:\"minecraft:item_frame\"}",
+      "loss": false,
+      "obsolete_fields": [
+        "TileX",
+        "TileY",
+        "TileZ"
+      ]
+    },
+    {
+      "name": "sleeping",
+      "type": "ENTITY",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:villager\",SleepingX:2,SleepingY:70,SleepingZ:-5}",
+      "expected": "{SleepingX:2,SleepingY:70,SleepingZ:-5,id:\"minecraft:villager\",sleeping_pos:[I;2,70,-5]}",
+      "loss": false,
+      "obsolete_fields": [
+        "SleepingX",
+        "SleepingY",
+        "SleepingZ"
+      ]
+    },
+    {
+      "name": "splash",
+      "type": "ENTITY",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:potion\",Item:{id:\"minecraft:splash_potion\",count:1}}",
+      "expected": "{Item:{count:1,id:\"minecraft:splash_potion\"},id:\"minecraft:splash_potion\"}",
+      "loss": false,
+      "obsolete_fields": []
+    },
+    {
+      "name": "lingering",
+      "type": "ENTITY",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:potion\",Item:{id:\"minecraft:lingering_potion\",count:1}}",
+      "expected": "{Item:{count:1,id:\"minecraft:lingering_potion\"},id:\"minecraft:lingering_potion\"}",
+      "loss": false,
+      "obsolete_fields": []
+    },
+    {
+      "name": "equipment",
+      "type": "ENTITY",
+      "source_data_version": 4189,
+      "target_data_version": 4325,
+      "input": "{id:\"minecraft:zombie\",HandItems:[{id:\"minecraft:stone\",count:1},{}],ArmorItems:[{},{},{},{id:\"minecraft:diamond_helmet\",count:1}],HandDropChances:[0.5f,0.085f],ArmorDropChances:[0.085f,0.085f,0.085f,1.0f]}",
+      "expected": "{ArmorDropChances:[0.085f,0.085f,0.085f,1.0f],ArmorItems:[{},{},{},{count:1,id:\"minecraft:diamond_helmet\"}],HandDropChances:[0.5f,0.085f],HandItems:[{count:1,id:\"minecraft:stone\"},{}],drop_chances:{head:1.0f,mainhand:0.5f},equipment:{head:{count:1,id:\"minecraft:diamond_helmet\"},mainhand:{count:1,id:\"minecraft:stone\"}},id:\"minecraft:zombie\"}",
+      "loss": false,
+      "obsolete_fields": [
+        "HandItems",
+        "ArmorItems",
+        "HandDropChances",
+        "ArmorDropChances"
+      ],
+      "expected_adjustments": {
+        "drop_chances": "{head:1.0f,mainhand:0.5f,offhand:0.085f,feet:0.085f,legs:0.085f,chest:0.085f}"
+      },
+      "reason": "Retain explicitly supplied default drop chances; vanilla DFU omits equivalent 0.085 entries."
+    }
+  ]
+}

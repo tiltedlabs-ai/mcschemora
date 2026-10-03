@@ -5,11 +5,16 @@ use crate::{
 };
 use std::collections::BTreeMap;
 
-pub(super) fn block_tag(b: &Block) -> V {
-    let mut c = Compound::from([("Name".into(), s(&b.id))]);
+pub(super) fn block_tag(b: &Block, data_version: i32) -> V {
+    let (name, properties) = if data_version >= 5006 {
+        ("id", "properties")
+    } else {
+        ("Name", "Properties")
+    };
+    let mut c = Compound::from([(name.into(), s(&b.id))]);
     if !b.properties.is_empty() {
         c.insert(
-            "Properties".into(),
+            properties.into(),
             V::Compound(
                 b.properties
                     .iter()
@@ -21,15 +26,20 @@ pub(super) fn block_tag(b: &Block) -> V {
     V::Compound(c)
 }
 
-pub(super) fn tag_block(v: &V) -> Result<Block> {
+pub(super) fn tag_block(v: &V, data_version: i32) -> Result<Block> {
+    let (name, properties) = if data_version >= 5006 {
+        ("id", "properties")
+    } else {
+        ("Name", "Properties")
+    };
     let c = compound(v)?;
     let mut props = BTreeMap::new();
-    if let Some(v) = c.get("Properties") {
+    if let Some(v) = c.get(properties) {
         for (k, v) in compound(v)? {
             props.insert(k.clone(), string(v)?.into());
         }
     }
-    Block::new(string(get(c, "Name")?)?, props)
+    Block::new(string(get(c, name)?)?, props)
 }
 
 pub(super) fn palette(r: &Region) -> (Vec<Block>, BTreeMap<Block, usize>) {

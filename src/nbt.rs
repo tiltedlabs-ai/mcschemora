@@ -110,11 +110,121 @@ pub fn s(s: impl Into<String>) -> Value {
 }
 /// Parses a typed SNBT compound without erasing numeric tag types.
 pub fn from_snbt(s: &str) -> Result<Compound> {
-    fastsnbt::from_str(s).map_err(|e| e.to_string())
+    parse_snbt(s)
+}
+
+pub(crate) fn parse_snbt<T: serde::de::DeserializeOwned>(input: &str) -> Result<T> {
+    fn finish_token(output: &mut String, token: &mut Option<usize>, key: bool) {
+        if let Some(start) = token.take() {
+            if key {
+                let field = output[start..].to_string();
+                output.truncate(start);
+                output.push('"');
+                output.push_str(&field);
+                output.push('"');
+                return;
+            }
+            let replacement = match &output[start..] {
+                "true" => Some("1b"),
+                "false" => Some("0b"),
+                _ => None,
+            };
+            if let Some(replacement) = replacement {
+                output.truncate(start);
+                output.push_str(replacement);
+            }
+        }
+    }
+    let mut output = String::with_capacity(input.len());
+    let mut quote = None;
+    let mut escaped = false;
+    let mut separated = false;
+    let mut previous = None;
+    let mut token = None;
+    for ch in input.chars() {
+        if let Some(delimiter) = quote {
+            output.push(ch);
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == delimiter {
+                quote = None;
+            }
+        } else if ch.is_whitespace() {
+            separated = true;
+            continue;
+        } else {
+            let structural = |ch| matches!(ch, '{' | '}' | '[' | ']' | ':' | ',' | ';');
+            if separated && previous.is_some_and(|last| !structural(last) && !structural(ch)) {
+                return Err("SNBT: missing delimiter between tokens".into());
+            }
+            if ch.is_alphanumeric() || matches!(ch, '_' | '-' | '.' | '+') {
+                token.get_or_insert(output.len());
+            } else {
+                finish_token(&mut output, &mut token, ch == ':');
+            }
+            if matches!(ch, '\'' | '"') {
+                quote = Some(ch);
+            }
+            output.push(ch);
+        }
+        previous = Some(ch);
+        separated = false;
+    }
+    finish_token(&mut output, &mut token, false);
+    fastsnbt::from_str(&output).map_err(|e| e.to_string())
 }
 /// Serializes a compound as typed SNBT.
 pub fn to_snbt(c: &Compound) -> Result<String> {
     fastsnbt::to_string(c).map_err(|e| e.to_string())
+}
+
+pub(crate) fn snbt_lists(data: &mut Compound, binary: bool) -> Result<()> {
+    fn walk(value: &mut Value, binary: bool, depth: usize) -> Result<()> {
+        if depth > 512 {
+            return Err("SNBT exceeds maximum nesting depth".into());
+        }
+        match value {
+            Value::Compound(fields) => {
+                for value in fields.values_mut() {
+                    walk(value, binary, depth + 1)?;
+                }
+            }
+            Value::List(values) => {
+                for value in values.iter_mut() {
+                    if !binary
+                        && let Value::Compound(fields) = value
+                        && fields.len() == 1
+                        && let Some(inner) = fields.remove("")
+                    {
+                        *value = inner;
+                    }
+                    walk(value, binary, depth + 1)?;
+                }
+                if binary {
+                    let mixed = values.first().is_some_and(|first| {
+                        values.iter().any(|value| {
+                            std::mem::discriminant(value) != std::mem::discriminant(first)
+                        })
+                    });
+                    for value in values {
+                        let marker = matches!(value, Value::Compound(fields) if fields.len() == 1 && fields.contains_key(""));
+                        if marker || (mixed && !matches!(value, Value::Compound(_))) {
+                            let inner = std::mem::replace(value, Value::Byte(0));
+                            *value = Value::Compound(Compound::from([("".into(), inner)]));
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+    for value in data.values_mut() {
+        walk(value, binary, 0)?;
+    }
+    Ok(())
 }
 /// Decodes a compound from raw or gzip-compressed NBT.
 ///

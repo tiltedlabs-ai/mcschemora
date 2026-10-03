@@ -5,7 +5,9 @@ MCSchemora fetches raw JSON files from
 at commit `8ffb321c74cffe779acf5c447d08c473c4c291d7`.
 
 Catalog data is limited to Java 1.13 and above. Catalog selection and schematic
-validation always use the exact requested version.
+validation use the requested version, with the temporary catalog fallbacks
+documented in `docs/reference/minecraft-data.md`. Rendering uses a shared Java
+1.21.6 visual bundle and converts a temporary block-state palette.
 
 ## Block visual inputs
 

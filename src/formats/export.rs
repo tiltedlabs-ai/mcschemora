@@ -18,21 +18,27 @@ pub async fn check_export(
     flatten: bool,
 ) -> Result<ExportReport> {
     valid_format(format)?;
-    Ok(
-        match convert::schematic(schematic, version)
-            .await
-            .and_then(|schematic| prepare(&schematic, format, flatten).map(|(_, losses)| losses))
-        {
-            Ok(losses) => ExportReport {
-                errors: vec![],
-                losses,
-            },
-            Err(error) => ExportReport {
+    let mut converted = match convert::schematic(schematic, version).await {
+        Ok(converted) => converted,
+        Err(error) => {
+            return Ok(ExportReport {
                 errors: vec![error],
                 losses: vec![],
-            },
-        },
-    )
+            });
+        }
+    };
+    if converted.errors.is_empty() {
+        match prepare(&converted.schematic, format, flatten) {
+            Ok((_, losses)) => converted.losses.extend(losses),
+            Err(error) => converted.errors.push(error),
+        }
+    }
+    converted.losses.sort();
+    converted.losses.dedup();
+    Ok(ExportReport {
+        errors: converted.errors,
+        losses: converted.losses,
+    })
 }
 
 fn prepare<'a>(
@@ -227,8 +233,12 @@ pub async fn encode(
 ) -> Result<Vec<u8>> {
     valid_format(format)?;
     let converted = convert::schematic(schematic, version).await?;
-    let schematic = converted.as_ref();
-    let (single, losses) = prepare(schematic, format, flatten)?;
+    if !converted.errors.is_empty() {
+        return Err(converted.errors.join("\n"));
+    }
+    let schematic = converted.schematic.as_ref();
+    let (single, mut losses) = prepare(schematic, format, flatten)?;
+    losses.extend(converted.losses);
     if !allow_loss && !losses.is_empty() {
         return Err(format!(
             "Export would lose information:\n{}",
@@ -242,7 +252,7 @@ pub async fn encode(
                 .into_bytes(),
         );
     }
-    let root = if let Some(r) = single {
+    let mut root = if let Some(r) = single {
         match format {
             "schem" => schem::write_schem(schematic, &r)?,
             "nbt" | "snbt" => structure::write_structure(schematic, &r)?,
@@ -253,6 +263,9 @@ pub async fn encode(
         litematic::write_litematic(schematic)?
     };
     if format == "snbt" {
+        if schematic.data_version >= crate::versions::NBT_TEXT_COMPONENTS {
+            nbt::snbt_lists(&mut root, false)?;
+        }
         return Ok(nbt::to_snbt(&root)?.into_bytes());
     }
     nbt::encode(&root, format == "mcstructure", format != "mcstructure")

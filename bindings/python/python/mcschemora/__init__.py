@@ -173,7 +173,7 @@ class RepairReport:
 
     Attributes:
         changes: Immutable snapshots of changed blocks.
-        skipped: Reasons why eligible blocks could not be repaired.
+        skipped: Reasons why individual properties could not be repaired.
     """
 
     changes: tuple[RepairChange, ...] = ()
@@ -278,7 +278,7 @@ class MinecraftData:
         """Prepares rendering assets and returns their cache directory.
 
         Args:
-            version: Java version, or latest. All versions use the 1.21.1 visual bundle.
+            version: Java version, or latest. All versions use the 1.21.6 visual bundle.
 
         Raises:
             ValueError: If the version is unsupported or the assets cannot be prepared.
@@ -534,6 +534,9 @@ class Schematic:
     ) -> tuple[str, ...]:
         """Writes textured geometry to a binary glTF file.
 
+        Identical blocks and attached data at shared global positions render once.
+        Palette states are converted once to 1.21.6 for rendering; stored blocks stay unchanged.
+
         Args:
             path: Output file path, replaced if it exists.
             region: Region name; None selects all regions.
@@ -543,6 +546,9 @@ class Schematic:
 
         Returns:
             Diagnostics describing visual approximations.
+
+        Raises:
+            ValueError: If overlapping regions contain conflicting blocks or attached data.
         """
         content, diagnostics = self._native.glb(
             region, [_axis_range(value, axis) for axis, value in zip("xyz", (x, y, z), strict=True)]
@@ -638,6 +644,9 @@ class Schematic:
     ) -> tuple[str, ...]:
         """Writes an automatically framed textured PNG with a transparent background.
 
+        Identical blocks and attached data at shared global positions render once.
+        Palette states are converted once to 1.21.6 for rendering; stored blocks stay unchanged.
+
         Args:
             path: Output file path, replaced if it exists.
             size: (width, height), each from 1 through 4096 pixels.
@@ -651,7 +660,10 @@ class Schematic:
 
         Returns:
             Diagnostics describing visual approximations. Rendering uses the shared
-            Java 1.21.1 visual bundle.
+            Java 1.21.6 visual bundle.
+
+        Raises:
+            ValueError: If overlapping regions contain conflicting blocks or attached data.
         """
         if (
             not isinstance(size, (tuple, list))
@@ -736,7 +748,8 @@ class Schematic:
 
         Uses the same expected-state calculations as validate(). All supported
         rules run by default. Neighbor lookups cross regions in schematic-global coordinates;
-        unknown surrounding blocks cause a cell to be skipped. Isolated redstone
+        known connections are repaired even when other sides are unknown.
+        Properties requiring unknown surroundings remain unchanged. Isolated redstone
         dots remain dots. Power, facing, waterlogging, entities, and attached data
         are preserved. Loading never invokes repair automatically.
 

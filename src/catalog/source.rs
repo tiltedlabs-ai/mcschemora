@@ -68,7 +68,7 @@ impl Metadata {
             .iter()
             .filter(|v| v["releaseType"] == "release")
             .filter_map(|v| v["minecraftVersion"].as_str())
-            .find(|v| self.paths.contains_key(*v))
+            .find(|v| self.paths.contains_key(*v) || super::snapshots::contains(v))
             .map(str::to_owned)
             .ok_or_else(|| "No release catalog in minecraft-data".into())
     }
@@ -97,7 +97,7 @@ impl Metadata {
     }
 
     pub fn dataset(&self, version: &str, kind: &str) -> Result<String> {
-        if !KINDS.contains(&kind) {
+        if !KINDS.contains(&kind) && kind != "biomes" {
             return Err(format!("Unsupported catalog dataset {kind:?}"));
         }
         let dir = self

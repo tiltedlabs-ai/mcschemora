@@ -25,6 +25,7 @@ pub struct Registry {
     items: BTreeSet<String>,
     mobs: BTreeSet<String>,
     entities: BTreeSet<String>,
+    pub(super) biomes: std::sync::OnceLock<BTreeSet<String>>,
     pub(crate) validation_shapes: std::sync::OnceLock<crate::validate::Shapes>,
 }
 
@@ -209,6 +210,19 @@ impl Registry {
         }
     }
 
+    pub(crate) fn biome(&self, id: &str) -> Result<()> {
+        if self
+            .biomes
+            .get()
+            .ok_or("Biome catalog is not loaded")?
+            .contains(&namespace(id))
+        {
+            Ok(())
+        } else {
+            Err(format!("Unknown biome {id} in Java {}", self.version))
+        }
+    }
+
     /// Validates a living-mob identifier and returns its namespaced form.
     pub fn mob_id(&self, id: &str) -> Result<String> {
         let name = namespace(id);
@@ -261,6 +275,7 @@ impl Registry {
             items,
             mobs,
             entities,
+            biomes: std::sync::OnceLock::new(),
             validation_shapes: std::sync::OnceLock::new(),
         })
     }

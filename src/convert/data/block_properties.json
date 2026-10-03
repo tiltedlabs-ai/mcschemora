@@ -1,0 +1,8 @@
+[
+  {"ids":["minecraft:tnt"],"suffixes":[],"property":"unstable","default":"false"},
+  {"ids":["minecraft:conduit"],"suffixes":["_coral","_coral_fan","_coral_wall_fan"],"property":"waterlogged","default":"true"},
+  {"ids":["minecraft:bell","minecraft:player_head","minecraft:player_wall_head","minecraft:zombie_head","minecraft:zombie_wall_head","minecraft:creeper_head","minecraft:creeper_wall_head","minecraft:dragon_head","minecraft:dragon_wall_head","minecraft:piglin_head","minecraft:piglin_wall_head","minecraft:skeleton_skull","minecraft:skeleton_wall_skull","minecraft:wither_skeleton_skull","minecraft:wither_skeleton_wall_skull"],"suffixes":[],"property":"powered","default":"false"},
+  {"ids":["minecraft:chain","minecraft:iron_chain"],"suffixes":[],"property":"axis","default":"y"},
+  {"ids":["minecraft:lantern","minecraft:soul_lantern","minecraft:rail","minecraft:powered_rail","minecraft:detector_rail","minecraft:activator_rail","minecraft:barrier"],"suffixes":["_leaves"],"property":"waterlogged","default":"false"},
+  {"ids":["minecraft:trial_spawner"],"suffixes":[],"property":"ominous","default":"false"}
+]

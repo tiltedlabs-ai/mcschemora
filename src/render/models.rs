@@ -98,10 +98,12 @@ impl StateGeometry {
     }
 }
 
+type ModelKey = (String, i32, i32, bool, [u8; 4]);
+
 pub(super) struct Builder<'a> {
     pub(super) assets: &'a GeometryAssets,
     pub(super) meshes: Vec<Mesh>,
-    pub(super) applications: BTreeMap<(String, i32, i32, bool), usize>,
+    pub(super) applications: BTreeMap<ModelKey, usize>,
     pub(super) states: BTreeMap<Block, Arc<StateGeometry>>,
 }
 
@@ -165,7 +167,7 @@ impl Builder<'_> {
         let (parts, messages) = match self.compile_state(block) {
             Ok(parts) => (parts, Vec::new()),
             Err(message) => {
-                let key = ("__placeholder__".into(), 0, 0, false);
+                let key = ("__placeholder__".into(), 0, 0, false, [255; 4]);
                 let mesh = if let Some(&mesh) = self.applications.get(&key) {
                     mesh
                 } else {
@@ -272,12 +274,13 @@ impl Builder<'_> {
             }
         }
 
+        let color = state_color(block)?;
         let mut result: Vec<Vec<(usize, u32)>> = parts
             .into_iter()
             .map(|part| {
                 part.into_iter()
                     .map(|application| {
-                        self.mesh(&application)
+                        self.mesh(&application, color)
                             .map(|mesh| (mesh, application.weight))
                     })
                     .collect()
@@ -292,22 +295,54 @@ impl Builder<'_> {
         Ok(result)
     }
 
-    fn mesh(&mut self, application: &Application) -> Result<usize> {
+    fn mesh(&mut self, application: &Application, color: [u8; 4]) -> Result<usize> {
         let key = (
             application.model.clone(),
             application.x,
             application.y,
             application.uvlock,
+            color,
         );
         if let Some(&mesh) = self.applications.get(&key) {
             return Ok(mesh);
         }
-        let geometry = mesh::bake(self.assets, application)?;
+        let mut geometry = mesh::bake(self.assets, application)?;
+        if color != [255; 4] {
+            for quad in &mut geometry.quads {
+                if quad.tint_index == Some(0) {
+                    quad.color = color;
+                }
+            }
+        }
         let mesh = self.meshes.len();
         self.meshes.push(geometry);
         self.applications.insert(key, mesh);
         Ok(mesh)
     }
+}
+
+fn state_color(block: &Block) -> Result<[u8; 4]> {
+    if block.name != "minecraft:redstone_wire" {
+        return Ok([255; 4]);
+    }
+    let power = block
+        .properties
+        .get("power")
+        .map(String::as_str)
+        .unwrap_or("0")
+        .parse::<u8>()
+        .ok()
+        .filter(|&power| power <= 15)
+        .ok_or("Invalid redstone wire power")?;
+    let strength = f32::from(power) / 15.;
+    let red = if power == 0 {
+        0.3
+    } else {
+        strength * 0.6 + 0.4
+    };
+    let green = (strength * strength * 0.7 - 0.5).max(0.);
+    let blue = (strength * strength * 0.6 - 0.7).max(0.);
+    Ok([red, green, blue, 1.].map(|channel| (channel * 255.) as u8))
 }
 
 fn choice_hash(position: Position, block: &str, part: usize) -> u64 {

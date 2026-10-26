@@ -8,6 +8,7 @@ mod convert;
 mod edit;
 pub mod formats;
 pub mod helpers;
+pub mod inspect;
 pub mod model;
 pub mod nbt;
 #[cfg(not(target_arch = "wasm32"))]

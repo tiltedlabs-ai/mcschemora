@@ -104,7 +104,7 @@ pub(super) fn read_schem(root: &Compound, schematic: &mut Schematic) -> Result<(
     Ok(())
 }
 
-pub(super) fn write_schem(schematic: &Schematic, r: &Region) -> Result<Compound> {
+pub(super) fn write_schem(schematic: &Schematic, r: &Region, version: i32) -> Result<Compound> {
     let (pal, ids) = palette(r);
     let mut data = vec![];
     for p in r.bounds.positions() {
@@ -133,7 +133,7 @@ pub(super) fn write_schem(schematic: &Schematic, r: &Region) -> Result<Compound>
         ("BlockEntities", block_entities(r, r.bounds.start, true)),
     ]);
     let mut root = Compound::from([
-        ("Version".into(), V::Int(3)),
+        ("Version".into(), V::Int(version)),
         ("DataVersion".into(), V::Int(schematic.data_version)),
         ("Width".into(), V::Short(r.bounds.size[0] as i16)),
         ("Height".into(), V::Short(r.bounds.size[1] as i16)),
@@ -145,6 +145,35 @@ pub(super) fn write_schem(schematic: &Schematic, r: &Region) -> Result<Compound>
     ]);
     if let Some(b) = r.retained.spatial.get("Biomes") {
         root.insert("Biomes".into(), b.clone());
+    }
+    if version == 2 {
+        let V::Compound(mut blocks) = root.remove("Blocks").unwrap() else {
+            unreachable!()
+        };
+        root.remove("Biomes");
+        root.insert("PaletteMax".into(), V::Int(pal.len() as i32));
+        root.insert("Palette".into(), blocks.remove("Palette").unwrap());
+        root.insert("BlockData".into(), blocks.remove("Data").unwrap());
+        root.insert(
+            "BlockEntities".into(),
+            blocks.remove("BlockEntities").unwrap(),
+        );
+        for key in ["BlockEntities", "Entities"] {
+            let Some(V::List(entries)) = root.get_mut(key) else {
+                unreachable!()
+            };
+            for entry in entries {
+                let V::Compound(fields) = entry else {
+                    unreachable!()
+                };
+                let Some(V::Compound(mut data)) = fields.remove("Data") else {
+                    unreachable!()
+                };
+                data.extend(std::mem::take(fields));
+                *fields = data;
+            }
+        }
+        return Ok(root);
     }
     Ok(Compound::from([("Schematic".into(), V::Compound(root))]))
 }

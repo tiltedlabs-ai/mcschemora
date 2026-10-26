@@ -22,6 +22,7 @@ from ._core import Placement as _Placement
 from ._core import bed, chest, door, sign
 
 __all__ = [
+    "inspect_schematics",
     "Schematic",
     "MinecraftData",
     "Region",
@@ -374,6 +375,7 @@ class Schematic:
         version: str | None = None,
         origin: Position | None = None,
         palette: Mapping[str, Block] | None = None,
+        max_unpacked_bytes: int | None = None,
     ) -> Schematic:
         """Reads a schematic file, preserving its edition and Minecraft version.
 
@@ -401,6 +403,7 @@ class Schematic:
             version=version,
             origin=origin,
             palette=palette,
+            max_unpacked_bytes=max_unpacked_bytes,
         )
 
     @classmethod
@@ -413,12 +416,13 @@ class Schematic:
         version: str | None = None,
         origin: Position | None = None,
         palette: Mapping[str, Block] | None = None,
+        max_unpacked_bytes: int | None = None,
     ) -> Schematic:
         """Decodes schematic bytes without changing their Minecraft version.
 
         Args:
             content: Encoded schematic, or UTF-8 text for snbt and blueprint.
-            format: schem, litematic, nbt, snbt, mcstructure, or blueprint.
+            format: schem (v3), schem2 (v2), litematic, nbt, snbt, mcstructure, or blueprint.
             data: Catalog provider; None uses the shared default provider.
             version: Explicit Java version required for blueprint import only.
             origin: Schematic-global origin for blueprint import only; defaults to (0, 0, 0).
@@ -437,7 +441,7 @@ class Schematic:
             block_states[symbol] = str(state)
         return cls(
             _core.Schematic.from_bytes(
-                content, format, _source(data), version, origin, block_states
+                content, format, _source(data), version, origin, block_states, max_unpacked_bytes
             )
         )
 
@@ -452,7 +456,7 @@ class Schematic:
         """Encodes the schematic, requiring explicit acceptance of reported losses.
 
         Args:
-            format: schem, litematic, nbt, snbt, mcstructure, or blueprint.
+            format: schem (v3), schem2 (v2), litematic, nbt, snbt, mcstructure, or blueprint.
             version: Target Minecraft Java version; None preserves the current version.
             allow_loss: Whether to accept omissions reported by check_export().
                 Blocking errors still prevent export.
@@ -737,6 +741,9 @@ class Schematic:
     def registry(self) -> Registry:
         """Block schema access for the schematic's Minecraft version."""
         return Registry(self)
+
+    def inspect(self) -> dict:
+        return json.loads(self._native.inspect())
 
     def validate(self) -> Report:
         """Checks Java game rules without changing the schematic or simulating ticks.
@@ -1299,3 +1306,13 @@ class BlockEntities:
     def remove(self, at: Position) -> None:
         """Removes attached NBT at a local cell position; the owning block remains."""
         self._native.block_entity_remove(at)
+
+
+def inspect_schematics(
+    schematics: Sequence[Schematic], *, initial_items: Sequence[tuple[str, int]] = ()
+) -> dict:
+    return json.loads(
+        _core.inspect_schematics(
+            [schematic._native for schematic in schematics], list(initial_items)
+        )
+    )

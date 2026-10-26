@@ -10,6 +10,10 @@ _Ranges: TypeAlias = Sequence[tuple[int, int] | None]
 _State: TypeAlias = tuple[str, dict[str, str]]
 _Item: TypeAlias = tuple[str, int, str | None]
 
+def inspect_schematics(
+    schematics: list[Schematic], initial_items: list[tuple[str, int]]
+) -> str: ...
+
 @final
 class MinecraftData:
     def __new__(cls, cache_dir: Path | None = None, offline: bool = False) -> MinecraftData: ...
@@ -30,6 +34,7 @@ class Schematic:
         version: str | None,
         origin: _Position | None,
         palette: dict[str, str],
+        max_unpacked_bytes: int | None,
     ) -> Schematic: ...
     def to_bytes(
         self, format: str, allow_loss: bool, flatten: bool, version: str | None = None
@@ -62,6 +67,7 @@ class Schematic:
         rotation: int,
         sprites: dict[str, str],
     ) -> tuple[str, list[str]]: ...
+    def inspect(self) -> str: ...
     def validate(self) -> tuple[list[str], list[str], list[str]]: ...
     def repair(
         self, rules: list[str] | None = None

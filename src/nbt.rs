@@ -229,22 +229,25 @@ pub(crate) fn snbt_lists(data: &mut Compound, binary: bool) -> Result<()> {
 /// Decodes a compound from raw or gzip-compressed NBT.
 ///
 /// little selects Bedrock little-endian encoding. Input and expanded data are size-limited.
-pub fn decode(data: &[u8], little: bool) -> Result<Compound> {
+pub fn decode(data: &[u8], little: bool, max_unpacked_bytes: usize) -> Result<Compound> {
+    if max_unpacked_bytes == 0 || max_unpacked_bytes > MAX_BYTES {
+        return Err("Expanded NBT limit must be between 1 and 256 MiB".into());
+    }
     if data.len() > MAX_BYTES {
         return Err("NBT input exceeds 256 MiB".into());
     }
     let raw = if data.starts_with(&[31, 139]) {
         let mut out = vec![];
         flate2::read::GzDecoder::new(data)
-            .take((MAX_BYTES + 1) as u64)
+            .take((max_unpacked_bytes + 1) as u64)
             .read_to_end(&mut out)
             .map_err(|e| e.to_string())?;
         out
     } else {
         data.to_vec()
     };
-    if raw.len() > MAX_BYTES {
-        return Err("Expanded NBT exceeds 256 MiB".into());
+    if raw.len() > max_unpacked_bytes {
+        return Err("Expanded NBT exceeds size limit".into());
     }
     if !little {
         return fastnbt::from_bytes(&raw).map_err(|e| e.to_string());
@@ -265,13 +268,15 @@ pub fn decode(data: &[u8], little: bool) -> Result<Compound> {
     }
 }
 /// Encodes a compound as NBT; little selects Bedrock byte order and gzip compresses it.
-pub fn encode(root: &Compound, little: bool, gzip: bool) -> Result<Vec<u8>> {
+pub fn encode(root: &Compound, little: bool, gzip: bool, root_name: &str) -> Result<Vec<u8>> {
     let raw = if little {
-        let mut w = vec![10, 0, 0];
+        let mut w = vec![10];
+        write_string(root_name, &mut w)?;
         write_value(&Value::Compound(root.clone()), &mut w)?;
         w
     } else {
-        fastnbt::to_bytes(root).map_err(|e| e.to_string())?
+        fastnbt::to_bytes_with_opts(root, fastnbt::SerOpts::new().root_name(root_name))
+            .map_err(|e| e.to_string())?
     };
     if !gzip {
         return Ok(raw);

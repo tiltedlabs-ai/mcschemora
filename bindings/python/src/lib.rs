@@ -144,8 +144,10 @@ impl PySchematic {
         version: Option<String>,
         origin: Option<Position>,
         palette: std::collections::BTreeMap<String, String>,
+        max_unpacked_bytes: Option<usize>,
     ) -> PyResult<Self> {
         let options = formats::ImportOptions {
+            max_unpacked_bytes,
             version,
             origin,
             palette,
@@ -297,6 +299,12 @@ impl PySchematic {
             .map_err(error)
         })?;
         Ok((output.text, output.diagnostics))
+    }
+    fn inspect(&self, py: Python<'_>) -> PyResult<String> {
+        py.detach(|| {
+            let report = lock(&self.data)?.inspect().map_err(error)?;
+            serde_json::to_string(&report).map_err(error)
+        })
     }
     fn validate(&self, py: Python<'_>) -> PyResult<(Vec<String>, Vec<String>, Vec<String>)> {
         let report = py.detach(|| -> PyResult<_> { Ok(lock(&self.data)?.validate()) })?;
@@ -737,6 +745,7 @@ fn sign(lines: Vec<String>, material: &str, rotation: i32, color: &str) -> PyPla
 }
 #[pymodule]
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(inspect_schematics, m)?)?;
     m.add_class::<PySchematic>()?;
     m.add_class::<PyRegion>()?;
     m.add_class::<PySelection>()?;
@@ -748,4 +757,20 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(chest, m)?)?;
     m.add_function(wrap_pyfunction!(sign, m)?)?;
     Ok(())
+}
+
+#[pyfunction]
+fn inspect_schematics(
+    py: Python<'_>,
+    schematics: Vec<PyRef<'_, PySchematic>>,
+    initial_items: Vec<(String, u64)>,
+) -> PyResult<String> {
+    let schematics: Vec<_> = schematics.iter().map(|s| s.data.clone()).collect();
+    py.detach(|| {
+        let mut resources = mcschemora::inspect::Resources::new(&initial_items).map_err(error)?;
+        for schematic in &schematics {
+            resources.include(&*lock(schematic)?).map_err(error)?;
+        }
+        serde_json::to_string(&resources).map_err(error)
+    })
 }

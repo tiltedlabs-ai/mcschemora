@@ -85,7 +85,7 @@ fn prepare<'a>(
         Bounds::new(r.bounds.start, r.bounds.size)?;
         let volume = r.bounds.volume()?;
         let limit = match format {
-            "schem" => 65535,
+            "schem" | "schem2" => 65535,
             _ => i32::MAX,
         };
         if volume == 0 || r.bounds.size.iter().any(|&v| v > limit) {
@@ -254,7 +254,8 @@ pub async fn encode(
     }
     let mut root = if let Some(r) = single {
         match format {
-            "schem" => schem::write_schem(schematic, &r)?,
+            "schem" => schem::write_schem(schematic, &r, 3)?,
+            "schem2" => schem::write_schem(schematic, &r, 2)?,
             "nbt" | "snbt" => structure::write_structure(schematic, &r)?,
             "mcstructure" => mcstructure::write_bedrock(schematic, &r)?,
             _ => unreachable!(),
@@ -268,5 +269,10 @@ pub async fn encode(
         }
         return Ok(nbt::to_snbt(&root)?.into_bytes());
     }
-    nbt::encode(&root, format == "mcstructure", format != "mcstructure")
+    nbt::encode(
+        &root,
+        format == "mcstructure",
+        format != "mcstructure",
+        if format == "schem2" { "Schematic" } else { "" },
+    )
 }

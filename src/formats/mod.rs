@@ -13,19 +13,20 @@ mod schem;
 mod structure;
 
 /// Supported codec names; nbt and snbt refer to Java structure files.
-pub const FORMATS: [&str; 6] = [
+pub const FORMATS: [&str; 7] = [
     "blueprint",
     "schem",
+    "schem2",
     "litematic",
     "nbt",
     "snbt",
     "mcstructure",
 ];
 
-/// Blueprint-only import settings; other codecs require empty defaults.
 #[derive(Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ImportOptions {
+    pub max_unpacked_bytes: Option<usize>,
     /// Explicit Java version required for blueprints; latest is not accepted.
     pub version: Option<String>,
     /// Blueprint region origin in schematic-global coordinates; None defaults to zero.
@@ -85,14 +86,18 @@ pub async fn decode(
         }
         root
     } else {
-        nbt::decode(data, format == "mcstructure")?
+        nbt::decode(
+            data,
+            format == "mcstructure",
+            options.max_unpacked_bytes.unwrap_or(nbt::MAX_BYTES),
+        )?
     };
     if format != "mcstructure" {
         source.initialize().await?;
     }
     let mut schematic = Schematic::imported(source);
     match format {
-        "schem" => schem::read_schem(&root, &mut schematic)?,
+        "schem" | "schem2" => schem::read_schem(&root, &mut schematic)?,
         "litematic" => litematic::read_litematic(&root, &mut schematic)?,
         "nbt" | "snbt" => structure::read_structure(&root, &mut schematic)?,
         "mcstructure" => mcstructure::read_bedrock(&root, &mut schematic)?,

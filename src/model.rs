@@ -422,6 +422,10 @@ impl Schematic {
         crate::validate::validate(self)
     }
 
+    pub fn inspect(&self) -> Result<crate::inspect::Inspection> {
+        crate::inspect::inspect(self)
+    }
+
     pub fn repair(&mut self, rules: Option<&[String]>) -> Result<crate::validate::RepairReport> {
         crate::validate::repair(self, rules)
     }

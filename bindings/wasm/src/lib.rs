@@ -190,29 +190,46 @@ impl WasmSchematic {
         )
     }
 
-    /// Applies a bundled profile name or JSON object and returns changed and replacement counts.
+    /// Applies inline options and an optional bundled profile name or JSON profile object.
     ///
     /// Edition must match; block IDs are checked against the schematic's version.
     /// Non-air replacements retain supported properties, discard unsupported ones, and use
     /// target defaults for new properties. Shared values must be valid. Both blocks require
     /// the same block-entity type. Compatible attached data is preserved. Invalid replacements are
-    /// skipped silently. Profile keeps and keep_override take priority; fallback covers other
-    /// eligible blocks. Targets remain canonical. Malformed profiles throw an Error.
+    /// skipped silently. Options contain keep (block IDs), replace (source-to-target object),
+    /// and fallback (block ID). Explicit keep wins over replace, then profile rules.
+    /// Invalid overrides leave their sources unchanged. Override targets remain canonical.
+    /// A fallback that is itself replaced is skipped. Malformed profiles or options throw an Error.
     pub fn normalize(
         &mut self,
-        profile: JsValue,
-        keep_override: Option<Vec<String>>,
+        profile: Option<JsValue>,
+        options: Option<JsValue>,
     ) -> Result<JsValue, JsValue> {
-        let json = match profile.as_string() {
-            Some(name) => name,
-            None => js_sys::JSON::stringify(&profile)?
-                .as_string()
-                .ok_or_else(|| error("Invalid normalization profile"))?,
-        };
-        let profile = mcschemora::normalize::Profile::parse(&json).map_err(error)?;
+        let profile = profile
+            .map(|profile| {
+                let json = match profile.as_string() {
+                    Some(name) => name,
+                    None => js_sys::JSON::stringify(&profile)?
+                        .as_string()
+                        .ok_or_else(|| error("Invalid normalization profile"))?,
+                };
+                mcschemora::normalize::Profile::parse(&json).map_err(error)
+            })
+            .transpose()?;
+        let options = options
+            .map(|options| {
+                serde_json::from_str::<mcschemora::normalize::Options>(
+                    &js_sys::JSON::stringify(&options)?
+                        .as_string()
+                        .ok_or_else(|| error("Invalid normalization options"))?,
+                )
+                .map_err(error)
+            })
+            .transpose()?
+            .unwrap_or_default();
         let report = self
             .schematic
-            .normalize(&profile, keep_override.as_deref().unwrap_or_default())
+            .normalize(profile.as_ref(), &options)
             .map_err(error)?;
         value(serde_json::to_value(report).map_err(error)?)
     }

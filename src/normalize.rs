@@ -37,6 +37,14 @@ pub struct Replacement {
     pub to: String,
 }
 
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Options {
+    pub keep: Vec<String>,
+    pub replace: BTreeMap<String, String>,
+    pub fallback: Option<String>,
+}
+
 #[derive(Debug, Default, Serialize)]
 pub struct Report {
     pub changed: u64,
@@ -70,33 +78,63 @@ fn replacement(registry: &Registry, block: &Block, target: &Block) -> Option<Blo
 }
 
 impl Schematic {
-    pub fn normalize(&mut self, profile: &Profile, keep_override: &[String]) -> Result<Report> {
-        if profile.edition != self.edition {
+    pub fn normalize(&mut self, profile: Option<&Profile>, options: &Options) -> Result<Report> {
+        if let Some(profile) = profile
+            && profile.edition != self.edition
+        {
             return Err(format!(
                 "Normalization profile requires {}; schematic is {}",
                 profile.edition, self.edition
             ));
         }
         let registry = self.registry()?;
-        let keep: BTreeSet<_> = profile
+        let keep: BTreeSet<_> = options
             .keep
             .iter()
-            .chain(keep_override)
             .filter_map(|id| Block::new(id, BTreeMap::new()).ok())
             .map(|block| block.id)
             .collect();
-        let fallback = profile
+        let fallback = options
             .fallback
             .as_deref()
+            .or_else(|| profile.and_then(|profile| profile.fallback.as_deref()))
             .and_then(|id| resolve(registry, id));
+        let profile_keep: BTreeSet<_> = profile
+            .into_iter()
+            .flat_map(|profile| &profile.keep)
+            .filter_map(|id| Block::new(id, BTreeMap::new()).ok())
+            .map(|block| block.id)
+            .collect();
         let mut replacements = BTreeMap::new();
-        for rule in &profile.replacements {
+        let mut explicit_sources = BTreeSet::new();
+        for (from, to) in &options.replace {
+            let Some(source) = resolve(registry, from) else {
+                continue;
+            };
+            explicit_sources.insert(source.id.clone());
+            if !keep.contains(&source.id)
+                && let Some(target) = resolve(registry, to)
+            {
+                replacements.insert(source.id, target);
+            }
+        }
+        let explicit_targets: BTreeSet<_> = replacements
+            .values()
+            .map(|target| target.id.clone())
+            .collect();
+        for rule in profile
+            .into_iter()
+            .flat_map(|profile| &profile.replacements)
+        {
             let Some(target) = resolve(registry, &rule.to) else {
                 continue;
             };
             for id in &rule.from {
                 if let Some(source) = resolve(registry, id) {
                     if keep.contains(&source.id)
+                        || profile_keep.contains(&source.id)
+                        || explicit_sources.contains(&source.id)
+                        || explicit_targets.contains(&source.id)
                         || fallback.as_ref().is_some_and(|block| block.id == source.id)
                     {
                         continue;
@@ -113,7 +151,11 @@ impl Schematic {
             .map(|(source, _)| source.clone())
             .collect();
         replacements.retain(|_, target| !sources.contains(&target.id));
-        if let Some(fallback) = fallback {
+        if let Some(fallback) = fallback.filter(|block| {
+            !replacements
+                .get(&block.id)
+                .is_some_and(|target| target.id != block.id)
+        }) {
             let mut targets: BTreeSet<_> = replacements
                 .values()
                 .map(|block| block.id.clone())
@@ -122,6 +164,8 @@ impl Schematic {
             for region in self.regions.values() {
                 for block in region.blocks.states() {
                     if keep.contains(&block.id)
+                        || profile_keep.contains(&block.id)
+                        || explicit_sources.contains(&block.id)
                         || targets.contains(&block.id)
                         || replacements.contains_key(&block.id)
                     {

@@ -95,26 +95,43 @@ and [block entities](../reference/api.md#blockentities) for the full signatures.
 
 ## Normalize materials
 
-Normalization applies a bundled profile or explicit JSON file to every region in
-place. The bundled Java `redstone` profile standardizes ordinary slabs to smooth
+Normalization applies inline rules, optionally extending a bundled profile or
+JSON file, to every region in place:
+
+```python
+report = scene.normalize(
+    keep=["glass", "dirt", "hopper"],
+    replace={"spruce_planks": "oak_planks", "birch_log": "oak_log"},
+    fallback="iron_block",
+)
+```
+
+Omit `fallback` to leave unlisted blocks unchanged:
+
+```python
+scene.normalize(replace={"red_wool": "white_wool"})
+```
+
+The bundled Java `redstone` profile standardizes ordinary slabs to smooth
 stone slabs, ordinary stairs to stone brick stairs, planks to oak planks, stripped
 logs and wood to stripped oak equivalents, and wool slabs and stairs to white.
 Unstripped logs, wood and woody stems become oak logs, leaves become oak leaves,
 and all current stone walls become stone brick walls.
-Use `keep_override` for farms that depend on specific materials.
+Use `keep` for farms that depend on specific materials.
 
 ```python
 report = scene.normalize("redstone")
 ```
 
-To preserve materials needed by a particular farm, add a `keep_override` list:
+Customize a profile with the same keyword arguments:
 
 ```python
-report = scene.normalize("redstone", keep_override=["spruce_log", "spruce_leaves"])
+report = scene.normalize(
+    "redstone",
+    keep=["spruce_log", "spruce_leaves"],
+    replace={"red_wool": "blue_wool"},
+)
 ```
-
-These IDs add to the profile's keeps and take priority over explicit replacements
-and fallback for this call. All their states and attached data remain unchanged.
 
 Edit the explicit lists in [redstone.json](../../data/profiles/java/redstone.json).
 
@@ -188,6 +205,27 @@ schematic catalogs still fail before any changes are committed.
 
 The profile author decides which materials are interchangeable. Normalization
 does not simulate redstone or establish that a farm still works.
+
+Rust callers pass an optional profile and `normalize::Options`:
+
+```rust
+let options = mcschemora::normalize::Options {
+    keep: vec!["spruce_log".into()],
+    replace: [("red_wool".into(), "blue_wool".into())].into(),
+    fallback: None,
+};
+schematic.normalize(None, &options)?;
+```
+
+Browser callers pass an optional profile and an options object:
+
+```javascript
+schematic.normalize(undefined, { replace: { red_wool: "white_wool" } });
+schematic.normalize("redstone", {
+  keep: ["spruce_log"],
+  replace: { red_wool: "blue_wool" },
+});
+```
 
 
 ## Inspect and convert

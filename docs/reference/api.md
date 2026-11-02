@@ -36,7 +36,7 @@ Arguments after `*` are keyword-only. Types and properties are documented below.
 
 ### Function inspect_schematics
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1388)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1412)
 
 ```python
 inspect_schematics(
@@ -412,13 +412,22 @@ Returns resource counts, inventories, payload details, and inspection diagnostic
 
 #### Schematic.normalize
 
-`Schematic.normalize(profile: _Path, *, keep_override: Sequence[str] = ()) -> dict`
+```python
+Schematic.normalize(
+    profile: _Path | None = None,
+    *,
+    keep: Sequence[str] = (),
+    replace: Mapping[str, str] | None = None,
+    fallback: str | None = None,
+) -> dict
+```
 
-Applies a bundled or JSON normalization profile to all regions in place.
+Normalizes all regions using inline rules and an optional profile.
 
-Profile keeps and keep_override take priority over replacements. An optional
-fallback replaces other eligible blocks; otherwise unlisted blocks remain unchanged. Replacement
-targets remain canonical, so reapplying a profile changes nothing.
+Explicit keep wins over replace, which overrides profile keeps and replacements.
+An explicit fallback overrides the profile fallback. Without a fallback,
+unlisted blocks remain unchanged. Override targets remain canonical;
+chained mappings are skipped, so reapplying the same rules changes nothing.
 Profiles must match the schematic's edition; block IDs are checked against
 its version. Non-air replacements retain properties supported by the target,
 discard unsupported properties, and use target defaults for new properties.
@@ -430,8 +439,10 @@ are skipped silently.
 
 **Args:**
 
-- `profile`: Bundled profile name (redstone), or a path to a UTF-8 JSON file with edition and optional keep, replacements, and fallback. keep is a list of block IDs; fallback is a block ID. Each replacement has a from list and a to block ID.
-- `keep_override`: Additional block IDs to preserve for this call, including all their states and attached data. Adds to the profile's keep list.
+- `profile`: Optional bundled profile name (redstone), or a path to a UTF-8 JSON file with edition and optional keep, replacements, and fallback. keep is a list of block IDs; fallback is a block ID. Each replacement has a from list and a to block ID.
+- `keep`: Block IDs to preserve for this call, including all states and attached data.
+- `replace`: Mapping of source block IDs to target block IDs for this call. Invalid overrides leave their source blocks unchanged.
+- `fallback`: Block ID for remaining eligible blocks. None uses the profile's fallback, if any. A fallback that is itself replaced is skipped.
 
 **Returns:** A dictionary with changed (total replaced blocks) and replacements (from, to, and count records, sorted by source block ID).
 
@@ -439,7 +450,7 @@ are skipped silently.
 
 - `OSError`: If the profile file cannot be read.
 - `ValueError`: If the profile JSON is malformed, the edition differs, or the schematic has no catalog. No changes are committed.
-- `TypeError`: If keep_override is a string rather than a sequence of block IDs.
+- `TypeError`: If keep is a string, replace is not a mapping, or block IDs are not strings.
 
 #### Schematic.validate
 
@@ -549,7 +560,7 @@ Prepares rendering assets and returns their cache directory.
 
 ### Region
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L854)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L878)
 
 An editing handle for a named region within a schematic.
 
@@ -698,7 +709,7 @@ The manager for NBT attached to this region's blocks.
 
 ### ScheduledTick
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1267)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1291)
 
 A scheduled update retained from an imported Litematic region.
 
@@ -722,7 +733,7 @@ ScheduledTick.order: int
 
 ### Selection
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1029)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1053)
 
 A set of region-local cells and entities that reads current content.
 
@@ -932,7 +943,7 @@ Bounds.size: Position
 
 ### Fragment
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1210)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1234)
 
 An independent copy of selected cells, attached data, and entities.
 
@@ -1050,7 +1061,7 @@ Returns a water block with level=0.
 
 ### Function bed
 
-[Source](../../bindings/python/src/lib.rs#L693)
+[Source](../../bindings/python/src/lib.rs#L703)
 
 `bed(*, color: str = 'red', head_toward: str = 'north') -> Placement`
 
@@ -1065,7 +1076,7 @@ Creates a bed placement anchored at the foot block when placed.
 
 ### Function door
 
-[Source](../../bindings/python/src/lib.rs#L714)
+[Source](../../bindings/python/src/lib.rs#L724)
 
 ```python
 door(
@@ -1092,7 +1103,7 @@ Creates a door placement anchored at the lower block when placed.
 
 ### Function sign
 
-[Source](../../bindings/python/src/lib.rs#L755)
+[Source](../../bindings/python/src/lib.rs#L765)
 
 ```python
 sign(
@@ -1117,7 +1128,7 @@ Creates a standing-sign placement with plain text on its front face.
 
 ### Function chest
 
-[Source](../../bindings/python/src/lib.rs#L735)
+[Source](../../bindings/python/src/lib.rs#L745)
 
 ```python
 chest(
@@ -1138,7 +1149,7 @@ Creates a single-chest placement with optional inventory contents.
 
 ### Function item
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1226)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1250)
 
 `item(identifier: str, *, count: int = 1, components: str | None = None) -> _Item`
 
@@ -1154,7 +1165,7 @@ Creates an inventory item value for chest().
 
 ### Function mob
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1249)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1273)
 
 `mob(identifier: str, *, persistent: bool = True, nbt: str | None = None) -> _Mob`
 
@@ -1188,7 +1199,7 @@ Returns a block schema for this schematic's Minecraft version.
 
 ### Entity
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1288)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1312)
 
 An immutable snapshot of a entity returned by Entities.get().
 
@@ -1206,7 +1217,7 @@ Entity.nbt: str
 
 ### Entities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1302)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1326)
 
 Access to a region's entities through schematic-local integer references.
 
@@ -1270,7 +1281,7 @@ Iterates a snapshot of this region's entity references.
 
 ### BlockEntities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1361)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1385)
 
 Access to typed NBT attached to blocks at region-local cell coordinates.
 
@@ -1370,16 +1381,18 @@ export class Schematic {
      */
     getBlock(region: string, x: number, y: number, z: number): string;
     /**
-     * Applies a bundled profile name or JSON object and returns changed and replacement counts.
+     * Applies inline options and an optional bundled profile name or JSON profile object.
      *
      * Edition must match; block IDs are checked against the schematic's version.
      * Non-air replacements retain supported properties, discard unsupported ones, and use
      * target defaults for new properties. Shared values must be valid. Both blocks require
      * the same block-entity type. Compatible attached data is preserved. Invalid replacements are
-     * skipped silently. Profile keeps and keep_override take priority; fallback covers other
-     * eligible blocks. Targets remain canonical. Malformed profiles throw an Error.
+     * skipped silently. Options contain keep (block IDs), replace (source-to-target object),
+     * and fallback (block ID). Explicit keep wins over replace, then profile rules.
+     * Invalid overrides leave their sources unchanged. Override targets remain canonical.
+     * A fallback that is itself replaced is skipped. Malformed profiles or options throw an Error.
      */
-    normalize(profile: any, keep_override?: string[] | null): any;
+    normalize(profile?: any | null, options?: any | null): any;
     /**
      * Returns region descriptions with name, schematic-global origin, local start, and size.
      */

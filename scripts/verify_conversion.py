@@ -1628,7 +1628,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cache-dir", type=Path)
     args = parser.parse_args()
-    data = MinecraftData(cache_dir=args.cache_dir, offline=True)
+    data = MinecraftData(cache_dir=args.cache_dir, offline=False)
     verify_items(data)
     verify_nested_owners(data)
     verify_review_regressions(data)

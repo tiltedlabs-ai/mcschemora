@@ -748,22 +748,28 @@ class Schematic:
         """
         return json.loads(self._native.inspect())
 
-    def normalize(self, profile: _Path) -> dict:
-        """Applies a JSON normalization profile to all regions in place.
+    def normalize(self, profile: _Path, *, keep_override: Sequence[str] = ()) -> dict:
+        """Applies a bundled or JSON normalization profile to all regions in place.
 
-        Kept blocks take priority over replacements. An optional fallback replaces
-        other eligible blocks; otherwise unlisted blocks remain unchanged. Replacement
+        Profile keeps and keep_override take priority over replacements. An optional
+        fallback replaces other eligible blocks; otherwise unlisted blocks remain unchanged. Replacement
         targets remain canonical, so reapplying a profile changes nothing.
         Profiles must match the schematic's edition; block IDs are checked against
-        its version. Non-air replacements copy the resolved source properties exactly.
-        Targets must accept every property and value without adding properties.
+        its version. Non-air replacements retain properties supported by the target,
+        discard unsupported properties, and use target defaults for new properties.
+        Shared property values must be valid for the target.
         Both blocks must use the same block-entity type, and compatible attached data
-        is preserved unchanged. Invalid or incompatible replacements are skipped silently.
+        is preserved unchanged. Attached-data IDs must match when present; an omitted
+        ID uses the known owning block-entity type. Invalid or incompatible replacements
+        are skipped silently.
 
         Args:
-            profile: Path to a UTF-8 JSON file with edition and optional keep,
-                replacements, and fallback. keep is a list of block IDs; fallback
-                is a block ID. Each replacement has a from list and a to block ID.
+            profile: Bundled profile name (redstone), or a path to a UTF-8 JSON file
+                with edition and optional keep, replacements, and fallback. keep
+                is a list of block IDs; fallback is a block ID. Each replacement
+                has a from list and a to block ID.
+            keep_override: Additional block IDs to preserve for this call, including
+                all their states and attached data. Adds to the profile's keep list.
 
         Returns:
             A dictionary with changed (total replaced blocks) and replacements
@@ -773,8 +779,12 @@ class Schematic:
             OSError: If the profile file cannot be read.
             ValueError: If the profile JSON is malformed, the edition differs, or
                 the schematic has no catalog. No changes are committed.
+            TypeError: If keep_override is a string rather than a sequence of block IDs.
         """
-        return json.loads(self._native.normalize(Path(profile).read_text(encoding="utf-8")))
+        if isinstance(keep_override, str):
+            raise TypeError("keep_override must be a sequence of block IDs")
+        content = "redstone" if profile == "redstone" else Path(profile).read_text(encoding="utf-8")
+        return json.loads(self._native.normalize(content, list(keep_override)))
 
     def validate(self) -> Report:
         """Checks Java game rules without changing the schematic or simulating ticks.

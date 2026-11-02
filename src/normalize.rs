@@ -19,6 +19,17 @@ pub struct Profile {
     pub fallback: Option<String>,
 }
 
+impl Profile {
+    pub fn parse(value: &str) -> Result<Self> {
+        let json = match value {
+            "redstone" => include_str!("../data/profiles/java/redstone.json"),
+            _ => value,
+        };
+        serde_json::from_str(json)
+            .map_err(|error| format!("Invalid normalization profile: {error}"))
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Replacement {
@@ -51,13 +62,15 @@ fn replacement(registry: &Registry, block: &Block, target: &Block) -> Option<Blo
         return None;
     }
     let mut source = registry.resolve(block).ok()?;
+    source
+        .properties
+        .retain(|name, _| target.properties.contains_key(name));
     source.id.clone_from(&target.id);
-    let target = registry.resolve(&source).ok()?;
-    (target.properties == source.properties).then_some(target)
+    registry.resolve(&source).ok()
 }
 
 impl Schematic {
-    pub fn normalize(&mut self, profile: &Profile) -> Result<Report> {
+    pub fn normalize(&mut self, profile: &Profile, keep_override: &[String]) -> Result<Report> {
         if profile.edition != self.edition {
             return Err(format!(
                 "Normalization profile requires {}; schematic is {}",
@@ -68,6 +81,7 @@ impl Schematic {
         let keep: BTreeSet<_> = profile
             .keep
             .iter()
+            .chain(keep_override)
             .filter_map(|id| Block::new(id, BTreeMap::new()).ok())
             .map(|block| block.id)
             .collect();
@@ -150,11 +164,16 @@ impl Schematic {
                 let Some(Some(target)) = states.get(block) else {
                     continue;
                 };
-                if region.block_entities.get(position).is_some_and(|data| {
-                    data.get("id")
-                        .and_then(|value| nbt::string(value).ok())
-                        .is_none_or(|id| !helpers::compatible(id, target))
-                }) {
+                if region
+                    .block_entities
+                    .get(position)
+                    .is_some_and(|data| match data.get("id") {
+                        Some(value) => {
+                            !nbt::string(value).is_ok_and(|id| helpers::compatible(id, target))
+                        }
+                        None => block_entity_id(&target.id).is_none(),
+                    })
+                {
                     continue;
                 }
                 *counts.entry(block.id.clone()).or_insert(0u64) += 1;

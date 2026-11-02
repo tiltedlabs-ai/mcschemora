@@ -95,8 +95,30 @@ and [block entities](../reference/api.md#blockentities) for the full signatures.
 
 ## Normalize materials
 
-Normalization applies an explicit JSON profile to every region in place. There are
-no bundled profiles yet. For example, save this as `materials.json`:
+Normalization applies a bundled profile or explicit JSON file to every region in
+place. The bundled Java `redstone` profile standardizes ordinary slabs to smooth
+stone slabs, ordinary stairs to stone brick stairs, planks to oak planks, stripped
+logs and wood to stripped oak equivalents, and wool slabs and stairs to white.
+Unstripped logs, wood and woody stems become oak logs, leaves become oak leaves,
+and all current stone walls become stone brick walls.
+Use `keep_override` for farms that depend on specific materials.
+
+```python
+report = scene.normalize("redstone")
+```
+
+To preserve materials needed by a particular farm, add a `keep_override` list:
+
+```python
+report = scene.normalize("redstone", keep_override=["spruce_log", "spruce_leaves"])
+```
+
+These IDs add to the profile's keeps and take priority over explicit replacements
+and fallback for this call. All their states and attached data remain unchanged.
+
+Edit the explicit lists in [redstone.json](../../data/profiles/java/redstone.json).
+
+For a custom profile, save this as `materials.json`:
 
 ```json
 {
@@ -144,14 +166,19 @@ Profiles are version independent and must match the schematic's edition. Block
 IDs are checked against the schematic's own catalog. Unavailable or invalid
 sources are skipped; an unavailable or invalid target skips its whole group.
 Only non-air blocks can be replaced. The original block's complete state is
-resolved, then its properties are copied unchanged to the target ID. The target
-must accept every property and value without adding or removing properties.
+resolved, then properties supported by the target are copied unchanged. Unsupported
+properties are discarded, and properties present only on the target use its
+defaults. Shared property values must be valid for the target or the replacement
+is skipped. For example, converting a bone block to iron discards `axis`, while
+converting a log to another log preserves it.
 For example, slab replacements keep top/bottom/double and waterlogging, and stair
 replacements keep facing, half, shape, and waterlogging.
 
 Both blocks must use the same block-entity type. Compatible attached data is
-preserved unchanged, including sign text. Invalid attached data and positions
-outside bounds are skipped. Skipped replacements are not reported.
+preserved unchanged, including sign text. An attached-data ID must match when
+present; if omitted, the known owning block-entity type determines compatibility.
+Invalid attached data and positions outside bounds are skipped. Skipped
+replacements are not reported.
 
 The first valid mapping for each source wins. Mappings targeting another source
 that maps to a different block are skipped, preventing chains and cycles.
@@ -162,9 +189,6 @@ schematic catalogs still fail before any changes are committed.
 The profile author decides which materials are interchangeable. Normalization
 does not simulate redstone or establish that a farm still works.
 
-Rust callers deserialize the same JSON into `mcschemora::normalize::Profile`
-with `serde_json::from_str` and call `schematic.normalize(&profile)`. Browser
-callers pass the parsed object to `schematic.normalize(profile)`.
 
 ## Inspect and convert
 

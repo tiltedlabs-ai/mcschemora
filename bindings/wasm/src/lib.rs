@@ -190,21 +190,30 @@ impl WasmSchematic {
         )
     }
 
-    /// Applies a JSON profile object in place and returns changed and replacement counts.
+    /// Applies a bundled profile name or JSON object and returns changed and replacement counts.
     ///
     /// Edition must match; block IDs are checked against the schematic's version.
-    /// Non-air replacements preserve resolved source properties exactly and require the same
-    /// block-entity type. Compatible attached data is preserved. Invalid replacements are
-    /// skipped silently. keep takes priority; fallback covers other
+    /// Non-air replacements retain supported properties, discard unsupported ones, and use
+    /// target defaults for new properties. Shared values must be valid. Both blocks require
+    /// the same block-entity type. Compatible attached data is preserved. Invalid replacements are
+    /// skipped silently. Profile keeps and keep_override take priority; fallback covers other
     /// eligible blocks. Targets remain canonical. Malformed profiles throw an Error.
-    pub fn normalize(&mut self, profile: JsValue) -> Result<JsValue, JsValue> {
-        let profile: mcschemora::normalize::Profile = serde_json::from_str(
-            &js_sys::JSON::stringify(&profile)?
+    pub fn normalize(
+        &mut self,
+        profile: JsValue,
+        keep_override: Option<Vec<String>>,
+    ) -> Result<JsValue, JsValue> {
+        let json = match profile.as_string() {
+            Some(name) => name,
+            None => js_sys::JSON::stringify(&profile)?
                 .as_string()
                 .ok_or_else(|| error("Invalid normalization profile"))?,
-        )
-        .map_err(error)?;
-        let report = self.schematic.normalize(&profile).map_err(error)?;
+        };
+        let profile = mcschemora::normalize::Profile::parse(&json).map_err(error)?;
+        let report = self
+            .schematic
+            .normalize(&profile, keep_override.as_deref().unwrap_or_default())
+            .map_err(error)?;
         value(serde_json::to_value(report).map_err(error)?)
     }
 

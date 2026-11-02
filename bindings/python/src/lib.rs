@@ -307,11 +307,18 @@ impl PySchematic {
             serde_json::to_string(&report).map_err(error)
         })
     }
-    fn normalize(&self, py: Python<'_>, profile: &str) -> PyResult<String> {
-        let profile: mcschemora::normalize::Profile =
-            serde_json::from_str(profile).map_err(error)?;
+    #[pyo3(signature = (profile, keep_override=None))]
+    fn normalize(
+        &self,
+        py: Python<'_>,
+        profile: &str,
+        keep_override: Option<Vec<String>>,
+    ) -> PyResult<String> {
+        let profile = mcschemora::normalize::Profile::parse(profile).map_err(error)?;
         py.detach(|| {
-            let report = lock(&self.data)?.normalize(&profile).map_err(error)?;
+            let report = lock(&self.data)?
+                .normalize(&profile, keep_override.as_deref().unwrap_or_default())
+                .map_err(error)?;
             serde_json::to_string(&report).map_err(error)
         })
     }

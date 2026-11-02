@@ -10,6 +10,7 @@ pub(crate) fn block_entity_id(id: &str) -> Option<&str> {
         n if n.ends_with("_banner") => "banner",
         n if n.ends_with("shulker_box") => "shulker_box",
         n if n.ends_with("_shelf") => "shelf",
+        n if n.ends_with("copper_chest") => "chest",
         "skeleton_skull"
         | "skeleton_wall_skull"
         | "wither_skeleton_skull"

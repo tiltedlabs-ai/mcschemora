@@ -151,36 +151,25 @@ impl Schematic {
         }
         let mut counts = BTreeMap::new();
         for region in self.regions.values_mut() {
-            let mut edits = Vec::new();
-            for (position, block) in region.blocks.iter() {
-                if !region.bounds.contains(*position)
-                    || region
-                        .present
-                        .as_ref()
-                        .is_some_and(|cells| !cells.contains(position))
-                {
-                    continue;
-                }
-                let Some(Some(target)) = states.get(block) else {
-                    continue;
-                };
-                if region
-                    .block_entities
-                    .get(position)
-                    .is_some_and(|data| match data.get("id") {
-                        Some(value) => {
-                            !nbt::string(value).is_ok_and(|id| helpers::compatible(id, target))
-                        }
-                        None => block_entity_id(&target.id).is_none(),
-                    })
-                {
-                    continue;
-                }
-                *counts.entry(block.id.clone()).or_insert(0u64) += 1;
-                edits.push((*position, target));
-            }
-            for (position, target) in edits {
-                region.blocks.set(position, target);
+            let changes = region.blocks.remap(
+                |block| states.get(block).and_then(Option::as_ref).cloned(),
+                |position, target| {
+                    region.bounds.contains(position)
+                        && region
+                            .present
+                            .as_ref()
+                            .is_none_or(|cells| cells.contains(&position))
+                        && region.block_entities.get(&position).is_none_or(|data| {
+                            match data.get("id") {
+                                Some(value) => nbt::string(value)
+                                    .is_ok_and(|id| helpers::compatible(id, target)),
+                                None => block_entity_id(&target.id).is_some(),
+                            }
+                        })
+                },
+            );
+            for (block, count) in changes {
+                *counts.entry(block.id).or_insert(0u64) += count as u64;
             }
         }
         Ok(Report {

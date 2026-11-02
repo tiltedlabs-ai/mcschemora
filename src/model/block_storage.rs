@@ -102,6 +102,44 @@ impl BlockStorage {
         let id = self.intern(block);
         self.set_id(position, id);
     }
+    pub(crate) fn remap(
+        &mut self,
+        mut replacement: impl FnMut(&Block) -> Option<Block>,
+        mut eligible: impl FnMut(Position, &Block) -> bool,
+    ) -> Vec<(Block, usize)> {
+        let remap: Vec<_> = (0..self.palette.len())
+            .map(|id| {
+                if self.uses[id] == 0 {
+                    return None;
+                }
+                let target = replacement(&self.palette[id])?;
+                if target == *self.palette[id] {
+                    return None;
+                }
+                Some(self.intern(&target))
+            })
+            .collect();
+        let mut counts = vec![0; remap.len()];
+        for (position, id) in &mut self.cells {
+            let source = *id as usize;
+            let Some(target) = remap[source] else {
+                continue;
+            };
+            if !eligible(*position, &self.palette[target as usize]) {
+                continue;
+            }
+            counts[source] += 1;
+            self.uses[source] -= 1;
+            self.uses[target as usize] += 1;
+            *id = target;
+        }
+        counts
+            .into_iter()
+            .enumerate()
+            .filter(|(_, count)| *count > 0)
+            .map(|(id, count)| (self.palette[id].as_ref().clone(), count))
+            .collect()
+    }
     /// Removes a stored cell; an absent position has no effect.
     pub fn remove(&mut self, position: &Position) {
         if let Some(id) = self.cells.remove(position) {

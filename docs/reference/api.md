@@ -36,7 +36,7 @@ Arguments after `*` are keyword-only. Types and properties are documented below.
 
 ### Function inspect_schematics
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1377)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1378)
 
 ```python
 inspect_schematics(
@@ -419,10 +419,11 @@ Applies a JSON normalization profile to all regions in place.
 Kept blocks take priority over replacements. An optional fallback replaces
 other eligible blocks; otherwise unlisted blocks remain unchanged. Replacement
 targets remain canonical, so reapplying a profile changes nothing.
-Profiles must match the schematic's edition;
-block IDs are checked against its version. Invalid or unsupported replacements
-and positions with attached data are skipped silently. Only non-air blocks
-without state properties or block entities can be replaced.
+Profiles must match the schematic's edition; block IDs are checked against
+its version. Non-air replacements copy the resolved source properties exactly.
+Targets must accept every property and value without adding properties.
+Both blocks must use the same block-entity type, and compatible attached data
+is preserved unchanged. Invalid or incompatible replacements are skipped silently.
 
 **Args:** `profile`: Path to a UTF-8 JSON file with edition and optional keep, replacements, and fallback. keep is a list of block IDs; fallback is a block ID. Each replacement has a from list and a to block ID.
 
@@ -541,7 +542,7 @@ Prepares rendering assets and returns their cache directory.
 
 ### Region
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L843)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L844)
 
 An editing handle for a named region within a schematic.
 
@@ -690,7 +691,7 @@ The manager for NBT attached to this region's blocks.
 
 ### ScheduledTick
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1256)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1257)
 
 A scheduled update retained from an imported Litematic region.
 
@@ -714,7 +715,7 @@ ScheduledTick.order: int
 
 ### Selection
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1018)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1019)
 
 A set of region-local cells and entities that reads current content.
 
@@ -924,7 +925,7 @@ Bounds.size: Position
 
 ### Fragment
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1199)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1200)
 
 An independent copy of selected cells, attached data, and entities.
 
@@ -1130,7 +1131,7 @@ Creates a single-chest placement with optional inventory contents.
 
 ### Function item
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1215)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1216)
 
 `item(identifier: str, *, count: int = 1, components: str | None = None) -> _Item`
 
@@ -1146,7 +1147,7 @@ Creates an inventory item value for chest().
 
 ### Function mob
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1238)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1239)
 
 `mob(identifier: str, *, persistent: bool = True, nbt: str | None = None) -> _Mob`
 
@@ -1180,7 +1181,7 @@ Returns a block schema for this schematic's Minecraft version.
 
 ### Entity
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1277)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1278)
 
 An immutable snapshot of a entity returned by Entities.get().
 
@@ -1198,7 +1199,7 @@ Entity.nbt: str
 
 ### Entities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1291)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1292)
 
 Access to a region's entities through schematic-local integer references.
 
@@ -1262,7 +1263,7 @@ Iterates a snapshot of this region's entity references.
 
 ### BlockEntities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1350)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1351)
 
 Access to typed NBT attached to blocks at region-local cell coordinates.
 
@@ -1365,8 +1366,9 @@ export class Schematic {
      * Applies a JSON profile object in place and returns changed and replacement counts.
      *
      * Edition must match; block IDs are checked against the schematic's version.
-     * Invalid replacements are skipped silently. Only non-air blocks without properties
-     * or block entities can be replaced. keep takes priority; fallback covers other
+     * Non-air replacements preserve resolved source properties exactly and require the same
+     * block-entity type. Compatible attached data is preserved. Invalid replacements are
+     * skipped silently. keep takes priority; fallback covers other
      * eligible blocks. Targets remain canonical. Malformed profiles throw an Error.
      */
     normalize(profile: any): any;

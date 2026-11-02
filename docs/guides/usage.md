@@ -143,9 +143,15 @@ replaced by the fallback. `keep` and `replacements` default to empty lists.
 Profiles are version independent and must match the schematic's edition. Block
 IDs are checked against the schematic's own catalog. Unavailable or invalid
 sources are skipped; an unavailable or invalid target skips its whole group.
-Only non-air blocks without state properties or block entities can be replaced.
-Positions outside bounds or with properties or attached data are also skipped.
-Skipped replacements are not reported.
+Only non-air blocks can be replaced. The original block's complete state is
+resolved, then its properties are copied unchanged to the target ID. The target
+must accept every property and value without adding or removing properties.
+For example, slab replacements keep top/bottom/double and waterlogging, and stair
+replacements keep facing, half, shape, and waterlogging.
+
+Both blocks must use the same block-entity type. Compatible attached data is
+preserved unchanged, including sign text. Invalid attached data and positions
+outside bounds are skipped. Skipped replacements are not reported.
 
 The first valid mapping for each source wins. Mappings targeting another source
 that maps to a different block are skipped, preventing chains and cycles.

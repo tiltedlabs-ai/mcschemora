@@ -1,7 +1,9 @@
 use crate::{
     Result,
     catalog::{Registry, block_entity_id},
+    helpers,
     model::{Block, Schematic},
+    nbt,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -41,8 +43,17 @@ fn resolve(registry: &Registry, id: &str) -> Option<Block> {
     let block = registry
         .resolve(&Block::new(id, BTreeMap::new()).ok()?)
         .ok()?;
-    (!block.is_air() && block.properties.is_empty() && block_entity_id(&block.id).is_none())
-        .then_some(block)
+    (!block.is_air()).then_some(block)
+}
+
+fn replacement(registry: &Registry, block: &Block, target: &Block) -> Option<Block> {
+    if block_entity_id(&block.id) != block_entity_id(&target.id) {
+        return None;
+    }
+    let mut source = registry.resolve(block).ok()?;
+    source.id.clone_from(&target.id);
+    let target = registry.resolve(&source).ok()?;
+    (target.properties == source.properties).then_some(target)
 }
 
 impl Schematic {
@@ -111,13 +122,24 @@ impl Schematic {
         if replacements.is_empty() {
             return Ok(Report::default());
         }
+        let mut states = BTreeMap::new();
+        for region in self.regions.values() {
+            for block in region.blocks.states() {
+                let Some(target) = replacements.get(&block.id) else {
+                    continue;
+                };
+                if block.id != target.id {
+                    states
+                        .entry(block.clone())
+                        .or_insert_with(|| replacement(registry, block, target));
+                }
+            }
+        }
         let mut counts = BTreeMap::new();
         for region in self.regions.values_mut() {
             let mut edits = Vec::new();
             for (position, block) in region.blocks.iter() {
                 if !region.bounds.contains(*position)
-                    || !block.properties.is_empty()
-                    || region.block_entities.contains_key(position)
                     || region
                         .present
                         .as_ref()
@@ -125,10 +147,14 @@ impl Schematic {
                 {
                     continue;
                 }
-                let Some(target) = replacements.get(&block.id) else {
+                let Some(Some(target)) = states.get(block) else {
                     continue;
                 };
-                if block.id == target.id {
+                if region.block_entities.get(position).is_some_and(|data| {
+                    data.get("id")
+                        .and_then(|value| nbt::string(value).ok())
+                        .is_none_or(|id| !helpers::compatible(id, target))
+                }) {
                     continue;
                 }
                 *counts.entry(block.id.clone()).or_insert(0u64) += 1;

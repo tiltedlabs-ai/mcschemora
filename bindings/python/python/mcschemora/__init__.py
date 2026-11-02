@@ -754,10 +754,11 @@ class Schematic:
         Kept blocks take priority over replacements. An optional fallback replaces
         other eligible blocks; otherwise unlisted blocks remain unchanged. Replacement
         targets remain canonical, so reapplying a profile changes nothing.
-        Profiles must match the schematic's edition;
-        block IDs are checked against its version. Invalid or unsupported replacements
-        and positions with attached data are skipped silently. Only non-air blocks
-        without state properties or block entities can be replaced.
+        Profiles must match the schematic's edition; block IDs are checked against
+        its version. Non-air replacements copy the resolved source properties exactly.
+        Targets must accept every property and value without adding properties.
+        Both blocks must use the same block-entity type, and compatible attached data
+        is preserved unchanged. Invalid or incompatible replacements are skipped silently.
 
         Args:
             profile: Path to a UTF-8 JSON file with edition and optional keep,

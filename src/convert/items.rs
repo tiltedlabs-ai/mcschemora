@@ -1,5 +1,15 @@
 use super::*;
 
+pub(super) const ITEM_FIELDS: &[(&str, &str)] = &[
+    ("Damage", "damage"),
+    ("RepairCost", "repair_cost"),
+    ("CustomModelData", "custom_model_data"),
+    ("map", "map_id"),
+    ("instrument", "instrument"),
+    ("Recipes", "recipes"),
+    ("DebugProperty", "debug_stick_state"),
+];
+
 pub(super) fn convert(item: &mut Compound, context: &Context, level: usize) -> Result<()> {
     depth(level)?;
     if item.is_empty() {
@@ -97,12 +107,10 @@ pub(super) fn convert(item: &mut Compound, context: &Context, level: usize) -> R
         .map(|v| crate::nbt::number(&v))
         .transpose()?
         .unwrap_or(0);
-    let fields: Vec<[String; 2]> =
-        serde_json::from_str(include_str!("data/item_fields.json")).map_err(|e| e.to_string())?;
-    for [old, new] in fields {
-        if let Some(value) = tag.remove(&old) {
-            scalar(&new, &value)?;
-            put(&mut components, &new, value);
+    for &(old, new) in ITEM_FIELDS {
+        if let Some(value) = tag.remove(old) {
+            scalar(new, &value)?;
+            put(&mut components, new, value);
         }
     }
     if let Some(value) = tag.remove("Unbreakable")
@@ -619,8 +627,14 @@ pub(super) fn standard_name(id: &str, value: &V) -> Result<bool> {
     let V::String(value) = value else {
         return Ok(false);
     };
-    let names: std::collections::BTreeMap<String, Vec<String>> =
-        serde_json::from_str(include_str!("data/item_names.json")).map_err(|e| e.to_string())?;
+    static NAMES: OnceLock<Result<std::collections::BTreeMap<String, Vec<String>>>> =
+        OnceLock::new();
+    let names = NAMES
+        .get_or_init(|| {
+            serde_json::from_str(include_str!("data/item_names.json")).map_err(|e| e.to_string())
+        })
+        .as_ref()
+        .map_err(Clone::clone)?;
     let json: serde_json::Value = serde_json::from_str(value).map_err(|e| e.to_string())?;
     Ok(json
         .get("translate")
@@ -664,34 +678,19 @@ pub(super) fn scalar(name: &str, value: &V) -> Result<()> {
 fn block_entity_id(data: &mut Compound, id: &str) -> Result<()> {
     if !data.contains_key("id") {
         let name = id.strip_prefix("minecraft:").unwrap_or(id);
-        let kind = if name.ends_with("shulker_box") {
-            Some("shulker_box")
-        } else if name.ends_with("_banner") || name == "shield" {
-            Some("banner")
-        } else if name.ends_with("_head") || name.ends_with("_skull") {
-            Some("skull")
-        } else if name.ends_with("_hanging_sign") {
-            Some("hanging_sign")
-        } else if name.ends_with("_sign") {
-            Some("sign")
+        let block = if name == "shield" {
+            "white_banner"
         } else {
-            match name {
-                "chest" | "trapped_chest" | "barrel" | "hopper" | "furnace" | "blast_furnace"
-                | "smoker" | "brewing_stand" | "dispenser" | "dropper" | "lectern" | "jukebox"
-                | "decorated_pot" | "chiseled_bookshelf" | "beehive" | "beacon" | "conduit"
-                | "command_block" | "structure_block" | "jigsaw" => Some(name),
-                "bee_nest" => Some("beehive"),
-                "spawner" => Some("mob_spawner"),
-                _ => None,
-            }
+            name
         };
-        data.insert(
-            "id".into(),
-            V::String(format!(
-                "minecraft:{}",
-                kind.ok_or("BlockEntityTag: cannot infer block-entity ID")?
-            )),
-        );
+        let kind = crate::catalog::block_entity_id(block)
+            .ok_or("BlockEntityTag: cannot infer block-entity ID")?;
+        let kind = if kind == "spawner" {
+            "mob_spawner"
+        } else {
+            kind
+        };
+        data.insert("id".into(), V::String(format!("minecraft:{}", kind)));
     }
     Ok(())
 }

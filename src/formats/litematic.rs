@@ -89,7 +89,7 @@ pub(super) fn write_litematic(schematic: &Schematic) -> Result<Compound> {
     let mut regions = Compound::new();
     let mut volume = 0i64;
     let mut count = 0i64;
-    let mut ends = vec![];
+    let mut ends: Vec<Position> = vec![];
     for (name, r) in &schematic.regions {
         let n = r.bounds.volume()?;
         let (pal, ids) = palette(r);
@@ -167,10 +167,16 @@ pub(super) fn write_litematic(schematic: &Schematic) -> Result<Compound> {
         "TotalBlocks".into(),
         V::Int(i32::try_from(count).map_err(|_| "Litematica block count too large")?),
     );
-    metadata.insert(
-        "EnclosingSize".into(),
-        pos_compound(Bounds::around(ends.into_iter())?.size),
-    );
+    let mut enclosing = [0; 3];
+    for axis in 0..3 {
+        let min = ends.iter().map(|point| point[axis]).min().unwrap_or(0);
+        let max = ends.iter().map(|point| point[axis]).max().unwrap_or(0);
+        enclosing[axis] = max
+            .checked_sub(min)
+            .and_then(|n| n.checked_add(1))
+            .ok_or("Litematica enclosing size overflow")?;
+    }
+    metadata.insert("EnclosingSize".into(), pos_compound(enclosing));
     let mut root = Compound::from([
         (
             "Version".into(),

@@ -11,6 +11,12 @@ pub struct ExportReport {
     pub losses: Vec<String>,
 }
 
+struct Prepared<'a> {
+    region: Option<Cow<'a, Region>>,
+    blueprint: Option<String>,
+    losses: Vec<String>,
+}
+
 pub async fn check_export(
     schematic: &Schematic,
     format: &str,
@@ -29,7 +35,7 @@ pub async fn check_export(
     };
     if converted.errors.is_empty() {
         match prepare(&converted.schematic, format, flatten) {
-            Ok((_, losses)) => converted.losses.extend(losses),
+            Ok(prepared) => converted.losses.extend(prepared.losses),
             Err(error) => converted.errors.push(error),
         }
     }
@@ -41,11 +47,7 @@ pub async fn check_export(
     })
 }
 
-fn prepare<'a>(
-    schematic: &'a Schematic,
-    format: &str,
-    flatten: bool,
-) -> Result<(Option<Cow<'a, Region>>, Vec<String>)> {
+fn prepare<'a>(schematic: &'a Schematic, format: &str, flatten: bool) -> Result<Prepared<'a>> {
     valid_format(format)?;
     if schematic.regions.is_empty() {
         return Err("Schematic has no regions".into());
@@ -58,7 +60,11 @@ fn prepare<'a>(
         let mut losses = output.diagnostics;
         losses.push("Blueprints store sprite grids, not full block states, schematic-global coordinates, region bounds, or metadata".into());
         losses.extend(schematic.notices.iter().cloned());
-        return Ok((None, losses));
+        return Ok(Prepared {
+            region: None,
+            blueprint: Some(output.text),
+            losses,
+        });
     }
     let single = if format == "litematic" {
         None
@@ -152,7 +158,11 @@ fn prepare<'a>(
     losses.extend(schematic.notices.iter().cloned());
     losses.sort();
     losses.dedup();
-    Ok((single, losses))
+    Ok(Prepared {
+        region: single,
+        blueprint: None,
+        losses,
+    })
 }
 
 fn single(schematic: &Schematic, flatten: bool) -> Result<Cow<'_, Region>> {
@@ -264,7 +274,11 @@ pub async fn encode(
         return Err(converted.errors.join("\n"));
     }
     let schematic = converted.schematic.as_ref();
-    let (single, mut losses) = prepare(schematic, format, flatten)?;
+    let Prepared {
+        region,
+        blueprint,
+        mut losses,
+    } = prepare(schematic, format, flatten)?;
     losses.extend(converted.losses);
     if !allow_loss && !losses.is_empty() {
         return Err(format!(
@@ -272,14 +286,10 @@ pub async fn encode(
             losses.join("\n")
         ));
     }
-    if format == "blueprint" {
-        return Ok(
-            blueprint::encode(schematic, &blueprint::Options::default())?
-                .text
-                .into_bytes(),
-        );
+    if let Some(text) = blueprint {
+        return Ok(text.into_bytes());
     }
-    let mut root = if let Some(r) = single {
+    let mut root = if let Some(r) = region {
         match format {
             "schem" => schem::write_schem(schematic, &r, 3)?,
             "schem2" => schem::write_schem(schematic, &r, 2)?,

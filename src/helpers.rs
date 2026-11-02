@@ -236,7 +236,7 @@ pub fn resolve_placement(
 }
 /// Whether a block-entity identifier matches the owning block type.
 pub fn compatible(id: &str, b: &Block) -> bool {
-    crate::validate::block_entity_id(b) == Some(id.strip_prefix("minecraft:").unwrap_or(id))
+    catalog::block_entity_id(&b.id) == Some(id.strip_prefix("minecraft:").unwrap_or(id))
 }
 
 /// Creates living-mob NBT after catalog validation.

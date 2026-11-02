@@ -1,11 +1,13 @@
 //! Pinned Java catalogs, version resolution, and shared asset caching.
 
+mod block_entities;
 mod registry;
 mod snapshots;
 pub(crate) mod source;
 mod storage;
 
 use crate::Result;
+pub(crate) use block_entities::{block_entity_id, inventory_size};
 pub use registry::{Registry, namespace};
 use serde_json::Value;
 use std::{

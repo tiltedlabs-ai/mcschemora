@@ -8,6 +8,7 @@ use fastnbt::{ByteArray, IntArray, LongArray, Value};
 use std::io::{Read, Write};
 /// Maximum encoded or expanded NBT input size in bytes.
 pub const MAX_BYTES: usize = 256 * 1024 * 1024;
+const MAX_DEPTH: usize = 128;
 /// Borrows a compound tag, or returns an error for another tag type.
 pub fn compound(v: &Value) -> Result<&Compound> {
     if let Value::Compound(c) = v {
@@ -114,6 +115,9 @@ pub fn from_snbt(s: &str) -> Result<Compound> {
 }
 
 pub(crate) fn parse_snbt<T: serde::de::DeserializeOwned>(input: &str) -> Result<T> {
+    if input.len() > MAX_BYTES {
+        return Err("SNBT input exceeds 256 MiB".into());
+    }
     fn finish_token(output: &mut String, token: &mut Option<usize>, key: bool) {
         if let Some(start) = token.take() {
             if key {
@@ -141,6 +145,7 @@ pub(crate) fn parse_snbt<T: serde::de::DeserializeOwned>(input: &str) -> Result<
     let mut separated = false;
     let mut previous = None;
     let mut token = None;
+    let mut depth = 0usize;
     for ch in input.chars() {
         if let Some(delimiter) = quote {
             output.push(ch);
@@ -155,6 +160,16 @@ pub(crate) fn parse_snbt<T: serde::de::DeserializeOwned>(input: &str) -> Result<
             separated = true;
             continue;
         } else {
+            match ch {
+                '{' | '[' => {
+                    depth += 1;
+                    if depth > MAX_DEPTH {
+                        return Err(format!("SNBT nesting exceeds {MAX_DEPTH}"));
+                    }
+                }
+                '}' | ']' => depth = depth.saturating_sub(1),
+                _ => {}
+            }
             let structural = |ch| matches!(ch, '{' | '}' | '[' | ']' | ':' | ',' | ';');
             if separated && previous.is_some_and(|last| !structural(last) && !structural(ch)) {
                 return Err("SNBT: missing delimiter between tokens".into());
@@ -249,12 +264,21 @@ pub fn decode(data: &[u8], little: bool, max_unpacked_bytes: usize) -> Result<Co
     if raw.len() > max_unpacked_bytes {
         return Err("Expanded NBT exceeds size limit".into());
     }
-    if !little {
-        return fastnbt::from_bytes(&raw).map_err(|e| e.to_string());
-    }
-    let mut r = Reader { data: &raw, at: 0 };
+    let mut r = Reader {
+        data: &raw,
+        at: 0,
+        little,
+    };
     if r.byte()? != 10 {
         return Err("NBT root must be a compound".into());
+    }
+    if !little {
+        r.skip_string()?;
+        r.skip_payload(10, 0)?;
+        if r.at != raw.len() {
+            return Err("Trailing NBT bytes".into());
+        }
+        return fastnbt::from_bytes(&raw).map_err(|e| e.to_string());
     }
     r.string()?;
     let root = r.payload(10, 0)?;
@@ -288,6 +312,7 @@ pub fn encode(root: &Compound, little: bool, gzip: bool, root_name: &str) -> Res
 struct Reader<'a> {
     data: &'a [u8],
     at: usize,
+    little: bool,
 }
 impl Reader<'_> {
     fn take(&mut self, n: usize) -> Result<&[u8]> {
@@ -303,13 +328,28 @@ impl Reader<'_> {
         Ok(self.take(1)?[0])
     }
     fn short(&mut self) -> Result<i16> {
-        Ok(i16::from_le_bytes(self.take(2)?.try_into().unwrap()))
+        let bytes = self.take(2)?.try_into().unwrap();
+        Ok(if self.little {
+            i16::from_le_bytes(bytes)
+        } else {
+            i16::from_be_bytes(bytes)
+        })
     }
     fn int(&mut self) -> Result<i32> {
-        Ok(i32::from_le_bytes(self.take(4)?.try_into().unwrap()))
+        let bytes = self.take(4)?.try_into().unwrap();
+        Ok(if self.little {
+            i32::from_le_bytes(bytes)
+        } else {
+            i32::from_be_bytes(bytes)
+        })
     }
     fn long(&mut self) -> Result<i64> {
-        Ok(i64::from_le_bytes(self.take(8)?.try_into().unwrap()))
+        let bytes = self.take(8)?.try_into().unwrap();
+        Ok(if self.little {
+            i64::from_le_bytes(bytes)
+        } else {
+            i64::from_be_bytes(bytes)
+        })
     }
     fn length(&mut self) -> Result<usize> {
         let n = self.int()?;
@@ -322,9 +362,57 @@ impl Reader<'_> {
         let n = self.short()? as u16 as usize;
         String::from_utf8(self.take(n)?.to_vec()).map_err(|e| e.to_string())
     }
+    fn skip_string(&mut self) -> Result<()> {
+        let n = self.short()? as u16 as usize;
+        self.take(n)?;
+        Ok(())
+    }
+    fn skip_payload(&mut self, id: u8, depth: usize) -> Result<()> {
+        if depth > MAX_DEPTH {
+            return Err(format!("NBT nesting exceeds {MAX_DEPTH}"));
+        }
+        match id {
+            1..=6 => {
+                self.take([1, 2, 4, 8, 4, 8][usize::from(id - 1)])?;
+            }
+            7 | 11 | 12 => {
+                let width = match id {
+                    7 => 1,
+                    11 => 4,
+                    _ => 8,
+                };
+                let n = self
+                    .length()?
+                    .checked_mul(width)
+                    .ok_or("NBT length overflow")?;
+                self.take(n)?;
+            }
+            8 => self.skip_string()?,
+            9 => {
+                let tag = self.byte()?;
+                let n = self.length()?;
+                if n > self.data.len() - self.at {
+                    return Err("List length exceeds remaining input".into());
+                }
+                for _ in 0..n {
+                    self.skip_payload(tag, depth + 1)?;
+                }
+            }
+            10 => loop {
+                let tag = self.byte()?;
+                if tag == 0 {
+                    break;
+                }
+                self.skip_string()?;
+                self.skip_payload(tag, depth + 1)?;
+            },
+            _ => return Err(format!("Unknown NBT tag {id}")),
+        }
+        Ok(())
+    }
     fn payload(&mut self, id: u8, depth: usize) -> Result<Value> {
-        if depth > 128 {
-            return Err("NBT nesting exceeds 128".into());
+        if depth > MAX_DEPTH {
+            return Err(format!("NBT nesting exceeds {MAX_DEPTH}"));
         }
         Ok(match id {
             1 => Value::Byte(self.byte()? as i8),

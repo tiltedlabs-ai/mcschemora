@@ -4,20 +4,25 @@ use crate::{
     model::{Block, Compound},
     render::{GeometryAssets, Mesh, Quad, Vertex, geometry::rotate},
 };
+use fastnbt::Value;
 
-fn text(value: &str) -> String {
-    fn flatten(v: &serde_json::Value) -> String {
-        match v {
+fn text(value: &Value) -> String {
+    fn flatten(value: &serde_json::Value) -> String {
+        match value {
             serde_json::Value::String(s) => s.clone(),
-            serde_json::Value::Array(a) => a.iter().map(flatten).collect(),
-            serde_json::Value::Object(o) => {
-                o.get("text").map(flatten).unwrap_or_default()
-                    + &o.get("extra").map(flatten).unwrap_or_default()
+            serde_json::Value::Array(values) => values.iter().map(flatten).collect(),
+            serde_json::Value::Object(fields) => {
+                fields.get("text").map(flatten).unwrap_or_default()
+                    + &fields.get("extra").map(flatten).unwrap_or_default()
             }
             _ => String::new(),
         }
     }
-    serde_json::from_str(value).map_or_else(|_| value.into(), |v| flatten(&v))
+    let value = match value {
+        Value::String(s) => serde_json::from_str(s).unwrap_or_else(|_| serde_json::json!(s)),
+        _ => serde_json::to_value(value).unwrap_or_default(),
+    };
+    flatten(&value)
 }
 pub(super) fn bake(
     assets: &GeometryAssets,
@@ -61,15 +66,11 @@ pub(super) fn bake(
             list(side.get("messages"))
                 .iter()
                 .take(4)
-                .map(|v| string(Some(v)).map(text).unwrap_or_default())
+                .map(text)
                 .collect()
         } else if is_front {
             (1..=4)
-                .map(|i| {
-                    string(data.get(&format!("Text{i}")))
-                        .map(text)
-                        .unwrap_or_default()
-                })
+                .map(|i| data.get(&format!("Text{i}")).map(text).unwrap_or_default())
                 .collect()
         } else {
             Vec::new()

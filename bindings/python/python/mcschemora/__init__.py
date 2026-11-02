@@ -442,7 +442,7 @@ class Schematic:
             block_states[symbol] = str(state)
         return cls(
             _core.Schematic.from_bytes(
-                content, format, _source(data), version, origin, block_states, max_unpacked_bytes
+                content, format, _source(data), (version, origin, block_states, max_unpacked_bytes)
             )
         )
 
@@ -683,10 +683,7 @@ class Schematic:
         content, diagnostics = self._native.png(
             region,
             [_axis_range(value, axis) for axis, value in zip("xyz", (x, y, z), strict=True)],
-            size,
-            view,
-            grid,
-            threads,
+            (size, view, grid, threads),
         )
         Path(path).write_bytes(content)
         return tuple(diagnostics)
@@ -744,6 +741,11 @@ class Schematic:
         return Registry(self)
 
     def inspect(self) -> dict:
+        """Returns resource counts, inventories, payload details, and inspection diagnostics.
+
+        Returns:
+            A dictionary whose complete flag is false when text could not be inspected.
+        """
         return json.loads(self._native.inspect())
 
     def validate(self) -> Report:
@@ -962,6 +964,7 @@ class Region:
 
     @property
     def scheduled_ticks(self) -> tuple[ScheduledTick, ...]:
+        """Scheduled block and fluid updates in local coordinates, ordered by tick order."""
         return tuple(
             ScheduledTick(
                 _position(tick["position"]),
@@ -1224,6 +1227,17 @@ def mob(identifier: str, *, persistent: bool = True, nbt: str | None = None) -> 
 
 @dataclass(frozen=True)
 class ScheduledTick:
+    """A scheduled update retained from an imported Litematic region.
+
+    Attributes:
+        position: Region-local cell coordinates.
+        identifier: Namespaced block or fluid identifier.
+        fluid: Whether this update belongs to the fluid tick list.
+        delay: Delay in game ticks.
+        priority: Minecraft tick priority, from -3 through 3.
+        order: Ordering value within the scheduled updates.
+    """
+
     position: Position
     identifier: str
     fluid: bool
@@ -1336,6 +1350,16 @@ class BlockEntities:
 def inspect_schematics(
     schematics: Sequence[Schematic], *, initial_items: Sequence[tuple[str, int]] = ()
 ) -> dict:
+    """Combines resource counts and inspection details for multiple schematics.
+
+    Args:
+        schematics: Schematics whose contents contribute to the totals.
+        initial_items: Item identifiers and counts to add to the stored item totals.
+
+    Returns:
+        Combined counts and individual reports in placements. The complete flag is
+        false when any report contains incomplete inspection diagnostics.
+    """
     return json.loads(
         _core.inspect_schematics(
             [schematic._native for schematic in schematics], list(initial_items)

@@ -327,12 +327,10 @@ pub(super) fn item_list(
     Ok(())
 }
 
-fn position(data: &mut Compound, from: &str, to: &str) -> Result<()> {
+pub(super) fn position(data: &mut Compound, from: &str, to: &str) -> Result<()> {
     if let Some(value) = data.remove(from) {
         let value = position_value(crate::nbt::compound(&value)?)?;
-        if data.insert(to.into(), value).is_some() {
-            return Err(format!("{from}: duplicate {to}"));
-        }
+        super::insert(data, to, value)?;
     }
     Ok(())
 }
@@ -353,10 +351,19 @@ pub(super) fn color(value: &V) -> Result<V> {
         .ok_or_else(|| format!("Invalid dye color {index}"))
 }
 
+pub(super) fn banner_patterns() -> Result<&'static std::collections::BTreeMap<String, String>> {
+    static PATTERNS: OnceLock<Result<std::collections::BTreeMap<String, String>>> = OnceLock::new();
+    PATTERNS
+        .get_or_init(|| {
+            serde_json::from_str(include_str!("data/banner_patterns.json"))
+                .map_err(|e| e.to_string())
+        })
+        .as_ref()
+        .map_err(Clone::clone)
+}
+
 pub(super) fn patterns(mut value: V) -> Result<V> {
-    let patterns: std::collections::BTreeMap<String, String> =
-        serde_json::from_str(include_str!("data/banner_patterns.json"))
-            .map_err(|e| e.to_string())?;
+    let patterns = banner_patterns()?;
     for entry in list_mut(&mut value)? {
         let data = map_mut(entry)?;
         let code = text(data, "Pattern")?;

@@ -1,4 +1,4 @@
-use super::entities::{entity, item_field, item_list, patterns, reject_commands};
+use super::entities::{entity, item_field, item_list, patterns, position, reject_commands};
 use super::*;
 
 pub(super) fn removed(data: &Compound, context: &Context) -> Result<bool> {
@@ -96,7 +96,7 @@ pub(super) fn convert(data: &mut Compound, context: &Context, level: usize) -> R
         ));
     }
     historical(data, id, context)?;
-    if inventory_owner(&format!("minecraft:{id}"))
+    if crate::catalog::inventory_size(id).is_some()
         && let Some(value) = data.get_mut("LootTable")
     {
         *value = V::String(context.rename("loot_table", crate::nbt::string(value)?)?);
@@ -312,7 +312,7 @@ pub(super) fn convert(data: &mut Compound, context: &Context, level: usize) -> R
 
 fn typed_items(data: &mut Compound, context: &Context, level: usize) -> Result<()> {
     reject_commands(data, context)?;
-    if inventory_owner(&text(data, "id")?) {
+    if crate::catalog::inventory_size(&text(data, "id")?).is_some() {
         item_list(data, "Items", context, level + 1, false)?;
     }
     for key in ["RecordItem", "Book", "item"] {
@@ -438,14 +438,6 @@ fn legacy(data: &mut Compound, context: &Context, level: usize) -> Result<()> {
         if !map.is_empty() {
             return Err("block entity components cannot be represented by legacy NBT".into());
         }
-    }
-    Ok(())
-}
-
-fn position(data: &mut Compound, from: &str, to: &str) -> Result<()> {
-    if let Some(value) = data.remove(from) {
-        let value = super::entities::position_value(crate::nbt::compound(&value)?)?;
-        super::insert(data, to, value)?;
     }
     Ok(())
 }
@@ -608,27 +600,6 @@ fn historical(data: &mut Compound, id: &str, context: &Context) -> Result<()> {
         }
     }
     Ok(())
-}
-
-fn inventory_owner(id: &str) -> bool {
-    matches!(
-        id,
-        "minecraft:chest"
-            | "minecraft:trapped_chest"
-            | "minecraft:barrel"
-            | "minecraft:hopper"
-            | "minecraft:dispenser"
-            | "minecraft:dropper"
-            | "minecraft:shulker_box"
-            | "minecraft:furnace"
-            | "minecraft:blast_furnace"
-            | "minecraft:smoker"
-            | "minecraft:brewing_stand"
-            | "minecraft:campfire"
-            | "minecraft:chiseled_bookshelf"
-            | "minecraft:shelf"
-            | "minecraft:crafter"
-    )
 }
 
 fn modern_children(data: &mut Compound, id: &str, context: &Context, level: usize) -> Result<()> {

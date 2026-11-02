@@ -145,6 +145,13 @@ impl TextEncoding {
     }
 }
 
+#[derive(Clone, Copy)]
+enum Payload {
+    Data,
+    Item,
+    Opaque,
+}
+
 struct Scanner {
     report: Inspection,
     remaining: usize,
@@ -156,7 +163,7 @@ impl Scanner {
         value: &Tag,
         path: &str,
         multiplier: u64,
-        item: bool,
+        payload: Payload,
         depth: usize,
         text: TextEncoding,
     ) -> Result<()> {
@@ -176,7 +183,7 @@ impl Scanner {
                         child,
                         &format!("{path}/{i}"),
                         multiplier,
-                        item,
+                        payload,
                         depth + 1,
                         text,
                     )?;
@@ -184,11 +191,12 @@ impl Scanner {
             }
             Tag::Compound(fields) => {
                 let mut multiplier = multiplier;
+                let item = matches!(payload, Payload::Item);
                 if item && !fields.is_empty() && !fields.contains_key("id") {
                     return Err(format!("Inventory entry has no item ID at {path}"));
                 }
                 if let Some(id) = fields.get("id")
-                    && (item || fields.contains_key("Count") || fields.contains_key("count"))
+                    && item
                 {
                     if fields.contains_key("Count") && fields.contains_key("count") {
                         return Err(format!("Ambiguous item count at {path}"));
@@ -217,6 +225,17 @@ impl Scanner {
                     if nonempty(child) {
                         self.report.payload_fields.insert(key_name.clone());
                     }
+                    if matches!(payload, Payload::Opaque) || key_name == "custom_data" {
+                        self.scan(
+                            child,
+                            &format!("{path}/{key}"),
+                            multiplier,
+                            Payload::Opaque,
+                            depth + 1,
+                            TextEncoding::Nbt,
+                        )?;
+                        continue;
+                    }
                     if matches!(key.as_str(), "id" | "Id") && matches!(child, Tag::String(_)) {
                         self.report.identifiers.insert(identifier(child)?);
                     }
@@ -232,9 +251,16 @@ impl Scanner {
                     let child_path = format!("{path}/{key}");
                     let child_text = text.child(key, path, self.report.data_version, fields);
                     match key_name.as_str() {
-                        "items" | "handitems" | "armoritems" | "inventory" => {
+                        "items" | "handitems" | "armoritems" | "inventory" | "enderitems" => {
                             nbt::list(child)?;
-                            self.scan(child, &child_path, multiplier, true, depth + 1, child_text)?;
+                            self.scan(
+                                child,
+                                &child_path,
+                                multiplier,
+                                Payload::Item,
+                                depth + 1,
+                                child_text,
+                            )?;
                         }
                         "equipment" => {
                             for (slot, stack) in nbt::compound(child)? {
@@ -242,25 +268,45 @@ impl Scanner {
                                     stack,
                                     &format!("{child_path}/{slot}"),
                                     multiplier,
-                                    true,
+                                    Payload::Item,
                                     depth + 1,
                                     child_text,
                                 )?;
                             }
                         }
-                        "bundle_contents" | "charged_projectiles" => {
-                            self.scan(child, &child_path, multiplier, true, depth + 1, child_text)?
-                        }
-                        name if name.ends_with("item") => {
-                            self.scan(child, &child_path, multiplier, true, depth + 1, child_text)?
-                        }
-                        _ => {
-                            self.scan(child, &child_path, multiplier, false, depth + 1, child_text)?
-                        }
+                        "bundle_contents" | "charged_projectiles" => self.scan(
+                            child,
+                            &child_path,
+                            multiplier,
+                            Payload::Item,
+                            depth + 1,
+                            child_text,
+                        )?,
+                        "item" | "recorditem" | "book" | "selecteditem" | "saddleitem"
+                        | "armoritem" | "decoritem" | "fireworksitem" | "body_armor_item"
+                        | "weapon" | "key_item" | "display_item" | "buy" | "buyb" | "sell" => self
+                            .scan(
+                                child,
+                                &child_path,
+                                multiplier,
+                                Payload::Item,
+                                depth + 1,
+                                child_text,
+                            )?,
+                        _ => self.scan(
+                            child,
+                            &child_path,
+                            multiplier,
+                            Payload::Data,
+                            depth + 1,
+                            child_text,
+                        )?,
                     }
                 }
             }
-            _ if item => return Err(format!("Invalid item stack at {path}")),
+            _ if matches!(payload, Payload::Item) => {
+                return Err(format!("Invalid item stack at {path}"));
+            }
             Tag::String(s) if matches!(text, TextEncoding::Json) => match serde_json::from_str(s) {
                 Ok(json) => {
                     let tag = json_tag(json)?;
@@ -268,7 +314,7 @@ impl Scanner {
                         &tag,
                         &format!("{path}/text"),
                         multiplier,
-                        false,
+                        Payload::Data,
                         depth + 1,
                         TextEncoding::DecodedJson,
                     )?;
@@ -380,7 +426,7 @@ pub fn inspect(schematic: &Schematic) -> Result<Inspection> {
                 &Tag::Compound(data.clone()),
                 &format!("{name}/block_entities/{position:?}"),
                 1,
-                false,
+                Payload::Data,
                 0,
                 TextEncoding::Nbt,
             )?;
@@ -393,7 +439,7 @@ pub fn inspect(schematic: &Schematic) -> Result<Inspection> {
                 &Tag::Compound(entity.data.clone()),
                 &format!("{name}/entities/{}", entity.reference),
                 1,
-                false,
+                Payload::Data,
                 0,
                 TextEncoding::Nbt,
             )?;

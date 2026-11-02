@@ -128,8 +128,19 @@ impl Transform {
         if depth > 32 {
             return Err("Entity passenger depth exceeded".into());
         }
+        let positions = [
+            "sleeping_pos",
+            "flower_pos",
+            "hive_pos",
+            "beam_target",
+            "patrol_target",
+            "wander_target",
+            "bound_pos",
+            "anchor_pos",
+            "home_pos",
+        ];
         if self.changes_orientation()
-            && [
+            && ([
                 "Leash",
                 "leash",
                 "Passengers",
@@ -144,6 +155,7 @@ impl Transform {
             ]
             .iter()
             .any(|key| data.contains_key(*key))
+                || positions.iter().any(|key| data.contains_key(*key)))
         {
             return Err(
                 "Entity has spatial links whose orientation cannot be transformed safely yet"
@@ -177,6 +189,11 @@ impl Transform {
                 self.cell(xyz(value)?)?
             };
             *value = crate::nbt::int_array(anchor);
+        }
+        for key in positions {
+            if let Some(value) = data.get_mut(key) {
+                *value = crate::nbt::int_array(self.cell(xyz(value)?)?);
+            }
         }
         if let Some(Value::Compound(leash)) = data.get_mut("Leash")
             && ["X", "Y", "Z"].iter().any(|key| leash.contains_key(*key))
@@ -241,7 +258,7 @@ impl Transform {
         if !self.changes_orientation() {
             return Ok(b.clone());
         }
-        catalog.resolve(b)?;
+        let b = catalog.resolve(b)?;
         let mut properties = std::collections::BTreeMap::new();
         for (key, value) in &b.properties {
             let mut key = key.as_str();

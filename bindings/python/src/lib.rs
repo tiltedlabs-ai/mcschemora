@@ -141,11 +141,14 @@ impl PySchematic {
         data: &[u8],
         format: &str,
         source: &PyMinecraftData,
-        version: Option<String>,
-        origin: Option<Position>,
-        palette: std::collections::BTreeMap<String, String>,
-        max_unpacked_bytes: Option<usize>,
+        settings: (
+            Option<String>,
+            Option<Position>,
+            BTreeMap<String, String>,
+            Option<usize>,
+        ),
     ) -> PyResult<Self> {
+        let (version, origin, palette, max_unpacked_bytes) = settings;
         let options = formats::ImportOptions {
             max_unpacked_bytes,
             version,
@@ -222,11 +225,9 @@ impl PySchematic {
         py: Python<'py>,
         region: Option<String>,
         ranges: [Option<[i32; 2]>; 3],
-        size: [u32; 2],
-        view: &str,
-        grid: bool,
-        threads: usize,
+        style: ([u32; 2], String, bool, usize),
     ) -> PyResult<(Bound<'py, PyBytes>, Vec<String>)> {
+        let (size, view, grid, threads) = style;
         let view = view.parse().map_err(error)?;
         let [x, y, z] = ranges;
         let (bytes, diagnostics) = py.detach(|| {

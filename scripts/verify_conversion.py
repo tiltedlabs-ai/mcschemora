@@ -76,6 +76,18 @@ def same_nbt(actual, expected, path):
         assert actual == expected, (path, actual, expected)
 
 
+def expected_entity(value, codec):
+    if codec != "schem":
+        return value
+    value = deepcopy(value)
+    pending = [value]
+    while pending:
+        entity = pending.pop()
+        entity.setdefault("Rotation", nbtlib.List[nbtlib.Float]([0.0, 0.0]))
+        pending.extend(entity.get("Passengers", []))
+    return value
+
+
 def verify_items(data):
     reference = json.loads(
         (Path(__file__).parent / "fixtures/conversion/item-components-1.20.5.json").read_text()
@@ -206,7 +218,8 @@ def verify_historical(data):
             content = source.to_bytes(format=codec, version=target)
             converted = Schematic.from_bytes(content, format=codec, data=data)
             actual = extract(decode(converted, allow_loss=True), path)
-            same_nbt(actual, expected, f"{name}.{codec}.vanilla_dfu")
+            wanted = expected_entity(expected, codec) if fixture["type"] == "ENTITY" else expected
+            same_nbt(actual, wanted, f"{name}.{codec}.vanilla_dfu")
             if name != "beacon_empty":
                 restored = extract(
                     decode(converted, versions[fixture["source_data_version"]], allow_loss=True),
@@ -248,7 +261,8 @@ def verify_attributes(data):
             actual = (
                 output["entities"][0]["nbt"] if entity else output["blocks"][0]["nbt"]["Items"][0]
             )
-            same_nbt(actual, expected, f"{fixture['name']}.{codec}.vanilla_dfu")
+            wanted = expected_entity(expected, codec) if entity else expected
+            same_nbt(actual, wanted, f"{fixture['name']}.{codec}.vanilla_dfu")
         same_nbt(decode(source), snapshot, f"{fixture['name']}.source_unchanged")
 
 
@@ -337,7 +351,8 @@ def verify_earlier_routes(data):
                 actual = output
                 for key in path:
                     actual = actual[key]
-            same_nbt(actual, expected, f"{name}.{codec}.vanilla_dfu")
+            wanted = expected_entity(expected, codec) if kind == "ENTITY" else expected
+            same_nbt(actual, wanted, f"{name}.{codec}.vanilla_dfu")
             if name in {
                 "historical-more-cat",
                 "historical-more-painting",
@@ -426,6 +441,13 @@ def verify_payloads(data, filename, source_version, target_version):
             root["DataVersion"] = nbtlib.Int(fixture["source_data_version"])
             if entity:
                 placement = nbtlib.parse_nbt("{pos:[0d,0d,0d],blockPos:[0,0,0]}")
+                if original.get("id") in ("minecraft:item_frame", "minecraft:glow_item_frame"):
+                    anchor = original.get("block_pos")
+                    if anchor is None and "TileX" in original:
+                        anchor = [original[key] for key in ("TileX", "TileY", "TileZ")]
+                    if anchor is not None:
+                        placement["pos"] = nbtlib.List[nbtlib.Double]([float(n) for n in anchor])
+                        placement["blockPos"] = nbtlib.List[nbtlib.Int](anchor)
                 placement["nbt"] = original
                 root["entities"] = nbtlib.List[nbtlib.Compound]([placement])
                 expected["Pos"] = placement["pos"]
@@ -446,13 +468,14 @@ def verify_payloads(data, filename, source_version, target_version):
         assert bool(report.issues) == fixture["loss"], (fixture["name"], report.issues)
         for codec in CODECS:
             converted = export_load(source, target_version, codec, data, allow_loss=fixture["loss"])
+            wanted = expected_entity(expected, codec) if entity else expected
             same_nbt(
-                extract(decode(converted, allow_loss=True)), expected, fixture["name"] + "." + codec
+                extract(decode(converted, allow_loss=True)), wanted, fixture["name"] + "." + codec
             )
             restored = export_load(converted, source_version, codec, data, allow_loss=True)
             same_nbt(
                 extract(decode(restored, target_version, allow_loss=True)),
-                expected,
+                wanted,
                 fixture["name"] + ".inverse_forward",
             )
         same_nbt(decode(source), snapshot, fixture["name"] + ".source_unchanged")

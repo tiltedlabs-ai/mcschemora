@@ -7,7 +7,6 @@ mod rules;
 mod scene;
 mod shapes;
 
-pub(crate) use block_entities::block_entity_id;
 pub use repair::{RepairChange, RepairReport, repair};
 pub(crate) use shapes::Shapes;
 

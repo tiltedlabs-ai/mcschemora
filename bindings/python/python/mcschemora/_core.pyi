@@ -31,10 +31,7 @@ class Schematic:
         data: bytes,
         format: str,
         source: MinecraftData,
-        version: str | None,
-        origin: _Position | None,
-        palette: dict[str, str],
-        max_unpacked_bytes: int | None,
+        settings: tuple[str | None, _Position | None, dict[str, str], int | None],
     ) -> Schematic: ...
     def to_bytes(
         self, format: str, allow_loss: bool, flatten: bool, version: str | None = None
@@ -47,9 +44,7 @@ class Schematic:
         self,
         region: str | None,
         ranges: _Ranges,
-        size: Sequence[int],
-        view: str,
-        grid: bool,
+        style: tuple[Sequence[int], str, bool, int],
     ) -> tuple[bytes, list[str]]: ...
     def sprites(
         self,

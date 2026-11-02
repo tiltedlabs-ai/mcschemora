@@ -17,12 +17,10 @@ pub(super) fn convert(item: &mut Compound, context: &Context, level: usize) -> R
     let mut tag = take_map(&mut components, "minecraft:custom_data")?;
     let mut display = take_map(&mut tag, "display")?;
     let mut hide = 0;
-    let fields: Vec<[String; 2]> =
-        serde_json::from_str(include_str!("data/item_fields.json")).map_err(|e| e.to_string())?;
-    for [old, new] in fields {
+    for &(old, new) in items::ITEM_FIELDS {
         if let Some(value) = components.remove(&format!("minecraft:{new}")) {
-            items::scalar(&new, &value)?;
-            insert(&mut tag, &old, value)?;
+            items::scalar(new, &value)?;
+            insert(&mut tag, old, value)?;
         }
     }
     for (new, old, mask) in [
@@ -477,9 +475,7 @@ pub(super) fn legacy_color(value: &V) -> Result<V> {
 }
 
 pub(super) fn legacy_patterns(mut value: V) -> Result<V> {
-    let patterns: std::collections::BTreeMap<String, String> =
-        serde_json::from_str(include_str!("data/banner_patterns.json"))
-            .map_err(|e| e.to_string())?;
+    let patterns = entities::banner_patterns()?;
     for value in list_mut(&mut value)? {
         let entry = map_mut(value)?;
         let pattern = crate::catalog::namespace(&text(entry, "pattern")?);

@@ -36,7 +36,7 @@ Arguments after `*` are keyword-only. Types and properties are documented below.
 
 ### Function inspect_schematics
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1350)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1377)
 
 ```python
 inspect_schematics(
@@ -410,6 +410,29 @@ Returns resource counts, inventories, payload details, and inspection diagnostic
 
 **Returns:** A dictionary whose complete flag is false when text could not be inspected.
 
+#### Schematic.normalize
+
+`Schematic.normalize(profile: _Path) -> dict`
+
+Applies a JSON normalization profile to all regions in place.
+
+Kept blocks take priority over replacements. An optional fallback replaces
+other eligible blocks; otherwise unlisted blocks remain unchanged. Replacement
+targets remain canonical, so reapplying a profile changes nothing.
+Profiles must match the schematic's edition;
+block IDs are checked against its version. Invalid or unsupported replacements
+and positions with attached data are skipped silently. Only non-air blocks
+without state properties or block entities can be replaced.
+
+**Args:** `profile`: Path to a UTF-8 JSON file with edition and optional keep, replacements, and fallback. keep is a list of block IDs; fallback is a block ID. Each replacement has a from list and a to block ID.
+
+**Returns:** A dictionary with changed (total replaced blocks) and replacements (from, to, and count records, sorted by source block ID).
+
+**Raises:**
+
+- `OSError`: If the profile file cannot be read.
+- `ValueError`: If the profile JSON is malformed, the edition differs, or the schematic has no catalog. No changes are committed.
+
 #### Schematic.validate
 
 `Schematic.validate() -> Report`
@@ -518,7 +541,7 @@ Prepares rendering assets and returns their cache directory.
 
 ### Region
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L816)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L843)
 
 An editing handle for a named region within a schematic.
 
@@ -667,7 +690,7 @@ The manager for NBT attached to this region's blocks.
 
 ### ScheduledTick
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1229)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1256)
 
 A scheduled update retained from an imported Litematic region.
 
@@ -691,7 +714,7 @@ ScheduledTick.order: int
 
 ### Selection
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L991)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1018)
 
 A set of region-local cells and entities that reads current content.
 
@@ -901,7 +924,7 @@ Bounds.size: Position
 
 ### Fragment
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1172)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1199)
 
 An independent copy of selected cells, attached data, and entities.
 
@@ -1019,7 +1042,7 @@ Returns a water block with level=0.
 
 ### Function bed
 
-[Source](../../bindings/python/src/lib.rs#L678)
+[Source](../../bindings/python/src/lib.rs#L686)
 
 `bed(*, color: str = 'red', head_toward: str = 'north') -> Placement`
 
@@ -1034,7 +1057,7 @@ Creates a bed placement anchored at the foot block when placed.
 
 ### Function door
 
-[Source](../../bindings/python/src/lib.rs#L699)
+[Source](../../bindings/python/src/lib.rs#L707)
 
 ```python
 door(
@@ -1061,7 +1084,7 @@ Creates a door placement anchored at the lower block when placed.
 
 ### Function sign
 
-[Source](../../bindings/python/src/lib.rs#L740)
+[Source](../../bindings/python/src/lib.rs#L748)
 
 ```python
 sign(
@@ -1086,7 +1109,7 @@ Creates a standing-sign placement with plain text on its front face.
 
 ### Function chest
 
-[Source](../../bindings/python/src/lib.rs#L720)
+[Source](../../bindings/python/src/lib.rs#L728)
 
 ```python
 chest(
@@ -1107,7 +1130,7 @@ Creates a single-chest placement with optional inventory contents.
 
 ### Function item
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1188)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1215)
 
 `item(identifier: str, *, count: int = 1, components: str | None = None) -> _Item`
 
@@ -1123,7 +1146,7 @@ Creates an inventory item value for chest().
 
 ### Function mob
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1211)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1238)
 
 `mob(identifier: str, *, persistent: bool = True, nbt: str | None = None) -> _Mob`
 
@@ -1157,7 +1180,7 @@ Returns a block schema for this schematic's Minecraft version.
 
 ### Entity
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1250)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1277)
 
 An immutable snapshot of a entity returned by Entities.get().
 
@@ -1175,7 +1198,7 @@ Entity.nbt: str
 
 ### Entities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1264)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1291)
 
 Access to a region's entities through schematic-local integer references.
 
@@ -1239,7 +1262,7 @@ Iterates a snapshot of this region's entity references.
 
 ### BlockEntities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1323)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1350)
 
 Access to typed NBT attached to blocks at region-local cell coordinates.
 
@@ -1338,6 +1361,15 @@ export class Schematic {
      * Absent cells read as air; an unknown region throws an Error.
      */
     getBlock(region: string, x: number, y: number, z: number): string;
+    /**
+     * Applies a JSON profile object in place and returns changed and replacement counts.
+     *
+     * Edition must match; block IDs are checked against the schematic's version.
+     * Invalid replacements are skipped silently. Only non-air blocks without properties
+     * or block entities can be replaced. keep takes priority; fallback covers other
+     * eligible blocks. Targets remain canonical. Malformed profiles throw an Error.
+     */
+    normalize(profile: any): any;
     /**
      * Returns region descriptions with name, schematic-global origin, local start, and size.
      */

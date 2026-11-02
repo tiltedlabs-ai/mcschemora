@@ -307,6 +307,14 @@ impl PySchematic {
             serde_json::to_string(&report).map_err(error)
         })
     }
+    fn normalize(&self, py: Python<'_>, profile: &str) -> PyResult<String> {
+        let profile: mcschemora::normalize::Profile =
+            serde_json::from_str(profile).map_err(error)?;
+        py.detach(|| {
+            let report = lock(&self.data)?.normalize(&profile).map_err(error)?;
+            serde_json::to_string(&report).map_err(error)
+        })
+    }
     fn validate(&self, py: Python<'_>) -> PyResult<(Vec<String>, Vec<String>, Vec<String>)> {
         let report = py.detach(|| -> PyResult<_> { Ok(lock(&self.data)?.validate()) })?;
         Ok((report.errors, report.warnings, report.unknown))

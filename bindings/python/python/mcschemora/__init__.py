@@ -748,6 +748,33 @@ class Schematic:
         """
         return json.loads(self._native.inspect())
 
+    def normalize(self, profile: _Path) -> dict:
+        """Applies a JSON normalization profile to all regions in place.
+
+        Kept blocks take priority over replacements. An optional fallback replaces
+        other eligible blocks; otherwise unlisted blocks remain unchanged. Replacement
+        targets remain canonical, so reapplying a profile changes nothing.
+        Profiles must match the schematic's edition;
+        block IDs are checked against its version. Invalid or unsupported replacements
+        and positions with attached data are skipped silently. Only non-air blocks
+        without state properties or block entities can be replaced.
+
+        Args:
+            profile: Path to a UTF-8 JSON file with edition and optional keep,
+                replacements, and fallback. keep is a list of block IDs; fallback
+                is a block ID. Each replacement has a from list and a to block ID.
+
+        Returns:
+            A dictionary with changed (total replaced blocks) and replacements
+            (from, to, and count records, sorted by source block ID).
+
+        Raises:
+            OSError: If the profile file cannot be read.
+            ValueError: If the profile JSON is malformed, the edition differs, or
+                the schematic has no catalog. No changes are committed.
+        """
+        return json.loads(self._native.normalize(Path(profile).read_text(encoding="utf-8")))
+
     def validate(self) -> Report:
         """Checks Java game rules without changing the schematic or simulating ticks.
 

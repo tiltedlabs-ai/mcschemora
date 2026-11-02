@@ -93,6 +93,73 @@ See [Region](../reference/api.md#region), [Selection](../reference/api.md#select
 [helpers](../reference/api.md#function-bed), [entities](../reference/api.md#entities),
 and [block entities](../reference/api.md#blockentities) for the full signatures.
 
+## Normalize materials
+
+Normalization applies an explicit JSON profile to every region in place. There are
+no bundled profiles yet. For example, save this as `materials.json`:
+
+```json
+{
+  "edition": "java",
+  "replacements": [
+    {
+      "from": ["minecraft:granite", "minecraft:diorite"],
+      "to": "minecraft:stone"
+    },
+    {
+      "from": ["minecraft:red_stained_glass"],
+      "to": "minecraft:glass"
+    }
+  ]
+}
+```
+
+```python
+report = scene.normalize("materials.json")
+print(report["changed"])
+print(report["replacements"])
+scene.save("normalized.litematic")
+```
+
+The report contains the total `changed` count and `replacements` records with
+`from`, `to`, and `count`, sorted by source block ID. Entities and metadata remain
+unchanged. Only explicitly present cells are replaced.
+
+To keep selected materials and replace everything else eligible with one block:
+
+```json
+{
+  "edition": "java",
+  "keep": ["minecraft:glass", "minecraft:red_stained_glass"],
+  "fallback": "minecraft:stone"
+}
+```
+
+`keep` takes priority over explicit `replacements`. The optional `fallback`
+applies to remaining eligible blocks. Without it, unlisted blocks stay unchanged.
+Replacement targets and the fallback block remain canonical, so they are not
+replaced by the fallback. `keep` and `replacements` default to empty lists.
+
+Profiles are version independent and must match the schematic's edition. Block
+IDs are checked against the schematic's own catalog. Unavailable or invalid
+sources are skipped; an unavailable or invalid target skips its whole group.
+Only non-air blocks without state properties or block entities can be replaced.
+Positions outside bounds or with properties or attached data are also skipped.
+Skipped replacements are not reported.
+
+The first valid mapping for each source wins. Mappings targeting another source
+that maps to a different block are skipped, preventing chains and cycles.
+Rules apply once to the original blocks, and applying the profile again changes
+nothing. Malformed JSON, unknown fields, edition mismatches, and unavailable
+schematic catalogs still fail before any changes are committed.
+
+The profile author decides which materials are interchangeable. Normalization
+does not simulate redstone or establish that a farm still works.
+
+Rust callers deserialize the same JSON into `mcschemora::normalize::Profile`
+with `serde_json::from_str` and call `schematic.normalize(&profile)`. Browser
+callers pass the parsed object to `schematic.normalize(profile)`.
+
 ## Inspect and convert
 
 

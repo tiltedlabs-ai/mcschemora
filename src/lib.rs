@@ -11,6 +11,7 @@ pub mod helpers;
 pub mod inspect;
 pub mod model;
 pub mod nbt;
+pub mod normalize;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod render;
 mod sprite_ids;

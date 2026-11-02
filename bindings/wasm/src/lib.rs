@@ -190,6 +190,23 @@ impl WasmSchematic {
         )
     }
 
+    /// Applies a JSON profile object in place and returns changed and replacement counts.
+    ///
+    /// Edition must match; block IDs are checked against the schematic's version.
+    /// Invalid replacements are skipped silently. Only non-air blocks without properties
+    /// or block entities can be replaced. keep takes priority; fallback covers other
+    /// eligible blocks. Targets remain canonical. Malformed profiles throw an Error.
+    pub fn normalize(&mut self, profile: JsValue) -> Result<JsValue, JsValue> {
+        let profile: mcschemora::normalize::Profile = serde_json::from_str(
+            &js_sys::JSON::stringify(&profile)?
+                .as_string()
+                .ok_or_else(|| error("Invalid normalization profile"))?,
+        )
+        .map_err(error)?;
+        let report = self.schematic.normalize(&profile).map_err(error)?;
+        value(serde_json::to_value(report).map_err(error)?)
+    }
+
     pub fn repair(&mut self, rules: Option<Vec<String>>) -> Result<JsValue, JsValue> {
         let report = self.schematic.repair(rules.as_deref()).map_err(error)?;
         let changes: Vec<_> = report

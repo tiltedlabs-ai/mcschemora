@@ -113,6 +113,27 @@ impl WasmSchematic {
         value(self.schematic.regions.iter().map(|(name, r)| serde_json::json!({"name":name,"origin":r.origin,"start":r.bounds.start,"size":r.bounds.size})).collect())
     }
 
+    #[wasm_bindgen(js_name = scheduledTicks)]
+    pub fn scheduled_ticks(&self, region: &str) -> Result<JsValue, JsValue> {
+        let ticks = self
+            .schematic
+            .region(region)
+            .map_err(error)?
+            .scheduled_ticks()
+            .map_err(error)?;
+        let records = js_sys::Array::new();
+        for tick in ticks {
+            let record = value(serde_json::to_value(&tick).map_err(error)?)?;
+            js_sys::Reflect::set(
+                &record,
+                &JsValue::from_str("order"),
+                &js_sys::BigInt::from(tick.order).into(),
+            )?;
+            records.push(&record);
+        }
+        Ok(records.into())
+    }
+
     #[wasm_bindgen(js_name = toGlobal)]
     pub fn to_global(&self, region: &str, x: i32, y: i32, z: i32) -> Result<Vec<i32>, JsValue> {
         self.schematic

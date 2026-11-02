@@ -91,14 +91,23 @@ pub(super) fn block_entities(r: &Region, start: Position, wrapped: bool) -> V {
     )
 }
 
-pub(super) fn entities(r: &Region, start: Position, kind: &str) -> V {
-    V::List(
+pub(super) fn entities(r: &Region, start: Position, kind: &str) -> Result<V> {
+    let mut offset = [0; 3];
+    for i in 0..3 {
+        offset[i] = start[i].checked_neg().ok_or("Entity coordinate overflow")?;
+    }
+    let transform = crate::transform::Transform::move_by(offset);
+    Ok(V::List(
         r.entities
             .iter()
             .map(|e| {
                 let p = std::array::from_fn(|i| e.position[i] - start[i] as f64);
                 let mut data = e.data.clone();
-                if kind == "schem" {
+                if kind != "mcstructure" {
+                    transform.entity_data(&mut data, p, false, 0)?;
+                }
+                Ok(if kind == "schem" {
+                    entity_defaults(&mut data, 0)?;
                     let id = data.remove("id").unwrap_or_else(|| s("minecraft:pig"));
                     data.remove("Pos");
                     c([
@@ -121,10 +130,30 @@ pub(super) fn entities(r: &Region, start: Position, kind: &str) -> V {
                     };
                     data.insert("Pos".into(), position);
                     V::Compound(data)
-                }
+                })
             })
-            .collect(),
-    )
+            .collect::<Result<_>>()?,
+    ))
+}
+
+fn entity_defaults(data: &mut Compound, depth: usize) -> Result<()> {
+    if depth > 32 {
+        return Err("Entity passenger depth exceeded".into());
+    }
+    data.entry("Rotation".into())
+        .or_insert_with(|| V::List(vec![V::Float(0.), V::Float(0.)]));
+    if let Some(value) = data.get_mut("Passengers") {
+        let V::List(passengers) = value else {
+            return Err("Passengers must be a list".into());
+        };
+        for value in passengers {
+            let V::Compound(passenger) = value else {
+                return Err("Passenger must be a compound".into());
+            };
+            entity_defaults(passenger, depth + 1)?;
+        }
+    }
+    Ok(())
 }
 
 pub(super) fn read_entities(

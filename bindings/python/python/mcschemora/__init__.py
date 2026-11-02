@@ -26,6 +26,7 @@ __all__ = [
     "Schematic",
     "MinecraftData",
     "Region",
+    "ScheduledTick",
     "Selection",
     "Block",
     "Bounds",
@@ -960,6 +961,20 @@ class Region:
         self._native.place(placement, at, replace)
 
     @property
+    def scheduled_ticks(self) -> tuple[ScheduledTick, ...]:
+        return tuple(
+            ScheduledTick(
+                _position(tick["position"]),
+                tick["identifier"],
+                tick["fluid"],
+                tick["delay"],
+                tick["priority"],
+                tick["order"],
+            )
+            for tick in json.loads(self._native.scheduled_ticks())
+        )
+
+    @property
     def entities(self) -> Entities:
         """The manager for entities in this region."""
         return Entities(self._native)
@@ -1205,6 +1220,16 @@ def mob(identifier: str, *, persistent: bool = True, nbt: str | None = None) -> 
     if not isinstance(persistent, bool):
         raise TypeError("Mob persistence must be a boolean")
     return _Mob(identifier, persistent, nbt)
+
+
+@dataclass(frozen=True)
+class ScheduledTick:
+    position: Position
+    identifier: str
+    fluid: bool
+    delay: int
+    priority: int
+    order: int
 
 
 @dataclass(frozen=True)

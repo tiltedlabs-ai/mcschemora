@@ -138,7 +138,7 @@ pub(super) fn write_litematic(schematic: &Schematic) -> Result<Compound> {
                 "TileEntities".into(),
                 block_entities(r, r.bounds.start, false),
             ),
-            ("Entities".into(), entities(r, entity_start, "litematic")),
+            ("Entities".into(), entities(r, entity_start, "litematic")?),
         ]);
         for k in ["PendingBlockTicks", "PendingFluidTicks"] {
             let value = r.retained.spatial.get(k);

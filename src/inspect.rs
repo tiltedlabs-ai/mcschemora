@@ -8,6 +8,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Default, Serialize)]
 pub struct Inspection {
+    pub complete: bool,
+    pub diagnostics: Vec<InspectionDiagnostic>,
     pub edition: String,
     pub version: String,
     pub data_version: i32,
@@ -24,6 +26,12 @@ pub struct Inspection {
     pub entity_count: u64,
     pub moving_entities: bool,
     pub max_stack_count: u64,
+}
+
+#[derive(Serialize)]
+pub struct InspectionDiagnostic {
+    pub path: String,
+    pub message: String,
 }
 
 #[derive(Serialize)]
@@ -89,6 +97,54 @@ fn numeric(value: &Tag) -> Result<f64> {
     }
 }
 
+#[derive(Clone, Copy)]
+enum TextEncoding {
+    Nbt,
+    Json,
+    DecodedJson,
+    LegacyWrittenBook,
+}
+
+impl TextEncoding {
+    fn child(self, key: &str, path: &str, version: i32, fields: &Compound) -> Self {
+        use crate::versions::{DUAL_SIDED_SIGNS, ITEM_COMPONENTS, NBT_TEXT_COMPONENTS};
+        if matches!(self, Self::Json | Self::DecodedJson) {
+            return self;
+        }
+        if version >= NBT_TEXT_COMPONENTS {
+            return Self::Nbt;
+        }
+        let encoded = match key {
+            "CustomName" | "LastOutput" => true,
+            "Text1" | "Text2" | "Text3" | "Text4" => version < DUAL_SIDED_SIGNS,
+            "Name" | "Lore" => version < ITEM_COMPONENTS && path.ends_with("/display"),
+            "minecraft:custom_name" | "minecraft:item_name" | "minecraft:lore" => {
+                version >= ITEM_COMPONENTS
+            }
+            "messages" | "filtered_messages" => {
+                version >= DUAL_SIDED_SIGNS
+                    && (path.ends_with("/front_text") || path.ends_with("/back_text"))
+            }
+            "raw" | "filtered" => {
+                version >= ITEM_COMPONENTS
+                    && path.contains("/minecraft:written_book_content/pages/")
+            }
+            "pages" | "filtered_pages" => matches!(self, Self::LegacyWrittenBook),
+            _ => false,
+        };
+        if encoded {
+            Self::Json
+        } else if key == "tag"
+            && version < ITEM_COMPONENTS
+            && matches!(fields.get("id"), Some(Tag::String(id)) if matches!(id.as_str(), "written_book" | "minecraft:written_book"))
+        {
+            Self::LegacyWrittenBook
+        } else {
+            Self::Nbt
+        }
+    }
+}
+
 struct Scanner {
     report: Inspection,
     remaining: usize,
@@ -102,6 +158,7 @@ impl Scanner {
         multiplier: u64,
         item: bool,
         depth: usize,
+        text: TextEncoding,
     ) -> Result<()> {
         if depth > 32 || self.remaining == 0 {
             return Err("Payload nesting or node limit exceeded".into());
@@ -115,7 +172,14 @@ impl Scanner {
         match value {
             Tag::List(values) => {
                 for (i, child) in values.iter().enumerate() {
-                    self.scan(child, &format!("{path}/{i}"), multiplier, item, depth + 1)?;
+                    self.scan(
+                        child,
+                        &format!("{path}/{i}"),
+                        multiplier,
+                        item,
+                        depth + 1,
+                        text,
+                    )?;
                 }
             }
             Tag::Compound(fields) => {
@@ -166,10 +230,11 @@ impl Scanner {
                         }
                     }
                     let child_path = format!("{path}/{key}");
+                    let child_text = text.child(key, path, self.report.data_version, fields);
                     match key_name.as_str() {
                         "items" | "handitems" | "armoritems" | "inventory" => {
                             nbt::list(child)?;
-                            self.scan(child, &child_path, multiplier, true, depth + 1)?;
+                            self.scan(child, &child_path, multiplier, true, depth + 1, child_text)?;
                         }
                         "equipment" => {
                             for (slot, stack) in nbt::compound(child)? {
@@ -179,26 +244,43 @@ impl Scanner {
                                     multiplier,
                                     true,
                                     depth + 1,
+                                    child_text,
                                 )?;
                             }
                         }
                         "bundle_contents" | "charged_projectiles" => {
-                            self.scan(child, &child_path, multiplier, true, depth + 1)?
+                            self.scan(child, &child_path, multiplier, true, depth + 1, child_text)?
                         }
                         name if name.ends_with("item") => {
-                            self.scan(child, &child_path, multiplier, true, depth + 1)?
+                            self.scan(child, &child_path, multiplier, true, depth + 1, child_text)?
                         }
-                        _ => self.scan(child, &child_path, multiplier, false, depth + 1)?,
+                        _ => {
+                            self.scan(child, &child_path, multiplier, false, depth + 1, child_text)?
+                        }
                     }
                 }
             }
             _ if item => return Err(format!("Invalid item stack at {path}")),
-            Tag::String(s) if s.trim_start().starts_with(['{', '[']) => {
-                let json: serde_json::Value = serde_json::from_str(s)
-                    .map_err(|e| format!("Invalid embedded JSON at {path}: {e}"))?;
-                let tag = json_tag(json)?;
-                self.scan(&tag, &format!("{path}/text"), multiplier, false, depth + 1)?;
-            }
+            Tag::String(s) if matches!(text, TextEncoding::Json) => match serde_json::from_str(s) {
+                Ok(json) => {
+                    let tag = json_tag(json)?;
+                    self.scan(
+                        &tag,
+                        &format!("{path}/text"),
+                        multiplier,
+                        false,
+                        depth + 1,
+                        TextEncoding::DecodedJson,
+                    )?;
+                }
+                Err(error) => {
+                    self.report.complete = false;
+                    self.report.diagnostics.push(InspectionDiagnostic {
+                        path: path.into(),
+                        message: format!("Invalid JSON text component: {error}"),
+                    });
+                }
+            },
             _ => (),
         }
         Ok(())
@@ -256,6 +338,7 @@ fn json_tag(value: serde_json::Value) -> Result<Tag> {
 pub fn inspect(schematic: &Schematic) -> Result<Inspection> {
     let mut scanner = Scanner {
         report: Inspection {
+            complete: true,
             edition: schematic.edition.clone(),
             version: schematic.version.clone(),
             data_version: schematic.data_version,
@@ -299,6 +382,7 @@ pub fn inspect(schematic: &Schematic) -> Result<Inspection> {
                 1,
                 false,
                 0,
+                TextEncoding::Nbt,
             )?;
         }
         for entity in &region.entities {
@@ -311,9 +395,14 @@ pub fn inspect(schematic: &Schematic) -> Result<Inspection> {
                 1,
                 false,
                 0,
+                TextEncoding::Nbt,
             )?;
         }
     }
+    scanner
+        .report
+        .diagnostics
+        .sort_by(|a, b| a.path.cmp(&b.path));
     scanner
         .report
         .inventories
@@ -323,6 +412,7 @@ pub fn inspect(schematic: &Schematic) -> Result<Inspection> {
 
 #[derive(Default, Serialize)]
 pub struct Resources {
+    pub complete: bool,
     pub blocks: BTreeMap<String, u64>,
     pub items: BTreeMap<String, u64>,
     pub entities: BTreeMap<String, u64>,
@@ -333,7 +423,10 @@ pub struct Resources {
 
 impl Resources {
     pub fn new(initial_items: &[(String, u64)]) -> Result<Self> {
-        let mut resources = Self::default();
+        let mut resources = Self {
+            complete: true,
+            ..Self::default()
+        };
         for (id, count) in initial_items {
             add(
                 &mut resources.items,
@@ -346,6 +439,7 @@ impl Resources {
 
     pub fn include(&mut self, schematic: &Schematic) -> Result<()> {
         let report = inspect(schematic)?;
+        self.complete &= report.complete;
         self.volume = self
             .volume
             .checked_add(report.volume)

@@ -179,6 +179,16 @@ pub struct Entity {
     /// Full entity NBT compound, including its identifier.
     pub data: Compound,
 }
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct ScheduledTick {
+    pub position: Position,
+    pub identifier: String,
+    pub fluid: bool,
+    pub delay: i32,
+    pub priority: i32,
+    pub order: i64,
+}
+
 /// Native format fields retained separately from editable blocks and entities.
 #[derive(Clone, Debug, Default)]
 pub struct RetainedData {
@@ -512,18 +522,20 @@ impl Selection {
                 )
             })
             .collect();
-        let entities = r
-            .entities
-            .iter()
-            .filter(|e| self.entities.contains(&e.reference))
-            .map(|e| {
-                let mut e = e.clone();
-                for i in 0..3 {
-                    e.position[i] -= self.bounds.start[i] as f64;
-                }
-                e
-            })
-            .collect();
+        let mut offset = [0; 3];
+        for (i, coordinate) in offset.iter_mut().enumerate() {
+            *coordinate = self.bounds.start[i]
+                .checked_neg()
+                .ok_or("Entity coordinate overflow")?;
+        }
+        let mut next = 0;
+        let entities = crate::transform::Transform::move_by(offset).entities(
+            r.entities
+                .iter()
+                .filter(|e| self.entities.contains(&e.reference)),
+            &mut next,
+            false,
+        )?;
         Ok(Fragment {
             edition: edition.into(),
             version: version.into(),

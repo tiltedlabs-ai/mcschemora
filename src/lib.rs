@@ -14,6 +14,7 @@ pub mod nbt;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod render;
 mod sprite_ids;
+mod ticks;
 mod versions;
 
 /// An operation result with a human-readable error message.

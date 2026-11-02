@@ -106,61 +106,133 @@ impl Transform {
         source
             .map(|e| {
                 let mut e = e.clone();
-                if [
-                    "Leash",
-                    "Passengers",
-                    "Brain",
-                    "TileX",
-                    "TileY",
-                    "TileZ",
-                    "SleepingX",
-                    "SleepingY",
-                    "SleepingZ",
-                ]
-                .iter()
-                .any(|k| e.data.contains_key(*k))
-                {
-                    return Err(
-                        "Entity has spatial links that cannot be transformed safely yet".into(),
-                    );
-                }
                 e.position = self.point(e.position)?;
                 crate::edit::check_position(e.position)?;
-                if self.changes_orientation()
-                    && let Some(Value::List(rot)) = e.data.get_mut("Rotation")
-                    && let Some(Value::Float(yaw)) = rot.first_mut()
-                {
-                    *yaw = self.angle((*yaw as f64).to_radians()).to_degrees() as f32;
-                }
-                if self.changes_orientation()
-                    && let Some(Value::List(motion)) = e.data.get_mut("Motion")
-                    && motion.len() == 3
-                {
-                    let v = motion
-                        .iter()
-                        .map(|v| {
-                            if let Value::Double(x) = v {
-                                Ok(*x)
-                            } else {
-                                Err("Motion must be doubles".into())
-                            }
-                        })
-                        .collect::<Result<Vec<_>>>()?;
-                    for (i, component) in motion.iter_mut().enumerate() {
-                        *component =
-                            Value::Double((0..3).map(|j| self.matrix[i][j] as f64 * v[j]).sum());
-                    }
-                }
+                self.entity_data(&mut e.data, e.position, duplicate, 0)?;
                 if duplicate {
                     e.reference = *next;
                     *next = next.checked_add(1).ok_or("Entity reference overflow")?;
-                    e.data.remove("UUID");
-                    e.data.remove("UUIDMost");
-                    e.data.remove("UUIDLeast");
                 }
                 Ok(e)
             })
             .collect()
+    }
+    pub(crate) fn entity_data(
+        &self,
+        data: &mut Compound,
+        position: [f64; 3],
+        duplicate: bool,
+        depth: usize,
+    ) -> Result<()> {
+        use crate::nbt::{doubles, get, number, xyz};
+        if depth > 32 {
+            return Err("Entity passenger depth exceeded".into());
+        }
+        if self.changes_orientation()
+            && [
+                "Leash",
+                "leash",
+                "Passengers",
+                "Brain",
+                "TileX",
+                "TileY",
+                "TileZ",
+                "block_pos",
+                "SleepingX",
+                "SleepingY",
+                "SleepingZ",
+            ]
+            .iter()
+            .any(|key| data.contains_key(*key))
+        {
+            return Err(
+                "Entity has spatial links whose orientation cannot be transformed safely yet"
+                    .into(),
+            );
+        }
+        let frame = matches!(data.get("id"), Some(Value::String(id)) if matches!(id.as_str(), "minecraft:item_frame" | "minecraft:glow_item_frame"));
+        for keys in [
+            ["TileX", "TileY", "TileZ"],
+            ["SleepingX", "SleepingY", "SleepingZ"],
+        ] {
+            if keys.iter().any(|key| data.contains_key(*key)) {
+                let anchor = if frame && keys[0] == "TileX" {
+                    position.map(|coordinate| coordinate.floor() as i32)
+                } else {
+                    self.cell([
+                        number(get(data, keys[0])?)?,
+                        number(get(data, keys[1])?)?,
+                        number(get(data, keys[2])?)?,
+                    ])?
+                };
+                for (key, coordinate) in keys.into_iter().zip(anchor) {
+                    data.insert(key.into(), Value::Int(coordinate));
+                }
+            }
+        }
+        if let Some(value) = data.get_mut("block_pos") {
+            let anchor = if frame {
+                position.map(|coordinate| coordinate.floor() as i32)
+            } else {
+                self.cell(xyz(value)?)?
+            };
+            *value = crate::nbt::int_array(anchor);
+        }
+        if let Some(Value::Compound(leash)) = data.get_mut("Leash")
+            && ["X", "Y", "Z"].iter().any(|key| leash.contains_key(*key))
+        {
+            let anchor = self.cell([
+                number(get(leash, "X")?)?,
+                number(get(leash, "Y")?)?,
+                number(get(leash, "Z")?)?,
+            ])?;
+            for (key, coordinate) in ["X", "Y", "Z"].into_iter().zip(anchor) {
+                leash.insert(key.into(), Value::Int(coordinate));
+            }
+        }
+        if let Some(value @ Value::IntArray(_)) = data.get_mut("leash")
+            && matches!(value, Value::IntArray(values) if values.len() == 3)
+        {
+            *value = crate::nbt::int_array(self.cell(xyz(value)?)?);
+        }
+        if let Some(value) = data.get_mut("Passengers") {
+            let Value::List(passengers) = value else {
+                return Err("Passengers must be a list".into());
+            };
+            for value in passengers {
+                let Value::Compound(passenger) = value else {
+                    return Err("Passenger must be a compound".into());
+                };
+                let passenger_position = if let Some(value) = passenger.get_mut("Pos") {
+                    let destination = self.point(doubles(value)?)?;
+                    *value = crate::nbt::double_list(destination);
+                    destination
+                } else {
+                    position
+                };
+                self.entity_data(passenger, passenger_position, duplicate, depth + 1)?;
+            }
+        }
+        if self.changes_orientation()
+            && let Some(Value::List(rotation)) = data.get_mut("Rotation")
+            && let Some(Value::Float(yaw)) = rotation.first_mut()
+        {
+            *yaw = self.angle((*yaw as f64).to_radians()).to_degrees() as f32;
+        }
+        if self.changes_orientation()
+            && let Some(value) = data.get_mut("Motion")
+        {
+            let motion = doubles(value)?;
+            *value = crate::nbt::double_list(std::array::from_fn(|i| {
+                (0..3).map(|j| self.matrix[i][j] as f64 * motion[j]).sum()
+            }));
+        }
+        if duplicate {
+            for key in ["UUID", "UUIDMost", "UUIDLeast"] {
+                data.remove(key);
+            }
+        }
+        Ok(())
     }
     /// Transforms orientation properties after catalog resolution.
     ///

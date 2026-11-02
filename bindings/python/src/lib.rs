@@ -385,6 +385,9 @@ impl PyRegion {
 }
 #[pymethods]
 impl PyRegion {
+    fn scheduled_ticks(&self) -> PyResult<String> {
+        self.with(|r| serde_json::to_string(&r.scheduled_ticks()?).map_err(|e| e.to_string()))
+    }
     fn bounds(&self) -> PyResult<(Position, Position)> {
         self.with(|r| Ok((r.bounds.start, r.bounds.size)))
     }

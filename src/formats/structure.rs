@@ -78,6 +78,6 @@ pub(super) fn write_structure(schematic: &Schematic, r: &Region) -> Result<Compo
             ),
         ),
         ("blocks".into(), V::List(blocks)),
-        ("entities".into(), entities(r, r.bounds.start, "nbt")),
+        ("entities".into(), entities(r, r.bounds.start, "nbt")?),
     ]))
 }

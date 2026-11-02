@@ -83,6 +83,7 @@ fn prepare<'a>(
     };
     for (name, r) in regions {
         Bounds::new(r.bounds.start, r.bounds.size)?;
+        r.scheduled_ticks()?;
         let volume = r.bounds.volume()?;
         let limit = match format {
             "schem" | "schem2" => 65535,
@@ -165,8 +166,14 @@ fn single(schematic: &Schematic, flatten: bool) -> Result<Cow<'_, Region>> {
     let mut ends = vec![];
     let mut volume = 0;
     for source in schematic.regions.values() {
-        if !source.retained.is_empty() {
-            return Err("Flattening regions with retained spatial data is not supported".into());
+        if source.retained.bedrock.is_some()
+            || source
+                .retained
+                .spatial
+                .keys()
+                .any(|key| !matches!(key.as_str(), "PendingBlockTicks" | "PendingFluidTicks"))
+        {
+            return Err("Flattening regions with retained spatial data other than scheduled ticks is not supported".into());
         }
         if source.bounds.volume()? == 0 {
             return Err("Cannot export an empty region".into());
@@ -211,10 +218,30 @@ fn single(schematic: &Schematic, flatten: bool) -> Result<Cow<'_, Region>> {
                 }
             }
         }
-        for e in &source.entities {
-            let mut e = e.clone();
-            e.position = t.point(e.position)?;
-            r.entities.push(e);
+        let mut next = schematic.next_entity;
+        r.entities
+            .extend(t.entities(source.entities.iter(), &mut next, false)?);
+        source.scheduled_ticks()?;
+        for (key, value) in &source.retained.spatial {
+            let mut ticks = crate::nbt::list(value)?.clone();
+            for value in &mut ticks {
+                let position = t.cell(crate::nbt::xyz(value)?)?;
+                let crate::nbt::Tag::Compound(tick) = value else {
+                    unreachable!()
+                };
+                for (key, coordinate) in ["x", "y", "z"].into_iter().zip(position) {
+                    tick.insert(key.into(), crate::nbt::Tag::Int(coordinate));
+                }
+            }
+            let entry = r
+                .retained
+                .spatial
+                .entry(key.clone())
+                .or_insert_with(|| crate::nbt::Tag::List(Vec::new()));
+            let crate::nbt::Tag::List(combined) = entry else {
+                unreachable!()
+            };
+            combined.extend(ticks);
         }
     }
     Ok(Cow::Owned(r))

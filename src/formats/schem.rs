@@ -140,7 +140,7 @@ pub(super) fn write_schem(schematic: &Schematic, r: &Region, version: i32) -> Re
         ("Length".into(), V::Short(r.bounds.size[2] as i16)),
         ("Offset".into(), int_array(offset)),
         ("Blocks".into(), blocks),
-        ("Entities".into(), entities(r, r.bounds.start, "schem")),
+        ("Entities".into(), entities(r, r.bounds.start, "schem")?),
         ("Metadata".into(), V::Compound(schematic.metadata.clone())),
     ]);
     if let Some(b) = r.retained.spatial.get("Biomes") {

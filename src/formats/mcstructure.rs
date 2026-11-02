@@ -205,7 +205,7 @@ pub(super) fn write_bedrock(schematic: &Schematic, r: &Region) -> Result<Compoun
     }
     let origin = std::array::from_fn(|i| r.origin[i] + r.bounds.start[i]);
     let entity_list = if schematic.edition == "bedrock" {
-        entities(r, origin.map(|v| -v), "mcstructure")
+        entities(r, origin.map(|v| -v), "mcstructure")?
     } else {
         V::List(vec![])
     };

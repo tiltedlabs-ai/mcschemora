@@ -11,10 +11,11 @@ from pathlib import Path
 from import_recipes import (
     MANIFEST,
     SNAPSHOTS,
-    add_recipes,
     download,
+    recipe_catalog,
     resources,
     server_runtime,
+    write_recipes,
     write_snapshots,
 )
 
@@ -133,9 +134,9 @@ def generate(version, manifest, args, helper):
         if "minecraft:biome" in registries:
             biomes = registries["minecraft:biome"]["entries"]
         else:
-            base = output / "reports/minecraft/worldgen/biome"
             biomes = {
                 "minecraft:" + path.relative_to(base).with_suffix("").as_posix(): None
+                for base in [output / "reports/minecraft/worldgen/biome", output / "reports/biomes"]
                 for path in base.rglob("*.json")
             }
     assert biomes, version
@@ -153,8 +154,9 @@ def generate(version, manifest, args, helper):
             "biomes": [{"name": name} for name in sorted(biomes)],
         },
     }
-    add_recipes(snapshot, metadata, content, server_hash, runtime_hash)
-    return snapshot
+    items = {item["name"]: item["id"] for item in snapshot["datasets"]["items"]}
+    recipes = recipe_catalog(version, items, metadata, content, server_hash, runtime_hash)
+    return snapshot, recipes
 
 
 def main():
@@ -185,11 +187,12 @@ def main():
         check=True,
     )
     versions = args.versions or sorted(path.stem for path in SNAPSHOTS.glob("*.json"))
-    updates = [
-        (SNAPSHOTS / f"{version}.json", generate(version, manifest, args, helper))
-        for version in versions
-    ]
-    write_snapshots(updates, args.check)
+    generated = [(version, *generate(version, manifest, args, helper)) for version in versions]
+    write_snapshots(
+        [(SNAPSHOTS / f"{version}.json", snapshot) for version, snapshot, _ in generated],
+        args.check,
+    )
+    write_recipes([recipes for _, _, recipes in generated], args.check)
 
 
 if __name__ == "__main__":

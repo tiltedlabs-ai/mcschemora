@@ -304,6 +304,13 @@ impl PySchematic {
             serde_json::to_string(&report).map_err(error)
         })
     }
+    fn material_cost(&self, py: Python<'_>) -> PyResult<String> {
+        py.detach(|| {
+            let schematic = lock(&self.data)?;
+            let report = pollster::block_on(schematic.material_cost()).map_err(error)?;
+            serde_json::to_string(&report).map_err(error)
+        })
+    }
     #[pyo3(signature = (profile=None, *, keep=None, replace=None, fallback=None))]
     fn normalize(
         &self,

@@ -52,8 +52,8 @@ impl WasmData {
     }
 
     /// Loads and caches a JSON dataset: blocks, items, entities, blockCollisionShapes,
-    /// biomes, or recipes. Recipes and biomes load on demand. Missing version data rejects.
-    /// Bundled snapshots also provide recipeDefinitions and resolved itemTags.
+    /// biomes, recipes, recipeDefinitions, or itemTags. A shared tracker stores official
+    /// server-JAR recipes with version-specific item IDs. Optional datasets load on demand.
     pub async fn dataset(&self, version: &str, kind: &str) -> Result<JsValue, JsValue> {
         value(self.data.dataset(version, kind).await.map_err(error)?)
     }
@@ -189,6 +189,19 @@ impl WasmSchematic {
         value(
             serde_json::json!({"errors":report.errors,"warnings":report.warnings,"unknown":report.unknown}),
         )
+    }
+
+    /// Returns items, fractional raw_materials, unresolved quantities, and complete.
+    /// Costs are cached by catalog version. Shaped recipes precede other catalog recipes;
+    /// the first acyclic expansion to declared primitives wins. Paired structures count once,
+    /// orphan halves once, and double slabs/stacked items use their item quantities.
+    /// Regions are summed, including overlaps. Inventories, entities, fuel, tool wear,
+    /// fluid placement, and component-dependent recipes are excluded. No blocks are edited.
+    /// Filled-container primitives count gross inputs; returned containers are not credited.
+    #[wasm_bindgen(js_name = materialCost)]
+    pub async fn material_cost(&self) -> Result<JsValue, JsValue> {
+        let report = self.schematic.material_cost().await.map_err(error)?;
+        value(serde_json::to_value(report).map_err(error)?)
     }
 
     /// Applies inline options and an optional bundled profile name or JSON profile object.

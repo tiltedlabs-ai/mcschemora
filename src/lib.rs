@@ -5,6 +5,7 @@
 
 pub mod catalog;
 mod convert;
+pub mod cost;
 mod edit;
 pub mod formats;
 pub mod helpers;

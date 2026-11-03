@@ -1,7 +1,9 @@
 import argparse
+import gzip
 import hashlib
 import io
 import json
+import re
 import tempfile
 import urllib.request
 import zipfile
@@ -12,6 +14,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SNAPSHOTS = ROOT / "src/catalog/data"
+RECIPES = ROOT / "src/catalog/recipes"
+TRACKER = RECIPES / "tracker.json.gz"
 MANIFEST = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
 COOKING = {"smelting", "blasting", "smoking", "campfire_cooking", "stonecutting"}
 
@@ -159,23 +163,26 @@ def server_runtime(version, manifest, directory):
     return metadata, content, server_hash, runtime_hash
 
 
-def add_recipes(snapshot, metadata, content, server_hash, runtime_hash):
-    version = snapshot["version"]
-    provenance = snapshot["provenance"]
-    expected = provenance.get("official_server_sha256", provenance.get("runtime_jar_sha256"))
-    if expected not in {server_hash, runtime_hash}:
-        raise ValueError(f"Runtime does not match existing snapshot: {version}")
+def recipe_catalog(version, items, metadata, content, server_hash, runtime_hash):
     with zipfile.ZipFile(io.BytesIO(content)) as archive:
         definitions = resources(archive, [("recipe",), ("recipes",)])
         tags = resources(archive, [("tags", "item"), ("tags", "items")])
-    items = {item["name"]: item["id"] for item in snapshot["datasets"]["items"]}
     index, tags, indexed = recipe_index(definitions, tags, items)
-    snapshot["datasets"].update(recipes=index, recipeDefinitions=definitions, itemTags=tags)
-    provenance["recipes"] = {
+    names = {identifier: name for name, identifier in items.items()}
+
+    def named(value):
+        if isinstance(value, list):
+            return [named(entry) for entry in value]
+        if isinstance(value, dict):
+            return {key: entry if key == "count" else named(entry) for key, entry in value.items()}
+        return names[value] if value is not None else None
+
+    provenance = {
         "server_url": metadata["downloads"]["server"]["url"],
         "server_sha256": server_hash,
         "runtime_sha256": runtime_hash,
-        "method": "vanilla recipe and item-tag resources; numeric IDs from this snapshot's item registry",
+        "method": "vanilla recipe and item-tag resources; numeric IDs from the matching catalog",
+        "items_sha256": hashlib.sha256(json.dumps(items, sort_keys=True).encode()).hexdigest(),
         "definitions": len(definitions),
         "indexed_definitions": len(indexed),
         "variants": sum(map(len, index.values())),
@@ -186,6 +193,103 @@ def add_recipes(snapshot, metadata, content, server_hash, runtime_hash):
         f"{version}: {len(definitions)} definitions, {len(indexed)} indexed, {len(tags)} tags",
         flush=True,
     )
+    return {
+        "version": version,
+        "provenance": provenance,
+        "datasets": {
+            "recipes": {names[int(output)]: named(variants) for output, variants in index.items()},
+            "recipeDefinitions": definitions,
+            "itemTags": {identifier: named(values) for identifier, values in tags.items()},
+        },
+    }
+
+
+def write_recipes(catalogs, check):
+    RECIPES.mkdir(exist_ok=True)
+    versions = {catalog["version"] for catalog in catalogs}
+    provenance = {}
+    variants = {kind: defaultdict(dict) for kind in ("recipes", "recipeDefinitions", "itemTags")}
+
+    def add(kind, name, value, versions):
+        key = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        variants[kind][name].setdefault(key, set()).update(versions)
+
+    if TRACKER.exists():
+        previous = json.loads(gzip.decompress(TRACKER.read_bytes()))
+        provenance.update(previous["provenance"])
+        for kind, entries in previous["datasets"].items():
+            for name, rows in entries.items():
+                for entry in rows:
+                    remaining = set(entry["versions"]) - versions
+                    if remaining:
+                        add(kind, name, entry["value"], remaining)
+    for catalog in catalogs:
+        version = catalog["version"]
+        provenance[version] = catalog["provenance"]
+        for kind, entries in catalog["datasets"].items():
+            for name, value in entries.items():
+                add(kind, name, value, [version])
+    tracker = {
+        "provenance": dict(sorted(provenance.items())),
+        "datasets": {
+            kind: {
+                name: [
+                    {"versions": sorted(versions), "value": json.loads(value)}
+                    for value, versions in sorted(values.items())
+                ]
+                for name, values in sorted(entries.items())
+            }
+            for kind, entries in variants.items()
+        },
+    }
+    output = io.BytesIO()
+    with gzip.GzipFile(filename="", mode="wb", fileobj=output, mtime=0) as archive:
+        archive.write(json.dumps(tracker, ensure_ascii=False, separators=(",", ":")).encode())
+    content = output.getvalue()
+    if check:
+        if not TRACKER.exists() or TRACKER.read_bytes() != content:
+            raise ValueError("Recipe tracker is out of date")
+    else:
+        with tempfile.NamedTemporaryFile(dir=RECIPES, delete=False) as file:
+            file.write(content)
+        Path(file.name).replace(TRACKER)
+
+
+def upstream(directory):
+    revision = re.search(
+        r'REVISION: &str = "([^"]+)"', (ROOT / "src/catalog/source.rs").read_text()
+    )[1]
+    root = directory / "minecraft-data" / revision
+    root.mkdir(parents=True, exist_ok=True)
+    url = f"https://raw.githubusercontent.com/PrismarineJS/minecraft-data/{revision}/data/"
+    paths = json.loads(download(url + "dataPaths.json", root / "dataPaths.json"))["pc"]
+    protocols = json.loads(
+        download(url + "pc/common/protocolVersions.json", root / "protocolVersions.json")
+    )
+    minimum = int(
+        re.search(r"MIN_JAVA_DATA_VERSION: i32 = (\d+)", (ROOT / "src/versions.rs").read_text())[1]
+    )
+    versions = {}
+    for entry in protocols:
+        versions.setdefault(entry["minecraftVersion"], entry.get("dataVersion", 0))
+    supported = {version for version in paths if (versions.get(version) or 0) >= minimum}
+    supported.update(path.stem for path in SNAPSHOTS.glob("*.json"))
+    return paths, sorted(supported), url, root
+
+
+def catalog_items(version, paths, url, root):
+    snapshot = SNAPSHOTS / f"{version}.json"
+    if snapshot.exists():
+        items = json.loads(snapshot.read_text())["datasets"]["items"]
+    else:
+        relative = paths[version]["items"] + "/items.json"
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        items = json.loads(download(url + relative, path))
+    return {
+        item["name"] if ":" in item["name"] else "minecraft:" + item["name"]: item["id"]
+        for item in items
+    }
 
 
 def write_snapshots(updates, check):
@@ -213,14 +317,16 @@ def main():
     args.cache_dir.mkdir(parents=True, exist_ok=True)
     manifest = json.loads(download(MANIFEST, args.cache_dir / "manifest.json"))
     manifest = {entry["id"]: entry for entry in manifest["versions"]}
-    snapshots = {path.stem: path for path in SNAPSHOTS.glob("*.json")}
-    paths = [snapshots[version] for version in args.versions or sorted(snapshots)]
-    updates = []
-    for path in paths:
-        snapshot = json.loads(path.read_text())
-        add_recipes(snapshot, *server_runtime(snapshot["version"], manifest, args.cache_dir))
-        updates.append((path, snapshot))
-    write_snapshots(updates, args.check)
+    paths, supported, url, root = upstream(args.cache_dir)
+    catalogs = []
+    for version in args.versions or supported:
+        if version not in supported:
+            raise ValueError(f"Unsupported catalog version: {version}")
+        items = catalog_items(version, paths, url, root)
+        catalogs.append(
+            recipe_catalog(version, items, *server_runtime(version, manifest, args.cache_dir))
+        )
+    write_recipes(catalogs, args.check)
 
 
 if __name__ == "__main__":

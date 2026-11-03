@@ -36,7 +36,7 @@ Arguments after `*` are keyword-only. Types and properties are documented below.
 
 ### Function inspect_schematics
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1420)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1448)
 
 ```python
 inspect_schematics(
@@ -410,6 +410,27 @@ Returns resource counts, inventories, payload details, and inspection diagnostic
 
 **Returns:** A dictionary whose complete flag is false when text could not be inspected.
 
+#### Schematic.material_cost
+
+`Schematic.material_cost() -> dict`
+
+Returns fractional primitive-material costs for placed blocks without editing them.
+
+Recipe costs are compiled once per catalog version and shared between schematics.
+Shaped crafting recipes take priority; other candidates retain catalog order.
+The first recipe that expands to declared primitives without a cycle is used.
+The built-in Java primitive policy defines gathering boundaries, including logs,
+minerals, natural blocks, drops, and plants. This does not find the cheapest recipe.
+
+Doors, beds, and tall plants count once per pair; orphan halves count once.
+Double slabs and stacked candles, eggs, snow layers, and plants use item quantities.
+Wall-mounted variants resolve to their inventory items. Regions contribute their
+stored placements, including overlaps. Inventories and entities are excluded.
+
+**Returns:** A dictionary containing items (placed item counts), raw_materials (fractional primitive quantities), unresolved (unsupported block or item quantities), and complete (whether all placed material costs resolved). Unresolved items do not contribute guessed primitive costs. Fuel, tool wear, fluid placement, and component-dependent recipes are outside this estimate. Filled-container primitives count gross inputs; returned empty containers are not credited.
+
+**Raises:** `ValueError`: If the schematic is not Java, its catalog or recipes are unavailable, recipe data is invalid, or counts overflow.
+
 #### Schematic.normalize
 
 ```python
@@ -544,7 +565,7 @@ Loads and caches a parsed catalog dataset for a Java version.
 **Args:**
 
 - `version`: Java version, or latest for the newest supported release.
-- `kind`: blocks, items, entities, blockCollisionShapes, biomes, or recipes. Recipes and biomes load on demand; recipes use numeric IDs from this version's item dataset. Availability depends on the version. Bundled snapshots also include recipeDefinitions (all original recipe JSON) and itemTags (resolved numeric item IDs).
+- `kind`: blocks, items, entities, blockCollisionShapes, biomes, recipes, recipeDefinitions, or itemTags. A shared tracker stores official server-JAR recipes and maps them to the requested version's item IDs. recipeDefinitions preserves original JSON; itemTags contains resolved numeric item IDs. Optional datasets load on demand.
 
 **Returns:** The dataset's JSON value.
 
@@ -562,7 +583,7 @@ Prepares rendering assets and returns their cache directory.
 
 ### Region
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L886)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L914)
 
 An editing handle for a named region within a schematic.
 
@@ -711,7 +732,7 @@ The manager for NBT attached to this region's blocks.
 
 ### ScheduledTick
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1299)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1327)
 
 A scheduled update retained from an imported Litematic region.
 
@@ -735,7 +756,7 @@ ScheduledTick.order: int
 
 ### Selection
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1061)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1089)
 
 A set of region-local cells and entities that reads current content.
 
@@ -945,7 +966,7 @@ Bounds.size: Position
 
 ### Fragment
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1242)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1270)
 
 An independent copy of selected cells, attached data, and entities.
 
@@ -1063,7 +1084,7 @@ Returns a water block with level=0.
 
 ### Function bed
 
-[Source](../../bindings/python/src/lib.rs#L700)
+[Source](../../bindings/python/src/lib.rs#L707)
 
 `bed(*, color: str = 'red', head_toward: str = 'north') -> Placement`
 
@@ -1078,7 +1099,7 @@ Creates a bed placement anchored at the foot block when placed.
 
 ### Function door
 
-[Source](../../bindings/python/src/lib.rs#L721)
+[Source](../../bindings/python/src/lib.rs#L728)
 
 ```python
 door(
@@ -1105,7 +1126,7 @@ Creates a door placement anchored at the lower block when placed.
 
 ### Function sign
 
-[Source](../../bindings/python/src/lib.rs#L762)
+[Source](../../bindings/python/src/lib.rs#L769)
 
 ```python
 sign(
@@ -1130,7 +1151,7 @@ Creates a standing-sign placement with plain text on its front face.
 
 ### Function chest
 
-[Source](../../bindings/python/src/lib.rs#L742)
+[Source](../../bindings/python/src/lib.rs#L749)
 
 ```python
 chest(
@@ -1151,7 +1172,7 @@ Creates a single-chest placement with optional inventory contents.
 
 ### Function item
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1258)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1286)
 
 `item(identifier: str, *, count: int = 1, components: str | None = None) -> _Item`
 
@@ -1167,7 +1188,7 @@ Creates an inventory item value for chest().
 
 ### Function mob
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1281)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1309)
 
 `mob(identifier: str, *, persistent: bool = True, nbt: str | None = None) -> _Mob`
 
@@ -1201,7 +1222,7 @@ Returns a block schema for this schematic's Minecraft version.
 
 ### Entity
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1320)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1348)
 
 An immutable snapshot of a entity returned by Entities.get().
 
@@ -1219,7 +1240,7 @@ Entity.nbt: str
 
 ### Entities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1334)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1362)
 
 Access to a region's entities through schematic-local integer references.
 
@@ -1283,7 +1304,7 @@ Iterates a snapshot of this region's entity references.
 
 ### BlockEntities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1393)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1421)
 
 Access to typed NBT attached to blocks at region-local cell coordinates.
 
@@ -1345,8 +1366,8 @@ export class MinecraftData {
     create(version: string): Promise<Schematic>;
     /**
      * Loads and caches a JSON dataset: blocks, items, entities, blockCollisionShapes,
-     * biomes, or recipes. Recipes and biomes load on demand. Missing version data rejects.
-     * Bundled snapshots also provide recipeDefinitions and resolved itemTags.
+     * biomes, recipes, recipeDefinitions, or itemTags. A shared tracker stores official
+     * server-JAR recipes with version-specific item IDs. Optional datasets load on demand.
      */
     dataset(version: string, kind: string): Promise<any>;
     /**
@@ -1384,6 +1405,16 @@ export class Schematic {
      * Absent cells read as air; an unknown region throws an Error.
      */
     getBlock(region: string, x: number, y: number, z: number): string;
+    /**
+     * Returns items, fractional raw_materials, unresolved quantities, and complete.
+     * Costs are cached by catalog version. Shaped recipes precede other catalog recipes;
+     * the first acyclic expansion to declared primitives wins. Paired structures count once,
+     * orphan halves once, and double slabs/stacked items use their item quantities.
+     * Regions are summed, including overlaps. Inventories, entities, fuel, tool wear,
+     * fluid placement, and component-dependent recipes are excluded. No blocks are edited.
+     * Filled-container primitives count gross inputs; returned containers are not credited.
+     */
+    materialCost(): Promise<any>;
     /**
      * Applies inline options and an optional bundled profile name or JSON profile object.
      *

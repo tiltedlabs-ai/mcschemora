@@ -228,6 +228,58 @@ schematic.normalize("redstone", {
 ```
 
 
+## Material costs
+
+```python
+cost = scene.material_cost()
+print(cost["items"])
+print(cost["raw_materials"])
+print(cost["unresolved"])
+```
+
+The Rust implementation compiles recipe expansions once per catalog version and
+shares the resulting item-to-primitive table between schematics using the same
+`MinecraftData`. Quantities are fractional: five oak planks cost 1.25 oak logs,
+without rounding crafting batches or charging for surplus. The schematic is not
+modified. Normalize first when comparing standardized builds:
+
+```python
+scene.normalize("redstone")
+cost = scene.material_cost()
+```
+
+The [default primitive policy](../../data/cost/java/primitives.json) defines where
+expansion stops: logs, minerals and ingots, natural blocks, drops, and plants.
+Unavailable primitive IDs are ignored for older versions. Shaped crafting recipes
+precede other recipes; candidates otherwise retain catalog order. The first
+acyclic recipe whose ingredients resolve to declared primitives is used. Costs
+are deterministic for a version, not a search for the cheapest acquisition path.
+One-to-one acquisition steps cover stripping logs, hardening concrete, drying
+coral, copper oxidation, carving pumpkins, and anvil damage.
+
+Block states are tallied as placement items. Door halves, bed parts, and tall
+plants count once per pair, with missing partners counted as one item. Partners
+can span regions. Double slabs count twice, and stacked candles, turtle eggs,
+snow layers, sea pickles, and flower patches use their item quantities. Wall
+variants use the corresponding inventory item. Potted plants require a flower
+pot and plant; candle cakes require a cake and candle. Farmland and paths require
+dirt; crops require their planting items. Counts sum stored regions, so overlapping
+regions contribute independently.
+
+`complete` is false when any placed block or item is unresolved. Its quantity is
+included in `unresolved` rather than assigned a guessed cost. Only fully resolved
+item expansions contribute to `raw_materials`. Inventories, entities, fuel, tool
+wear, waterlogging, and fluid placement are outside this item-material estimate.
+Special/component-dependent recipes are not expanded. Filled-container primitives,
+such as milk buckets and honey bottles, count gross inputs; returned empty
+containers are not credited. Unsupported fluids or non-placeable blocks remain unresolved. Recipe
+availability varies by version; missing or malformed recipe data raises an error.
+
+Rust callers use `schematic.material_cost().await?`. Browser callers use
+`await schematic.materialCost()` and receive the same report fields. Native
+offline use requires catalog metadata and any upstream block/item catalogs to
+have been cached. A shared official recipe tracker covers every supported version.
+
 ## Inspect and convert
 
 

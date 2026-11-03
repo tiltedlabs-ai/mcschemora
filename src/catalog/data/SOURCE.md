@@ -9,11 +9,11 @@ python scripts/generate_snapshots.py
 python scripts/generate_snapshots.py --check
 ```
 
-The generator rebuilds every bundled snapshot, including recipes. Pass version
+The generator rebuilds every bundled registry snapshot and its entries in the shared recipe tracker. Pass version
 arguments to select snapshots or generate a new version. New versions also need
 an entry in `src/catalog/snapshots.rs` to ship in the library.
 
-To update only recipes in existing snapshots:
+To update official recipes for every supported version:
 
 ```sh
 python scripts/import_recipes.py
@@ -46,18 +46,8 @@ registry report.
 
 ## Recipe data
 
-The importer reads vanilla recipe and item-tag resources from the runtime JAR,
-verifying Mojang's SHA1 and the snapshot's recorded SHA256.
-
-`recipeDefinitions` preserves every vanilla recipe JSON by namespaced recipe ID.
-`itemTags` resolves nested tags to this snapshot's numeric item IDs. `recipes`
-indexes fixed-input, fixed-output recipes by numeric output item ID using the
-upstream `inShape`/`ingredients` and `result` representation. Ingredient
-alternatives are enumerated once per distinct ingredient; repeated occurrences
-share a choice. Full alternatives remain in the definitions and resolved tags.
-Cooking and stonecutting entries follow other indexed recipes, with recipe IDs
-determining the order within each group.
-
-Special and component-dependent recipes remain in `recipeDefinitions` without
-inventing fixed ingredient costs. Provenance records recipe-type counts, indexed
-coverage, and the recipe IDs outside the numeric index.
+Recipes are stored separately from the registry snapshots in
+[`src/catalog/recipes`](../recipes/SOURCE.md). All supported versions use official
+server-JAR recipe data, including versions whose block registries come from
+minecraft-data. Full snapshot generation refreshes the matching tracker entries
+using the newly generated item IDs to validate recipe names.

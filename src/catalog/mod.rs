@@ -1,6 +1,7 @@
 //! Pinned Java catalogs, version resolution, and shared asset caching.
 
 mod block_entities;
+mod recipes;
 mod registry;
 mod snapshots;
 pub(crate) mod source;
@@ -24,6 +25,7 @@ pub const VISUAL_VERSION: &str = "1.21.6";
 struct Loaded {
     registry: Arc<Registry>,
     datasets: BTreeMap<String, Value>,
+    costs: Option<Arc<crate::cost::Catalog>>,
 }
 
 /// Shared access to pinned catalogs and native disk or browser memory caches.
@@ -116,17 +118,18 @@ impl MinecraftData {
             datasets["items"].clone(),
             datasets["entities"].clone(),
         )?);
-        self.catalogs
+        Ok(self
+            .catalogs
             .lock()
             .map_err(|_| "Catalog lock poisoned")?
-            .insert(
-                version,
-                Loaded {
-                    registry: registry.clone(),
-                    datasets,
-                },
-            );
-        Ok(registry)
+            .entry(version)
+            .or_insert(Loaded {
+                registry,
+                datasets,
+                costs: None,
+            })
+            .registry
+            .clone())
     }
 
     /// Returns an already loaded registry; this method does not download catalogs.
@@ -146,17 +149,27 @@ impl MinecraftData {
         if let Some(dataset) = self.cached_dataset(&registry.version, kind)? {
             return Ok(dataset);
         }
-        let path = self.metadata()?.dataset(&registry.version, kind)?;
-        let dataset = self.read(&path).await?;
+        let datasets = if recipes::KINDS.contains(&kind) {
+            let items = self
+                .cached_dataset(&registry.version, "items")?
+                .ok_or("Item catalog is not loaded")?;
+            recipes::load(&registry.version, &items)?
+        } else {
+            let path = self.metadata()?.dataset(&registry.version, kind)?;
+            BTreeMap::from([(kind.to_string(), self.read(&path).await?)])
+        };
         let mut catalogs = self.catalogs.lock().map_err(|_| "Catalog lock poisoned")?;
         let loaded = catalogs
             .get_mut(&registry.version)
             .ok_or("Catalog is not loaded")?;
-        Ok(loaded
+        for (name, dataset) in datasets {
+            loaded.datasets.entry(name).or_insert(dataset);
+        }
+        loaded
             .datasets
-            .entry(kind.into())
-            .or_insert(dataset)
-            .clone())
+            .get(kind)
+            .cloned()
+            .ok_or_else(|| format!("Dataset {kind} for Java {} is not loaded", registry.version))
     }
 
     fn cached_dataset(&self, requested: &str, kind: &str) -> Result<Option<Value>> {
@@ -168,6 +181,29 @@ impl MinecraftData {
             .get(&version)
             .and_then(|v| v.datasets.get(kind))
             .cloned())
+    }
+
+    pub(crate) async fn material_costs(&self, version: &str) -> Result<Arc<crate::cost::Catalog>> {
+        let registry = self.load(version).await?;
+        if let Some(costs) = self
+            .catalogs
+            .lock()
+            .map_err(|_| "Catalog lock poisoned")?
+            .get(&registry.version)
+            .and_then(|loaded| loaded.costs.clone())
+        {
+            return Ok(costs);
+        }
+        let items = self.dataset(&registry.version, "items").await?;
+        let recipes = self.dataset(&registry.version, "recipes").await?;
+        let mut catalogs = self.catalogs.lock().map_err(|_| "Catalog lock poisoned")?;
+        let loaded = catalogs
+            .get_mut(&registry.version)
+            .ok_or("Catalog is not loaded")?;
+        if loaded.costs.is_none() {
+            loaded.costs = Some(Arc::new(crate::cost::Catalog::build(items, recipes)?));
+        }
+        Ok(loaded.costs.as_ref().unwrap().clone())
     }
 
     pub(crate) fn collision_shapes(&self, version: &str) -> Result<Value> {

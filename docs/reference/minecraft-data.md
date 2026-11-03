@@ -20,11 +20,16 @@ recipes = data.dataset("1.21.1", "recipes")
 items = data.dataset("1.21.1", "items")
 ```
 
-The dataset keeps the upstream JSON format, keyed by numeric output item ID.
+Recipes come from each version's official server JAR, including smelting and
+other processing recipes. One bundled tracker stores shared recipes and their
+version-specific variants using item names. It maps names to the requested
+catalog's numeric IDs when loading. Runtime use does not download or execute
+server JARs. Blocks and items keep their existing catalog sources.
+
+The numeric recipe index uses `inShape`/`ingredients` and `result`, keyed by output item ID.
 Use the same version's `items` dataset to resolve ingredient and output IDs.
 
-Every bundled runtime snapshot includes recipes from its matching official server
-JAR. It also provides `recipeDefinitions`, containing every original vanilla recipe
+Every supported version also provides `recipeDefinitions`, containing every original vanilla recipe
 keyed by recipe ID, and `itemTags`, mapping item-tag IDs to resolved numeric item IDs.
 Special and component-dependent recipes, including brewing, remain available in
 `recipeDefinitions`; the numeric `recipes` index covers fixed-input, fixed-output
@@ -34,13 +39,19 @@ The index enumerates alternatives once per distinct ingredient, so repeated uses
 of the same ingredient share a choice. Original definitions and resolved tags
 preserve the full ingredient alternatives, including mixed-material combinations.
 Crafting recipes appear before cooking/stonecutting recipes; entries are otherwise
-ordered by recipe ID. 
+ordered by recipe ID.
+
+Regenerate the recipe tracker with `python scripts/import_recipes.py`; add
+`--check` to verify generated files without changing them. Version arguments
+select versions to refresh within the tracker. The importer uses only Python's standard library,
+verifies official downloads, resolves ingredient tags, and maps item names to
+the matching version's catalog IDs. See the [recipe source records](../../src/catalog/recipes/SOURCE.md).
 
 ## Generating bundled snapshots
 
 `python scripts/generate_snapshots.py` regenerates all bundled snapshots from the
-official runtimes, including blocks, items, entity classification, biomes, and
-recipes. It shares the recipe importer's download cache and requires JDK 25 for
+official runtimes, including blocks, items, entity classification, and biomes,
+and refreshes their entries in the recipe tracker. It shares the importer's cache and requires JDK 25 for
 the currently bundled versions. Version arguments select individual versions;
 `--check` compares generated output without writing snapshots. See the
 [generation instructions and sources](../../src/catalog/data/SOURCE.md).

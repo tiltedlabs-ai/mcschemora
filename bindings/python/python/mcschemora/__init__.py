@@ -763,7 +763,11 @@ class Schematic:
         Shaped crafting recipes take priority; other candidates retain catalog order.
         The first recipe that expands to declared primitives without a cycle is used.
         The built-in Java primitive policy defines gathering boundaries, including logs,
-        minerals, natural blocks, drops, and plants. This does not find the cheapest recipe.
+        minerals, natural blocks, drops, and plants. World-block primitives such as
+        bedrock and portals count once per occupied block without requiring inventory
+        items. Water and lava count only source blocks (level=0); flowing and falling
+        fluids are excluded. Any block or item without a recipe expansion counts as
+        one unit of itself. This does not find the cheapest recipe.
 
         Doors, beds, and tall plants count once per pair; orphan halves count once.
         Double slabs and stacked candles, eggs, snow layers, and plants use item quantities.
@@ -771,10 +775,8 @@ class Schematic:
         stored placements, including overlaps. Inventories and entities are excluded.
 
         Returns:
-            A dictionary containing items (placed item counts), raw_materials (fractional
-            primitive quantities), unresolved (unsupported block or item quantities), and
-            complete (whether all placed material costs resolved). Unresolved items do
-            not contribute guessed primitive costs. Fuel, tool wear, fluid placement,
+            A dictionary containing items (placed item or primitive block counts) and
+            raw_materials (fractional primitive quantities). Fuel, tool wear, fluid acquisition,
             and component-dependent recipes are outside this estimate. Filled-container
             primitives count gross inputs; returned empty containers are not credited.
 

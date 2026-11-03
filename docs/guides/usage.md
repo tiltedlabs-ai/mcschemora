@@ -234,7 +234,6 @@ schematic.normalize("redstone", {
 cost = scene.material_cost()
 print(cost["items"])
 print(cost["raw_materials"])
-print(cost["unresolved"])
 ```
 
 The Rust implementation compiles recipe expansions once per catalog version and
@@ -250,12 +249,17 @@ cost = scene.material_cost()
 
 The [default primitive policy](../../data/cost/java/primitives.json) defines where
 expansion stops: logs, minerals and ingots, natural blocks, drops, and plants.
+Any block or item without a recipe expansion becomes a primitive worth
+one unit of itself, including missing recipes and recipe cycles.
 Unavailable primitive IDs are ignored for older versions. Shaped crafting recipes
 precede other recipes; candidates otherwise retain catalog order. The first
 acyclic recipe whose ingredients resolve to declared primitives is used. Costs
 are deterministic for a version, not a search for the cheapest acquisition path.
 One-to-one acquisition steps cover stripping logs, hardening concrete, drying
 coral, copper oxidation, carving pumpkins, and anvil damage.
+
+Water and lava count only source blocks (`level=0`); flowing and falling fluids
+are excluded from both `items` and `raw_materials`.
 
 Block states are tallied as placement items. Door halves, bed parts, and tall
 plants count once per pair, with missing partners counted as one item. Partners
@@ -266,13 +270,12 @@ pot and plant; candle cakes require a cake and candle. Farmland and paths requir
 dirt; crops require their planting items. Counts sum stored regions, so overlapping
 regions contribute independently.
 
-`complete` is false when any placed block or item is unresolved. Its quantity is
-included in `unresolved` rather than assigned a guessed cost. Only fully resolved
-item expansions contribute to `raw_materials`. Inventories, entities, fuel, tool
-wear, waterlogging, and fluid placement are outside this item-material estimate.
+Reports contain `items` and `raw_materials`. The item counts include primitive
+blocks without inventory items. Inventories, entities, fuel, tool
+wear, waterlogging, and fluid acquisition are outside this material estimate.
 Special/component-dependent recipes are not expanded. Filled-container primitives,
 such as milk buckets and honey bottles, count gross inputs; returned empty
-containers are not credited. Unsupported fluids or non-placeable blocks remain unresolved. Recipe
+containers are not credited. Blocks without placement items count as primitives. Recipe
 availability varies by version; missing or malformed recipe data raises an error.
 
 Rust callers use `schematic.material_cost().await?`. Browser callers use

@@ -191,12 +191,14 @@ impl WasmSchematic {
         )
     }
 
-    /// Returns items, fractional raw_materials, unresolved quantities, and complete.
+    /// Returns items and fractional raw_materials. Blocks and items without a recipe
+    /// expansion count as one primitive unit of themselves.
+    /// Water and lava count only source blocks (level=0); flowing and falling fluids are excluded.
     /// Costs are cached by catalog version. Shaped recipes precede other catalog recipes;
     /// the first acyclic expansion to declared primitives wins. Paired structures count once,
     /// orphan halves once, and double slabs/stacked items use their item quantities.
     /// Regions are summed, including overlaps. Inventories, entities, fuel, tool wear,
-    /// fluid placement, and component-dependent recipes are excluded. No blocks are edited.
+    /// fluid acquisition, and component-dependent recipes are excluded. No blocks are edited.
     /// Filled-container primitives count gross inputs; returned containers are not credited.
     #[wasm_bindgen(js_name = materialCost)]
     pub async fn material_cost(&self) -> Result<JsValue, JsValue> {

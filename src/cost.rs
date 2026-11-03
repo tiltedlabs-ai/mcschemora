@@ -11,15 +11,13 @@ use std::collections::{BTreeMap, BTreeSet};
 pub struct Report {
     pub items: BTreeMap<String, u64>,
     pub raw_materials: BTreeMap<String, f64>,
-    pub unresolved: BTreeMap<String, u64>,
-    pub complete: bool,
 }
 
 #[derive(Debug)]
 pub(crate) struct Catalog {
     names: Vec<String>,
     lookup: BTreeMap<String, usize>,
-    costs: Vec<Option<Vec<(usize, f64)>>>,
+    costs: Vec<Vec<(usize, f64)>>,
 }
 
 struct Recipe {
@@ -145,6 +143,11 @@ impl Catalog {
                 });
             }
         }
+        for (id, rules) in rules.iter().enumerate() {
+            if rules.is_empty() {
+                costs[id] = Some(BTreeMap::from([(id, 1.)]));
+            }
+        }
         for id in 0..names.len() {
             expand(id, &rules, &mut costs, &mut BTreeSet::new());
         }
@@ -153,7 +156,11 @@ impl Catalog {
             lookup,
             costs: costs
                 .into_iter()
-                .map(|cost| cost.map(|cost| cost.into_iter().collect()))
+                .enumerate()
+                .map(|(id, cost)| {
+                    cost.map(|cost| cost.into_iter().collect())
+                        .unwrap_or_else(|| vec![(id, 1.)])
+                })
                 .collect(),
         })
     }
@@ -227,7 +234,7 @@ struct Placement {
     block: Block,
     items: Vec<(usize, u64)>,
     partner: Option<(Position, &'static str, &'static str)>,
-    unresolved: bool,
+    primitive: bool,
 }
 
 fn placement(block: &Block, registry: &Registry, catalog: &Catalog) -> Placement {
@@ -235,10 +242,10 @@ fn placement(block: &Block, registry: &Registry, catalog: &Catalog) -> Placement
         block: block.clone(),
         items: Vec::new(),
         partner: None,
-        unresolved: false,
+        primitive: false,
     };
     let Ok(block) = registry.resolve(block) else {
-        plan.unresolved = true;
+        plan.primitive = true;
         return plan;
     };
     plan.block = block;
@@ -250,6 +257,15 @@ fn placement(block: &Block, registry: &Registry, catalog: &Catalog) -> Placement
         .id
         .strip_prefix("minecraft:")
         .unwrap_or(&plan.block.id);
+    if matches!(name, "water" | "lava")
+        && plan
+            .block
+            .properties
+            .get("level")
+            .is_some_and(|level| level != "0")
+    {
+        return plan;
+    }
     let mut names = Vec::new();
     if let Some(plant) = name.strip_prefix("potted_") {
         let plant = match plant {
@@ -316,7 +332,9 @@ fn placement(block: &Block, registry: &Registry, catalog: &Catalog) -> Placement
         if let Some(&id) = catalog.lookup.get(&namespace(&name)) {
             plan.items.push((id, quantity));
         } else {
-            plan.unresolved = true;
+            plan.items.clear();
+            plan.primitive = true;
+            break;
         }
     }
     if plan
@@ -438,11 +456,15 @@ impl Schematic {
                         .and_then(|count| quantities[item].checked_add(count))
                         .ok_or("Material item count overflow")?;
                 }
-                if plan.unresolved {
-                    let total = report.unresolved.entry(plan.block.id.clone()).or_default();
+                if plan.primitive {
+                    let total = report.items.entry(plan.block.id.clone()).or_default();
                     *total = total
                         .checked_add(count)
-                        .ok_or("Unresolved item count overflow")?;
+                        .ok_or("Material item count overflow")?;
+                    *report
+                        .raw_materials
+                        .entry(plan.block.id.clone())
+                        .or_default() += count as f64;
                 }
             }
         }
@@ -451,29 +473,21 @@ impl Schematic {
             .enumerate()
             .filter(|(_, count)| *count > 0)
         {
-            report.items.insert(catalog.names[id].clone(), count);
-            if let Some(cost) = &catalog.costs[id] {
-                for &(primitive, amount) in cost {
-                    let total = report
-                        .raw_materials
-                        .entry(catalog.names[primitive].clone())
-                        .or_default();
-                    *total += amount * count as f64;
-                    if !total.is_finite() {
-                        return Err("Material cost overflow".into());
-                    }
-                }
-            } else {
+            let total = report.items.entry(catalog.names[id].clone()).or_default();
+            *total = total
+                .checked_add(count)
+                .ok_or("Material item count overflow")?;
+            for &(primitive, amount) in &catalog.costs[id] {
                 let total = report
-                    .unresolved
-                    .entry(catalog.names[id].clone())
+                    .raw_materials
+                    .entry(catalog.names[primitive].clone())
                     .or_default();
-                *total = total
-                    .checked_add(count)
-                    .ok_or("Unresolved item count overflow")?;
+                *total += amount * count as f64;
+                if !total.is_finite() {
+                    return Err("Material cost overflow".into());
+                }
             }
         }
-        report.complete = report.unresolved.is_empty();
         Ok(report)
     }
 }

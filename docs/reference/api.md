@@ -36,7 +36,7 @@ Arguments after `*` are keyword-only. Types and properties are documented below.
 
 ### Function inspect_schematics
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1448)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1450)
 
 ```python
 inspect_schematics(
@@ -420,14 +420,17 @@ Recipe costs are compiled once per catalog version and shared between schematics
 Shaped crafting recipes take priority; other candidates retain catalog order.
 The first recipe that expands to declared primitives without a cycle is used.
 The built-in Java primitive policy defines gathering boundaries, including logs,
-minerals, natural blocks, drops, and plants. This does not find the cheapest recipe.
+minerals, natural blocks, drops, and plants. World-block primitives such as
+bedrock and portals count once per occupied block without requiring inventory
+items. Water and lava count only source blocks (level=0). Any block or item without a recipe expansion counts as
+one unit of itself. This does not find the cheapest recipe.
 
 Doors, beds, and tall plants count once per pair; orphan halves count once.
 Double slabs and stacked candles, eggs, snow layers, and plants use item quantities.
 Wall-mounted variants resolve to their inventory items. Regions contribute their
 stored placements, including overlaps. Inventories and entities are excluded.
 
-**Returns:** A dictionary containing items (placed item counts), raw_materials (fractional primitive quantities), unresolved (unsupported block or item quantities), and complete (whether all placed material costs resolved). Unresolved items do not contribute guessed primitive costs. Fuel, tool wear, fluid placement, and component-dependent recipes are outside this estimate. Filled-container primitives count gross inputs; returned empty containers are not credited.
+**Returns:** A dictionary containing items (placed item or primitive block counts) and raw_materials (fractional primitive quantities). Fuel, tool wear, fluid acquisition, and component-dependent recipes are outside this estimate. Filled-container primitives count gross inputs; returned empty containers are not credited.
 
 **Raises:** `ValueError`: If the schematic is not Java, its catalog or recipes are unavailable, recipe data is invalid, or counts overflow.
 
@@ -583,7 +586,7 @@ Prepares rendering assets and returns their cache directory.
 
 ### Region
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L914)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L916)
 
 An editing handle for a named region within a schematic.
 
@@ -732,7 +735,7 @@ The manager for NBT attached to this region's blocks.
 
 ### ScheduledTick
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1327)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1329)
 
 A scheduled update retained from an imported Litematic region.
 
@@ -756,7 +759,7 @@ ScheduledTick.order: int
 
 ### Selection
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1089)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1091)
 
 A set of region-local cells and entities that reads current content.
 
@@ -966,7 +969,7 @@ Bounds.size: Position
 
 ### Fragment
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1270)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1272)
 
 An independent copy of selected cells, attached data, and entities.
 
@@ -1172,7 +1175,7 @@ Creates a single-chest placement with optional inventory contents.
 
 ### Function item
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1286)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1288)
 
 `item(identifier: str, *, count: int = 1, components: str | None = None) -> _Item`
 
@@ -1188,7 +1191,7 @@ Creates an inventory item value for chest().
 
 ### Function mob
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1309)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1311)
 
 `mob(identifier: str, *, persistent: bool = True, nbt: str | None = None) -> _Mob`
 
@@ -1222,7 +1225,7 @@ Returns a block schema for this schematic's Minecraft version.
 
 ### Entity
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1348)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1350)
 
 An immutable snapshot of a entity returned by Entities.get().
 
@@ -1240,7 +1243,7 @@ Entity.nbt: str
 
 ### Entities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1362)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1364)
 
 Access to a region's entities through schematic-local integer references.
 
@@ -1304,7 +1307,7 @@ Iterates a snapshot of this region's entity references.
 
 ### BlockEntities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1421)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1423)
 
 Access to typed NBT attached to blocks at region-local cell coordinates.
 
@@ -1406,12 +1409,14 @@ export class Schematic {
      */
     getBlock(region: string, x: number, y: number, z: number): string;
     /**
-     * Returns items, fractional raw_materials, unresolved quantities, and complete.
+     * Returns items and fractional raw_materials. Blocks and items without a recipe
+     * expansion count as one primitive unit of themselves.
+     * Water and lava count only source blocks (level=0); flowing and falling fluids are excluded.
      * Costs are cached by catalog version. Shaped recipes precede other catalog recipes;
      * the first acyclic expansion to declared primitives wins. Paired structures count once,
      * orphan halves once, and double slabs/stacked items use their item quantities.
      * Regions are summed, including overlaps. Inventories, entities, fuel, tool wear,
-     * fluid placement, and component-dependent recipes are excluded. No blocks are edited.
+     * fluid acquisition, and component-dependent recipes are excluded. No blocks are edited.
      * Filled-container primitives count gross inputs; returned containers are not credited.
      */
     materialCost(): Promise<any>;

@@ -36,7 +36,7 @@ Arguments after `*` are keyword-only. Types and properties are documented below.
 
 ### Function inspect_schematics
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1450)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1471)
 
 ```python
 inspect_schematics(
@@ -422,7 +422,8 @@ The first recipe that expands to declared primitives without a cycle is used.
 The built-in Java primitive policy defines gathering boundaries, including logs,
 minerals, natural blocks, drops, and plants. World-block primitives such as
 bedrock and portals count once per occupied block without requiring inventory
-items. Water and lava count only source blocks (level=0). Any block or item without a recipe expansion counts as
+items. Water and lava count only source blocks (level=0); flowing and falling
+fluids are excluded. Any block or item without a recipe expansion counts as
 one unit of itself. This does not find the cheapest recipe.
 
 Doors, beds, and tall plants count once per pair; orphan halves count once.
@@ -433,6 +434,23 @@ stored placements, including overlaps. Inventories and entities are excluded.
 **Returns:** A dictionary containing items (placed item or primitive block counts) and raw_materials (fractional primitive quantities). Fuel, tool wear, fluid acquisition, and component-dependent recipes are outside this estimate. Filled-container primitives count gross inputs; returned empty containers are not credited.
 
 **Raises:** `ValueError`: If the schematic is not Java, its catalog or recipes are unavailable, recipe data is invalid, or counts overflow.
+
+#### Schematic.value_cost
+
+`Schematic.value_cost(profile: str) -> dict`
+
+Values primitive material quantities using a bundled price profile.
+
+Calls material_cost() and sums primitive quantity times unit price. Missing
+prices contribute nothing and are returned with their primitive quantities.
+A price of zero is priced. No normalization or schematic editing is performed.
+Profiles are fixed snapshots shared across Minecraft versions.
+
+**Args:** `profile`: emc for ProjectE-based values or essentialsx for server sell prices.
+
+**Returns:** A dictionary containing total (the priced sum) and unpriced (primitive IDs and quantities missing a price). The total is partial when unpriced is nonempty.
+
+**Raises:** `ValueError`: If the profile is unknown, prices are invalid, material costs cannot be computed, or the total overflows.
 
 #### Schematic.normalize
 
@@ -586,7 +604,7 @@ Prepares rendering assets and returns their cache directory.
 
 ### Region
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L916)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L937)
 
 An editing handle for a named region within a schematic.
 
@@ -735,7 +753,7 @@ The manager for NBT attached to this region's blocks.
 
 ### ScheduledTick
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1329)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1350)
 
 A scheduled update retained from an imported Litematic region.
 
@@ -759,7 +777,7 @@ ScheduledTick.order: int
 
 ### Selection
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1091)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1112)
 
 A set of region-local cells and entities that reads current content.
 
@@ -969,7 +987,7 @@ Bounds.size: Position
 
 ### Fragment
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1272)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1293)
 
 An independent copy of selected cells, attached data, and entities.
 
@@ -1087,7 +1105,7 @@ Returns a water block with level=0.
 
 ### Function bed
 
-[Source](../../bindings/python/src/lib.rs#L707)
+[Source](../../bindings/python/src/lib.rs#L714)
 
 `bed(*, color: str = 'red', head_toward: str = 'north') -> Placement`
 
@@ -1102,7 +1120,7 @@ Creates a bed placement anchored at the foot block when placed.
 
 ### Function door
 
-[Source](../../bindings/python/src/lib.rs#L728)
+[Source](../../bindings/python/src/lib.rs#L735)
 
 ```python
 door(
@@ -1129,7 +1147,7 @@ Creates a door placement anchored at the lower block when placed.
 
 ### Function sign
 
-[Source](../../bindings/python/src/lib.rs#L769)
+[Source](../../bindings/python/src/lib.rs#L776)
 
 ```python
 sign(
@@ -1154,7 +1172,7 @@ Creates a standing-sign placement with plain text on its front face.
 
 ### Function chest
 
-[Source](../../bindings/python/src/lib.rs#L749)
+[Source](../../bindings/python/src/lib.rs#L756)
 
 ```python
 chest(
@@ -1175,7 +1193,7 @@ Creates a single-chest placement with optional inventory contents.
 
 ### Function item
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1288)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1309)
 
 `item(identifier: str, *, count: int = 1, components: str | None = None) -> _Item`
 
@@ -1191,7 +1209,7 @@ Creates an inventory item value for chest().
 
 ### Function mob
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1311)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1332)
 
 `mob(identifier: str, *, persistent: bool = True, nbt: str | None = None) -> _Mob`
 
@@ -1225,7 +1243,7 @@ Returns a block schema for this schematic's Minecraft version.
 
 ### Entity
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1350)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1371)
 
 An immutable snapshot of a entity returned by Entities.get().
 
@@ -1243,7 +1261,7 @@ Entity.nbt: str
 
 ### Entities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1364)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1385)
 
 Access to a region's entities through schematic-local integer references.
 
@@ -1307,7 +1325,7 @@ Iterates a snapshot of this region's entity references.
 
 ### BlockEntities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1423)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1444)
 
 Access to typed NBT attached to blocks at region-local cell coordinates.
 
@@ -1456,6 +1474,13 @@ export class Schematic {
      * Returns errors, warnings, and unknown arrays without changing the schematic.
      */
     validate(): any;
+    /**
+     * Values primitive quantities with the bundled emc or essentialsx profile.
+     * Returns total and unpriced primitive quantities. Missing prices contribute nothing;
+     * zero prices are priced. Uses materialCost without normalizing or editing blocks.
+     * Profiles are fixed across versions. Unknown profiles, invalid data, and overflow reject.
+     */
+    valueCost(profile: string): Promise<any>;
     /**
      * JavaScript importDiagnostics: notices about import assumptions and omissions.
      */

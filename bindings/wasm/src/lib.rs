@@ -206,6 +206,16 @@ impl WasmSchematic {
         value(serde_json::to_value(report).map_err(error)?)
     }
 
+    /// Values primitive quantities with the bundled emc or essentialsx profile.
+    /// Returns total and unpriced primitive quantities. Missing prices contribute nothing;
+    /// zero prices are priced. Uses materialCost without normalizing or editing blocks.
+    /// Profiles are fixed across versions. Unknown profiles, invalid data, and overflow reject.
+    #[wasm_bindgen(js_name = valueCost)]
+    pub async fn value_cost(&self, profile: &str) -> Result<JsValue, JsValue> {
+        let report = self.schematic.value_cost(profile).await.map_err(error)?;
+        value(serde_json::to_value(report).map_err(error)?)
+    }
+
     /// Applies inline options and an optional bundled profile name or JSON profile object.
     ///
     /// Edition must match; block IDs are checked against the schematic's version.

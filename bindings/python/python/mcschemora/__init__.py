@@ -786,6 +786,27 @@ class Schematic:
         """
         return json.loads(self._native.material_cost())
 
+    def value_cost(self, profile: str) -> dict:
+        """Values primitive material quantities using a bundled price profile.
+
+        Calls material_cost() and sums primitive quantity times unit price. Missing
+        prices contribute nothing and are returned with their primitive quantities.
+        A price of zero is priced. No normalization or schematic editing is performed.
+        Profiles are fixed snapshots shared across Minecraft versions.
+
+        Args:
+            profile: emc for ProjectE-based values or essentialsx for server sell prices.
+
+        Returns:
+            A dictionary containing total (the priced sum) and unpriced (primitive IDs
+            and quantities missing a price). The total is partial when unpriced is nonempty.
+
+        Raises:
+            ValueError: If the profile is unknown, prices are invalid, material costs
+                cannot be computed, or the total overflows.
+        """
+        return json.loads(self._native.value_cost(profile))
+
     def normalize(
         self,
         profile: _Path | None = None,

@@ -284,6 +284,37 @@ Rust callers use `schematic.material_cost().await?`. Browser callers use
 offline use requires catalog metadata and any upstream block/item catalogs to
 have been cached. A shared official recipe tracker covers every supported version.
 
+## Material values
+
+Apply a fixed unit-value profile to the build's primitive quantities:
+
+```python
+value = scene.value_cost("emc")
+print(value["total"])
+print(value["unpriced"])
+
+server_value = scene.value_cost("essentialsx")
+```
+
+`total` is the sum of primitive quantity times unit price. Missing prices
+contribute nothing and appear in `unpriced` with their fractional quantities.
+A configured zero price is priced. No normalization or editing happens; call
+`scene.normalize("redstone")` first when comparing standardized builds.
+
+The bundled `emc` profile adapts ProjectE's values and conversions for vanilla
+Java 1.21.1. `essentialsx` uses matching scalar entries from the official default
+server sell-price table. Both are fixed across Minecraft versions; recipe
+expansion still uses the build's version. EssentialsX's legacy defaults have
+limited coverage, including no scalar prices for modern log or wool IDs.
+See the [profile sources and coverage](../../data/cost/java/values/SOURCE.md).
+
+Compare builds using the same profile and check unpriced quantities alongside
+the total. These scores do not measure construction time or gathering difficulty.
+Unknown profiles, invalid prices, and overflowing totals raise an error.
+
+Rust callers use `schematic.value_cost("emc").await?`; browser callers use
+`await schematic.valueCost("emc")`. Both return `total` and `unpriced`.
+
 ## Inspect and convert
 
 

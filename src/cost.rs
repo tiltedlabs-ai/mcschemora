@@ -5,12 +5,52 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::OnceLock,
+};
 
 #[derive(Debug, Default, Serialize)]
 pub struct Report {
     pub items: BTreeMap<String, u64>,
     pub raw_materials: BTreeMap<String, f64>,
+}
+
+#[derive(Debug, Default, Serialize)]
+pub struct ValueReport {
+    pub total: f64,
+    pub unpriced: BTreeMap<String, f64>,
+}
+
+fn values(profile: &str) -> Result<&'static BTreeMap<String, f64>> {
+    static EMC: OnceLock<Result<BTreeMap<String, f64>>> = OnceLock::new();
+    static ESSENTIALSX: OnceLock<Result<BTreeMap<String, f64>>> = OnceLock::new();
+    let (cache, json) = match profile {
+        "emc" => (&EMC, include_str!("../data/cost/java/values/emc.json")),
+        "essentialsx" => (
+            &ESSENTIALSX,
+            include_str!("../data/cost/java/values/essentialsx.json"),
+        ),
+        _ => {
+            return Err(format!(
+                "Unknown value profile {profile:?}; expected emc or essentialsx"
+            ));
+        }
+    };
+    cache
+        .get_or_init(|| {
+            let prices: BTreeMap<String, f64> = serde_json::from_str(json)
+                .map_err(|error| format!("Invalid {profile} value profile: {error}"))?;
+            if prices
+                .values()
+                .any(|value| !value.is_finite() || *value < 0.)
+            {
+                return Err(format!("{profile} values must be finite and nonnegative"));
+            }
+            Ok(prices)
+        })
+        .as_ref()
+        .map_err(Clone::clone)
 }
 
 #[derive(Debug)]
@@ -420,6 +460,23 @@ fn has_partner(
 }
 
 impl Schematic {
+    pub async fn value_cost(&self, profile: &str) -> Result<ValueReport> {
+        let prices = values(profile)?;
+        let materials = self.material_cost().await?;
+        let mut report = ValueReport::default();
+        for (id, quantity) in materials.raw_materials {
+            if let Some(price) = prices.get(&id) {
+                report.total += quantity * price;
+                if !report.total.is_finite() {
+                    return Err("Material value overflow".into());
+                }
+            } else {
+                report.unpriced.insert(id, quantity);
+            }
+        }
+        Ok(report)
+    }
+
     pub async fn material_cost(&self) -> Result<Report> {
         if self.edition != "java" {
             return Err("Material costs require Java Edition".into());

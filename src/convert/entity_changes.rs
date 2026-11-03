@@ -15,7 +15,10 @@ fn position(data: &mut Compound, old: [&str; 3], new: &str, forward: bool) -> Re
                     .map(|value| value.unwrap_or(0))
             })
             .collect::<Result<Vec<_>>>()?;
-        super::insert(data, new, V::IntArray(IntArray::new(values)))?;
+        let value = V::IntArray(IntArray::new(values));
+        if data.get(new) != Some(&value) {
+            super::insert(data, new, value)?;
+        }
         for key in old {
             data.remove(key);
         }
@@ -27,7 +30,10 @@ fn position(data: &mut Compound, old: [&str; 3], new: &str, forward: bool) -> Re
             return Err(format!("{new}: expected three-integer position"));
         }
         for (key, value) in old.into_iter().zip(values.iter()) {
-            super::insert(data, key, V::Int(*value))?;
+            let value = V::Int(*value);
+            if data.get(key) != Some(&value) {
+                super::insert(data, key, value)?;
+            }
         }
     }
     Ok(())

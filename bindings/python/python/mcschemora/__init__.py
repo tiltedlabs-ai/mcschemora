@@ -264,14 +264,22 @@ class MinecraftData:
         return self._native.load(version)
 
     def dataset(self, version: str, kind: str) -> JsonValue:
-        """Loads and returns a parsed catalog dataset for a Java version.
+        """Loads and caches a parsed catalog dataset for a Java version.
 
         Args:
             version: Java version, or latest for the newest supported release.
-            kind: blocks, items, entities, or blockCollisionShapes.
+            kind: blocks, items, entities, blockCollisionShapes, biomes, or recipes.
+                Recipes and biomes load on demand; recipes use numeric IDs from
+                this version's item dataset. Availability depends on the version.
+                Bundled snapshots also include recipeDefinitions (all original
+                recipe JSON) and itemTags (resolved numeric item IDs).
 
         Returns:
             The dataset's JSON value.
+
+        Raises:
+            ValueError: If the dataset is unavailable, uncached in offline mode,
+                invalid, or its kind is unsupported. No other version is substituted.
         """
         dataset: JsonValue = json.loads(self._native.dataset(version, kind))
         return dataset

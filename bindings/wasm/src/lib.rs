@@ -51,10 +51,11 @@ impl WasmData {
         self.data.versions().map_err(error)
     }
 
-    /// Loads a version and fulfills with a parsed JSON catalog dataset.
+    /// Loads and caches a JSON dataset: blocks, items, entities, blockCollisionShapes,
+    /// biomes, or recipes. Recipes and biomes load on demand. Missing version data rejects.
+    /// Bundled snapshots also provide recipeDefinitions and resolved itemTags.
     pub async fn dataset(&self, version: &str, kind: &str) -> Result<JsValue, JsValue> {
-        self.data.load(version).await.map_err(error)?;
-        value(self.data.dataset(version, kind).map_err(error)?)
+        value(self.data.dataset(version, kind).await.map_err(error)?)
     }
 
     /// Loads a catalog and fulfills with an empty Java Schematic containing a main region.

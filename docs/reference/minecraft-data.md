@@ -8,6 +8,43 @@ Rendering converts a temporary palette to 1.21.6 using the block-state conversio
 rules. For available versions, datasets,
 and loading methods, see [MinecraftData](api.md#minecraftdata).
 
+## Recipe data
+
+Recipes load on demand through the same catalog provider:
+
+```python
+from mcschemora import MinecraftData
+
+data = MinecraftData()
+recipes = data.dataset("1.21.1", "recipes")
+items = data.dataset("1.21.1", "items")
+```
+
+The dataset keeps the upstream JSON format, keyed by numeric output item ID.
+Use the same version's `items` dataset to resolve ingredient and output IDs.
+
+Every bundled runtime snapshot includes recipes from its matching official server
+JAR. It also provides `recipeDefinitions`, containing every original vanilla recipe
+keyed by recipe ID, and `itemTags`, mapping item-tag IDs to resolved numeric item IDs.
+Special and component-dependent recipes, including brewing, remain available in
+`recipeDefinitions`; the numeric `recipes` index covers fixed-input, fixed-output
+crafting, cooking, stonecutting, smithing, and transmutation recipes.
+
+The index enumerates alternatives once per distinct ingredient, so repeated uses
+of the same ingredient share a choice. Original definitions and resolved tags
+preserve the full ingredient alternatives, including mixed-material combinations.
+Crafting recipes appear before cooking/stonecutting recipes; entries are otherwise
+ordered by recipe ID. 
+
+## Generating bundled snapshots
+
+`python scripts/generate_snapshots.py` regenerates all bundled snapshots from the
+official runtimes, including blocks, items, entity classification, biomes, and
+recipes. It shares the recipe importer's download cache and requires JDK 25 for
+the currently bundled versions. Version arguments select individual versions;
+`--check` compares generated output without writing snapshots. See the
+[generation instructions and sources](../../src/catalog/data/SOURCE.md).
+
 ## Cache and offline use
 
 Catalogs download on first use. Default native cache locations:

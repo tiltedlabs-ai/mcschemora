@@ -140,30 +140,44 @@ impl MinecraftData {
             .ok_or_else(|| format!("Java {version} catalog is not loaded; call load() first"))
     }
 
-    /// Returns a dataset from an already loaded catalog.
-    pub fn dataset(&self, requested: &str, kind: &str) -> Result<Value> {
+    /// Loads and caches a versioned dataset, including optional recipes and biomes.
+    pub async fn dataset(&self, requested: &str, kind: &str) -> Result<Value> {
+        let registry = self.load(requested).await?;
+        if let Some(dataset) = self.cached_dataset(&registry.version, kind)? {
+            return Ok(dataset);
+        }
+        let path = self.metadata()?.dataset(&registry.version, kind)?;
+        let dataset = self.read(&path).await?;
+        let mut catalogs = self.catalogs.lock().map_err(|_| "Catalog lock poisoned")?;
+        let loaded = catalogs
+            .get_mut(&registry.version)
+            .ok_or("Catalog is not loaded")?;
+        Ok(loaded
+            .datasets
+            .entry(kind.into())
+            .or_insert(dataset)
+            .clone())
+    }
+
+    fn cached_dataset(&self, requested: &str, kind: &str) -> Result<Option<Value>> {
         let version = self.metadata()?.resolve(requested)?;
-        self.catalogs
+        Ok(self
+            .catalogs
             .lock()
             .map_err(|_| "Catalog lock poisoned")?
             .get(&version)
             .and_then(|v| v.datasets.get(kind))
-            .cloned()
-            .ok_or_else(|| format!("Dataset {kind} for Java {version} is not loaded"))
+            .cloned())
     }
 
     pub(crate) fn collision_shapes(&self, version: &str) -> Result<Value> {
-        self.dataset(version, "blockCollisionShapes")
+        self.cached_dataset(version, "blockCollisionShapes")?
+            .ok_or_else(|| format!("Dataset blockCollisionShapes for Java {version} is not loaded"))
     }
 
     pub(crate) async fn load_biomes(&self, registry: &Registry) -> Result<()> {
         if registry.biomes.get().is_none() {
-            let data = if snapshots::contains(&registry.version) {
-                self.dataset(&registry.version, "biomes")?
-            } else {
-                let path = self.metadata()?.dataset(&registry.version, "biomes")?;
-                self.read(&path).await?
-            };
+            let data = self.dataset(&registry.version, "biomes").await?;
             let names = data
                 .as_array()
                 .ok_or("Biome catalog must be an array")?

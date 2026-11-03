@@ -36,7 +36,7 @@ Arguments after `*` are keyword-only. Types and properties are documented below.
 
 ### Function inspect_schematics
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1412)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1420)
 
 ```python
 inspect_schematics(
@@ -57,7 +57,7 @@ Combines resource counts and inspection details for multiple schematics.
 
 ### Schematic
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L340)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L348)
 
 A versioned schematic containing named regions and metadata.
 
@@ -539,14 +539,16 @@ Loads a catalog and returns its resolved Java version string.
 
 `MinecraftData.dataset(version: str, kind: str) -> JsonValue`
 
-Loads and returns a parsed catalog dataset for a Java version.
+Loads and caches a parsed catalog dataset for a Java version.
 
 **Args:**
 
 - `version`: Java version, or latest for the newest supported release.
-- `kind`: blocks, items, entities, or blockCollisionShapes.
+- `kind`: blocks, items, entities, blockCollisionShapes, biomes, or recipes. Recipes and biomes load on demand; recipes use numeric IDs from this version's item dataset. Availability depends on the version. Bundled snapshots also include recipeDefinitions (all original recipe JSON) and itemTags (resolved numeric item IDs).
 
 **Returns:** The dataset's JSON value.
+
+**Raises:** `ValueError`: If the dataset is unavailable, uncached in offline mode, invalid, or its kind is unsupported. No other version is substituted.
 
 #### MinecraftData.load_visuals
 
@@ -560,7 +562,7 @@ Prepares rendering assets and returns their cache directory.
 
 ### Region
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L878)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L886)
 
 An editing handle for a named region within a schematic.
 
@@ -709,7 +711,7 @@ The manager for NBT attached to this region's blocks.
 
 ### ScheduledTick
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1291)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1299)
 
 A scheduled update retained from an imported Litematic region.
 
@@ -733,7 +735,7 @@ ScheduledTick.order: int
 
 ### Selection
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1053)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1061)
 
 A set of region-local cells and entities that reads current content.
 
@@ -943,7 +945,7 @@ Bounds.size: Position
 
 ### Fragment
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1234)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1242)
 
 An independent copy of selected cells, attached data, and entities.
 
@@ -1061,7 +1063,7 @@ Returns a water block with level=0.
 
 ### Function bed
 
-[Source](../../bindings/python/src/lib.rs#L703)
+[Source](../../bindings/python/src/lib.rs#L700)
 
 `bed(*, color: str = 'red', head_toward: str = 'north') -> Placement`
 
@@ -1076,7 +1078,7 @@ Creates a bed placement anchored at the foot block when placed.
 
 ### Function door
 
-[Source](../../bindings/python/src/lib.rs#L724)
+[Source](../../bindings/python/src/lib.rs#L721)
 
 ```python
 door(
@@ -1103,7 +1105,7 @@ Creates a door placement anchored at the lower block when placed.
 
 ### Function sign
 
-[Source](../../bindings/python/src/lib.rs#L765)
+[Source](../../bindings/python/src/lib.rs#L762)
 
 ```python
 sign(
@@ -1128,7 +1130,7 @@ Creates a standing-sign placement with plain text on its front face.
 
 ### Function chest
 
-[Source](../../bindings/python/src/lib.rs#L745)
+[Source](../../bindings/python/src/lib.rs#L742)
 
 ```python
 chest(
@@ -1149,7 +1151,7 @@ Creates a single-chest placement with optional inventory contents.
 
 ### Function item
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1250)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1258)
 
 `item(identifier: str, *, count: int = 1, components: str | None = None) -> _Item`
 
@@ -1165,7 +1167,7 @@ Creates an inventory item value for chest().
 
 ### Function mob
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1273)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1281)
 
 `mob(identifier: str, *, persistent: bool = True, nbt: str | None = None) -> _Mob`
 
@@ -1181,7 +1183,7 @@ Creates a free-entity description for Region.entities.add().
 
 ### Registry
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L300)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L308)
 
 Block schemas for a schematic's version, obtained through its registry.
 
@@ -1199,7 +1201,7 @@ Returns a block schema for this schematic's Minecraft version.
 
 ### Entity
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1312)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1320)
 
 An immutable snapshot of a entity returned by Entities.get().
 
@@ -1217,7 +1219,7 @@ Entity.nbt: str
 
 ### Entities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1326)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1334)
 
 Access to a region's entities through schematic-local integer references.
 
@@ -1281,7 +1283,7 @@ Iterates a snapshot of this region's entity references.
 
 ### BlockEntities
 
-[Source](../../bindings/python/python/mcschemora/__init__.py#L1385)
+[Source](../../bindings/python/python/mcschemora/__init__.py#L1393)
 
 Access to typed NBT attached to blocks at region-local cell coordinates.
 
@@ -1342,7 +1344,9 @@ export class MinecraftData {
      */
     create(version: string): Promise<Schematic>;
     /**
-     * Loads a version and fulfills with a parsed JSON catalog dataset.
+     * Loads and caches a JSON dataset: blocks, items, entities, blockCollisionShapes,
+     * biomes, or recipes. Recipes and biomes load on demand. Missing version data rejects.
+     * Bundled snapshots also provide recipeDefinitions and resolved itemTags.
      */
     dataset(version: string, kind: string): Promise<any>;
     /**

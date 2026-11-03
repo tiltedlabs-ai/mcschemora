@@ -97,11 +97,8 @@ impl PyMinecraftData {
             .map_err(error)
     }
     fn dataset(&self, py: Python<'_>, version: &str, kind: &str) -> PyResult<String> {
-        py.detach(|| {
-            pollster::block_on(self.data.load(version))?;
-            self.data.dataset(version, kind).map(|v| v.to_string())
-        })
-        .map_err(error)
+        py.detach(|| pollster::block_on(self.data.dataset(version, kind)).map(|v| v.to_string()))
+            .map_err(error)
     }
     fn load_visuals(&self, py: Python<'_>, version: &str) -> PyResult<std::path::PathBuf> {
         py.detach(|| {

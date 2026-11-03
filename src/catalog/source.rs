@@ -97,7 +97,12 @@ impl Metadata {
     }
 
     pub fn dataset(&self, version: &str, kind: &str) -> Result<String> {
-        if !KINDS.contains(&kind) && kind != "biomes" {
+        if !KINDS.contains(&kind)
+            && !matches!(
+                kind,
+                "biomes" | "recipes" | "recipeDefinitions" | "itemTags"
+            )
+        {
             return Err(format!("Unsupported catalog dataset {kind:?}"));
         }
         let dir = self

@@ -112,9 +112,10 @@ Omit `fallback` to leave unlisted blocks unchanged:
 scene.normalize(replace={"red_wool": "white_wool"})
 ```
 
-The bundled Java `redstone` profile standardizes ordinary slabs to smooth
-stone slabs, ordinary stairs to stone brick stairs, planks to oak planks, stripped
-logs and wood to stripped oak equivalents, and wool slabs and stairs to white.
+The bundled Java `redstone` profile standardizes general building blocks to gray
+concrete, ordinary slabs to smooth stone slabs, ordinary stairs to stone brick stairs,
+planks to oak planks, stripped logs and wood to stripped oak equivalents, and wool
+slabs and stairs to white.
 Unstripped logs, wood and woody stems become oak logs, leaves become oak leaves,
 and all current stone walls become stone brick walls.
 Use `keep` for farms that depend on specific materials.

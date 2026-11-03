@@ -1290,5 +1290,5 @@
       "to": "minecraft:wall_torch"
     }
   ],
-  "fallback": "minecraft:iron_block"
+  "fallback": "minecraft:gray_concrete"
 }

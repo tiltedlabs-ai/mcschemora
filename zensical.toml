@@ -25,7 +25,6 @@ nav = [
     { "Examples" = [
         { "Overview" = "examples/index.md" },
         { "Importing a farm" = "examples/import-farm.md" },
-        { "Eiffel Tower" = "examples/eiffel-tower.md" },
         { "Litematica to WorldEdit" = "examples/litematic-to-schem.md" },
         { "Litematica to structure NBT" = "examples/litematic-to-nbt.md" },
         { "Export a material list" = "examples/material-list.md" },
@@ -39,6 +38,7 @@ nav = [
         { "Island banner" = "examples/banner.md" },
         { "Rainbow reef" = "examples/reef.md" },
         { "Jade mountain scroll" = "examples/jade-scroll.md" },
+        { "Eiffel Tower" = "examples/eiffel-tower.md" },
     ] },
     { "Reference" = [
         { "Python API" = "reference/python.md" },

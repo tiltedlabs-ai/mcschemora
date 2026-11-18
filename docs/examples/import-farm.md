@@ -5,7 +5,7 @@ description: Load a downloaded Litematica moss farm, inspect its blocks and inve
 # Importing a farm
 
 You can inspect and preview a downloaded build in MCSchemora without running
-Minecraft. This example uses AChromoss v0.4, a `.litematic` moss and bonemeal
+Minecraft. This example uses AChromoss v0.4, a `.litematic` moss-based bonemeal
 farm by [OpenBagTwo](https://github.com/OpenBagTwo/Schematics), based on
 [Chromoss by maidofmoss](https://www.youtube.com/watch?v=eNYZiuVNBe0).
 

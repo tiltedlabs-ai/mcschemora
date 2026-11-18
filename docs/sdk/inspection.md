@@ -37,7 +37,7 @@ For construction quantities, recipe ingredients, and EMC/EssentialsX values, see
 ## Data managers
 
 `region.entities` manages free entities such as mobs. `region.block_entities`
-manages the NBT attached to blocks such as chests. Both are separate from
+manages the [NBT](https://minecraft.wiki/w/NBT_format) attached to blocks such as chests. Both are separate from
 `get_all()`, which returns blocks only. See
 [Entities](../reference/python.md#entities) and
 [BlockEntities](../reference/python.md#blockentities) for adding, updating,

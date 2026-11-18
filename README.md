@@ -13,15 +13,15 @@ browser WASM.
 
 ## Install
 
-With [uv](https://docs.astral.sh/uv/getting-started/installation/) installed, run
-from an empty directory:
+To get started, make sure [uv](https://docs.astral.sh/uv/getting-started/installation/) is installed, run
+the following commands in an empty directory:
 
 ```sh
 uv init --python 3.12
 uv add mcschemora
 ```
 
-In an existing uv project, use `uv add mcschemora`. Run scripts with `uv run build.py`.
+If you are woorking with an existing uv project, use `uv add mcschemora`. Run scripts with `uv run build.py`.
 MCSchemora supports Python 3.10 or later. Catalogs download on first use;
 textured rendering also needs visual assets. See [versions and offline use](https://tiltedlabs-ai.github.io/mcschemora/sdk/minecraft-data/).
 
@@ -46,7 +46,7 @@ provides a build request and instructions for checking and delivering the result
 - Author blocks with version-checked states, bulk placement, and named regions.
 - Select, copy, rotate, mirror, and restyle existing structures.
 - Validate supported Java game rules and inspect blocks, inventories, and entities.
-- Estimate construction materials and compare fixed material values.
+- Estimate construction materials needed and compare their fixed material values.
 - Read and write `.schem`, `.litematic`, Java structure NBT/SNBT, `.mcstructure`, and wiki blueprints.
 - Export textured PNGs, GLB models, sprite layers, and wiki markup in Python and Rust.
 

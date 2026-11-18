@@ -14,14 +14,14 @@ browser WASM.
 ## Install
 
 To get started, make sure [uv](https://docs.astral.sh/uv/getting-started/installation/) is installed, run
-the following commands in an empty directory:
+the following commands:
 
 ```sh
 uv init --python 3.12
 uv add mcschemora
 ```
 
-If you are woorking with an existing uv project, use `uv add mcschemora`. Run scripts with `uv run build.py`.
+If you are working with an existing uv project, use `uv add mcschemora`. Run scripts with `uv run build.py`.
 MCSchemora supports Python 3.10 or later. Catalogs download on first use;
 textured rendering also needs visual assets. See [versions and offline use](https://tiltedlabs-ai.github.io/mcschemora/sdk/minecraft-data/).
 

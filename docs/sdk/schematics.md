@@ -4,7 +4,7 @@ description: Understand MCSchemora schematics, block states, named regions, coor
 
 # Schematics
 
-A schematic stores blocks in named regions like `.litematic` files. Each region has
+A schematic stores blocks in named regions (such as how it is down in `.litematic` files). Each region has
 its own coordinates, so you can build parts separately and position them within
 the schematic. Use `set`
 for individual blocks, selections for areas, and batches for generated geometry.
